@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Create your account</title>
+<style>body{font:16px system-ui;margin:40px}label{display:block;margin:12px 0 4px}input{font:inherit;padding:8px;width:280px}</style></head>
+<body>
+<h1>Create your account</h1>
+<form id="signup" action="/signup" onsubmit="event.preventDefault(); location.assign('/site')">
+  <label for="email">Email</label>
+  <input id="email" name="email" type="email" autocomplete="email">
+  <label for="new">Password</label>
+  <input id="new" name="password" type="password" autocomplete="new-password">
+  <label for="confirm">Confirm password</label>
+  <input id="confirm" name="confirm" type="password" autocomplete="new-password">
+  <p><button type="submit">Continue</button></p>
+</form>
+</body>
+</html>

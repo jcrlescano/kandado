@@ -1,0 +1,29 @@
+<!-- @dsCard group="Screens · Desktop" height=3450 width=2504 page subtitle="D-35 to D-42: Monitor and Trash" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Desktop: Monitor and trash — Kandado</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, T = K.Kit, h = React.createElement;
+  function W(id, label, flow, el) { return h(T.Frame, { key: id, id: id, label: label, flow: flow, wide: true }, el); }
+  function Mon(active, title, body, o) { o = o || {}; return h(T.Win, { active: 'Monitor', list: T.MonList(active), overlay: o.overlay }, h('div', { className: 'kt-dhead' }, h('h1', null, title), o.actions && h('div', { className: 'kt-dhead-acts' }, o.actions)), h('div', { className: 'kt-dcol' }, body)); }
+  var mon = T.Feat.monitor();
+  function trash(overlay) {
+    return h(T.Win, { active: 'Trash', overlay: overlay, list: h(T.DList, { title: 'Trash', chips: false, head: h(K.Button, { variant: 'danger-quiet', size: 'sm' }, 'Empty trash') }, T.Item('alias2', { subtitle: '27 days left', selected: true }), T.Item('card2', { subtitle: '18 days left' }), T.Item('lazada', { subtitle: '1 day left', nobadge: true })) },
+      T.DHead('alias', [h(K.Button, { key: 'r', icon: 'refresh' }, 'Restore'), h(K.Button, { key: 'd', variant: 'danger-quiet', icon: 'trash' }, 'Delete forever')]), h('div', { className: 'kt-dcol' }, T.Banner({ tone: 'warning', icon: 'clock', body: 'Deleted 3 days ago. Kandado deletes it forever in 27 days.' }), T.Body.alias()));
+  }
+  var frames = [
+    W('D-35', 'Monitor overview', 'Sidebar › Monitor (badge = open issues) · rows and the left list open each category', Mon('Overview', 'Monitor', [mon[0], mon[1], mon[4], mon[5]], { actions: h(K.Button, { icon: 'refresh' }, 'Check now') })),
+    W('D-36', 'Breach detail', 'Change password opens the site in the default browser · Mark as resolved', Mon('Breached', 'Shopee breach', T.Feat.breach().slice(1))),
+    W('D-37', 'Weak passwords', 'Row → item; Change password opens the form with the generator', Mon('Weak passwords', 'Weak passwords', T.Feat.weak())),
+    W('D-38', 'Reused passwords', 'Groups by shared password', Mon('Reused passwords', 'Reused passwords', T.Feat.reused())),
+    W('D-39', 'Missing two-factor', 'Add code → D-20 for that login', Mon('Missing two-factor', 'Missing two-factor', T.Feat.twofa())),
+    W('D-40', 'Email monitoring', 'Add address verifies it with a code first', Mon('Email monitoring', 'Email monitoring', T.Feat.emails())),
+    W('D-41', 'Trash', 'Sidebar › Trash · Restore returns the item to its vault · Delete forever → D-25', trash()),
+    W('D-42', 'Empty trash dialog', 'Empty trash in the list header', trash(h(T.Dialog, { icon: 'trash', tone: 'danger', title: 'Delete 3 items forever?', body: 'They’ll be removed from every device. This can’t be undone.', actions: [['Cancel'], ['Empty trash', 'danger']] })))
+  ];
+  ReactDOM.createRoot(document.getElementById('root')).render(h(T.Canvas, { cols: 2, title: 'Desktop: Monitor and trash', intro: 'Monitor replaces the item list with its categories; the main pane shows the selected one.' }, frames));
+</script>
+</body>
+</html>

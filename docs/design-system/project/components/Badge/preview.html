@@ -1,0 +1,12 @@
+<!-- @dsCard group="Status" height=64 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Badge — preview</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo' }, h(K.Badge, { tone: 'danger' }, 'Breached'), h(K.Badge, { tone: 'danger' }, 'Weak'), h(K.Badge, { tone: 'warning' }, 'Reused'), h(K.Badge, { tone: 'warning' }, 'Missing 2FA'), h(K.Badge, { tone: 'teal' }, 'Healthy'), h(K.Badge, { tone: 'brass', icon: 'share' }, 'Shared'), h(K.Badge, null, '128 items')));
+</script>
+</body>
+</html>

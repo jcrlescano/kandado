@@ -1,0 +1,27 @@
+[package]
+name = "kandado-model"
+description = "Kandado item kinds and their encoding, plus the password generator, two-factor codes, strength and URL matching."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+bip39 = { version = "=3.0.0", default-features = false }
+data-encoding = "=2.11.1"
+hmac = "=0.13.0"
+kandado-crypto = { path = "../kandado-crypto" }
+psl = "=2.1.255"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+sha1 = "=0.11.0"
+sha2 = "=0.11.1"
+thiserror = "=2.0.21"
+url = "=2.5.8"
+zeroize = "=1.9.1"
+zxcvbn = { version = "=3.1.1", default-features = false }
+
+[lints]
+workspace = true

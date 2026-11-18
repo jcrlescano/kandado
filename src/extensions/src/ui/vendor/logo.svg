@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <mask id="keyhole">
+      <rect x="0" y="0" width="32" height="32" fill="#fff"/>
+      <circle cx="16" cy="19.5" r="2.6" fill="#000"/>
+      <rect x="14.8" y="20" width="2.4" height="5" rx="1.2" fill="#000"/>
+    </mask>
+  </defs>
+  <path d="M10 14V10.5a6 6 0 0 1 12 0V14" fill="none" stroke="#000" stroke-width="3.2" stroke-linecap="round"/>
+  <rect x="5" y="12.5" width="22" height="17" rx="5" fill="#000" mask="url(#keyhole)"/>
+</svg>

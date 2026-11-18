@@ -1,0 +1,35 @@
+[package]
+name = "kandado-crypto"
+description = "Kandado key hierarchy: AEAD, password KDF, key wrapping, sealed boxes and the recovery phrase."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+argon2 = { version = "=0.6.0", default-features = false, features = ["alloc"] }
+bip39 = { version = "=3.0.0", default-features = false, features = ["alloc", "zeroize"] }
+chacha20poly1305 = { version = "=0.11.0", default-features = false, features = ["alloc"] }
+getrandom = "=0.4.3"
+hkdf = "=0.13.0"
+hpke = { version = "=0.15.1", default-features = false, features = [
+  "alloc",
+  "chacha",
+  "getrandom",
+  "hkdfsha2",
+  "x25519",
+] }
+sha2 = { version = "=0.11.1", default-features = false }
+thiserror = "=2.0.21"
+unicode-normalization = { version = "=0.1.26", default-features = false }
+zeroize = "=1.9.1"
+
+[dev-dependencies]
+hex = "=0.4.3"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+
+[lints]
+workspace = true

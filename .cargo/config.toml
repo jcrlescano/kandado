@@ -1,0 +1,4 @@
+# WebAssembly tests run in a browser through wasm-bindgen's test runner.
+# Install it with: cargo install wasm-bindgen-cli --version 0.2.130 --locked
+[target.wasm32-unknown-unknown]
+runner = "wasm-bindgen-test-runner"

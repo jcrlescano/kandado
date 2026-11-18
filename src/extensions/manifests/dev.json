@@ -1,0 +1,4 @@
+{
+  "//": "Development builds only: a fixed public key gives the unpacked extension a fixed ID, knfanepenpkmplikmbdpmgnmpjfaljco, which the desktop app trusts in debug builds. The private half was never kept: it is not needed to load an unpacked extension.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqyNQRuWwR7SzweeKNRj9MDYCPXxIaxo1oD6uLLcbin+Xa5K/noNc7bth2xdo74NWTlPZOxFqFfFRxYeWNjG7qevpsRvjoP5jNeqn/yAHfEnLGt59s+btE0Yc/7tdob2iVQSoCFl3HpOlDLRJvfsGoq8C+p0QlvZq+wzKZlzeSr5fPp+jSWYC4vLPeSf9RDhEmCewyEcf+2u/Chnf0wa9glPcB2TJhY5Wm/RrFUx2YdysCa3vn98eM0Udyqf9V88UjqCO631AXy2S319TzbhSb8e0GiF1pEmJpo5Vwj/gmK5aoKPsDyu2GGoMpq/cbx+XqPE3JkqupQ7Nea+V40YlPQIDAQAB"
+}

@@ -1,0 +1,25 @@
+<!-- @dsCard group="Screens · Mobile" height=1960 width=2100 page subtitle="M-42 to M-51: vaults, sharing, invitations, secure links" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Mobile: vaults and sharing — Kandado</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, T = K.Kit, h = React.createElement;
+  function Foot() { return h('div', { className: 'kt-mfoot kt-col' }, [].slice.call(arguments)); }
+  var frames = [
+    h(T.Frame, { id: 'M-42', label: 'Vaults', flow: 'Settings › Vaults or M-17 · ⋯ → Edit (M-43), Share (M-44), Members (M-45), Leave or Delete' }, h(T.Phone, null, T.MPage('Vaults', T.Feat.vaults()))),
+    h(T.Frame, { id: 'M-43', label: 'Create or edit vault', flow: 'Save → M-42. The colour and icon show on chips and the sidebar' }, h(T.Phone, null, h(T.Top, { back: 'x', title: 'New vault', right: h(K.Button, { variant: 'primary', size: 'sm' }, 'Create') }), h(T.MBody, null, T.Feat.vaultForm()))),
+    h(T.Frame, { id: 'M-44', label: 'Share vault', flow: 'Send invite → invitee gets email + M-46 · item sharing uses the same screen' }, h(T.Phone, null, T.MPage('Share Family', T.Feat.shareVault(), { back: 'x', foot: h(K.Button, { variant: 'primary', size: 'lg', block: true, icon: 'mail' }, 'Send invite') }))),
+    h(T.Frame, { id: 'M-45', label: 'Members and invites', flow: 'Tap a member → change role or remove · only owners see Delete vault' }, h(T.Phone, null, T.MPage('Family members', T.Feat.members()))),
+    h(T.Frame, { id: 'M-46', label: 'Invitation received', flow: 'From a push notification or the banner on M-15 · Accept → vault appears in M-17' }, h(T.Phone, null, h(T.Top, { back: 'x' }), h(T.MBody, { style: { gap: 16, paddingTop: 24 } }, T.Feat.invite()))),
+    h(T.Frame, { id: 'M-47', label: 'Move to vault sheet', flow: 'Moving to a shared vault warns that members will see the item' }, h(T.Phone, { overlay: h(T.Sheet, { title: 'Move to vault' }, T.Feat.moveTo(), T.Banner({ tone: 'warning', icon: 'share', body: 'Family is shared. 2 people will see this item.' }), h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Move')) }, T.MDetail('login'))),
+    h(T.Frame, { id: 'M-48', label: 'Share item sheet', flow: 'People → M-44 for one item · Secure link → M-49' }, h(T.Phone, { overlay: h(T.Sheet, { title: 'Share GitHub' }, T.Feat.shareItem()) }, T.MDetail('login'))),
+    h(T.Frame, { id: 'M-49', label: 'Create secure link', flow: 'Create → M-50' }, h(T.Phone, null, T.MPage('Secure link', T.Feat.linkCreate(), { back: 'x', foot: h(K.Button, { variant: 'primary', size: 'lg', block: true, icon: 'link' }, 'Create link') }))),
+    h(T.Frame, { id: 'M-50', label: 'Secure link ready', flow: 'Copy or open the OS share sheet · Done → item' }, h(T.Phone, null, h(T.Top, { back: 'x' }), h(T.MBody, { style: { gap: 14, paddingTop: 16 } }, T.Feat.linkReady()))),
+    h(T.Frame, { id: 'M-51', label: 'Secure links', flow: 'Settings › Secure links · Revoke asks to confirm, then the link stops working' }, h(T.Phone, null, T.MPage('Secure links', T.Feat.links())))
+  ];
+  ReactDOM.createRoot(document.getElementById('root')).render(h(T.Canvas, { cols: 5, title: 'Mobile: vaults and sharing', intro: 'Vaults group items; sharing works per vault or per item; secure links reach people without an account.' }, frames));
+</script>
+</body>
+</html>

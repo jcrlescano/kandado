@@ -1,0 +1,16 @@
+<!-- @dsCard group="Items" height=296 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>SecretField — preview</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo-col', style: { maxWidth: 460 } }, h('div', { className: 'kd-group' },
+      h(K.SecretField, { label: 'Username', value: 'juan-dc', icon: 'user', concealed: false }),
+      h(K.SecretField, { label: 'Password', value: 'Tq7#vL2m!Ox0-r9P', icon: 'key' }),
+      h(K.SecretField, { label: 'Website', value: 'https://github.com', icon: 'globe', concealed: false, valueColor: 'var(--link)' }),
+      h(K.SecretField, { label: 'Card number', value: '4821 0094 3310 4821', icon: 'card', mono: true, defaultRevealed: true }))));
+</script>
+</body>
+</html>

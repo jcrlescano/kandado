@@ -1,0 +1,12 @@
+<!-- @dsCard group="Items" height=512 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>PasswordGenerator — preview</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo-col', style: { maxWidth: 380, background: 'var(--surface-100)', borderRadius: 'var(--radius-lg)', margin: 16 } }, h('div', { className: 'title-md', style: { fontFamily: 'var(--font-display)' } }, 'Password generator'), h(K.PasswordGenerator, { onUse: function () {} })));
+</script>
+</body>
+</html>

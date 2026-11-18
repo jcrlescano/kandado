@@ -1,0 +1,23 @@
+{
+  "name": "kandado",
+  "private": true,
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "sync:tokens": "node scripts/sync-tokens.mjs",
+    "sync:icons": "node scripts/sync-icons.mjs",
+    "sync:ui": "node scripts/sync-ui.mjs",
+    "check:generated": "node scripts/sync-tokens.mjs --check && node scripts/sync-icons.mjs --check && node scripts/sync-ui.mjs --check",
+    "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.7"
+  }
+}

@@ -1,0 +1,28 @@
+<!-- @dsCard group="Screens · Desktop" height=3450 width=2504 page subtitle="D-19 to D-26: forms for every kind, generator, 2FA, delete and discard" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Desktop: create and edit — Kandado</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, T = K.Kit, h = React.createElement;
+  function W(id, label, flow, el) { return h(T.Frame, { key: id, id: id, label: label, flow: flow, wide: true }, el); }
+  var genPop = h('div', { className: 'kt-popover', style: { top: 96, left: 270 } }, h('div', { className: 'kt-dialog-title', style: { marginBottom: 12 } }, 'Generate password'), h(K.PasswordGenerator, { onUse: function () {} }));
+  var trashWin = function (overlay) {
+    return h(T.Win, { active: 'Trash', list: h(T.DList, { title: 'Trash', chips: false, head: h(K.Button, { variant: 'danger-quiet', size: 'sm' }, 'Empty trash') }, T.Item('alias2', { subtitle: '27 days left', selected: true }), T.Item('card2', { subtitle: '18 days left' }), T.Item('lazada', { subtitle: '1 day left', nobadge: true })), overlay: overlay },
+      T.DHead('alias', [h(K.Button, { key: 'r', icon: 'refresh' }, 'Restore'), h(K.Button, { key: 'd', variant: 'danger-quiet', icon: 'trash' }, 'Delete forever')]), h('div', { className: 'kt-dcol' }, T.Banner({ tone: 'warning', icon: 'clock', body: 'Deleted 3 days ago. Kandado deletes it forever in 27 days.' }), T.Body.alias()));
+  };
+  var frames = [
+    W('D-19', 'Login form + generator', 'Edit replaces the detail pane; ↻ in the password field opens the generator popover; Use password fills and closes · Ctrl S saves, Esc cancels (D-26 if changed)', T.DForm('login', 'Edit login', { pop: genPop })),
+    W('D-20', 'Add two-factor code', 'From "Add two-factor code" · Scan reads a QR code visible on screen; or paste the setup key · live code preview confirms it works', T.DForm('login', 'Edit login', { overlay: h(T.Dialog, { title: 'Add two-factor code', actions: [['Cancel'], ['Add code', 'primary']] }, T.Seg(['Enter setup key', 'Scan QR on screen'], 0), T.TF('Setup key', 'JBSW Y3DP EHPK 3PXP', { mono: true, icon: 'key' }), T.Lbl('Preview'), T.Grp(h(K.TotpCode, { code: '615208' }))) })),
+    W('D-21', 'Alias form', 'Create alias → D-08, address copied', T.DForm('alias', 'New alias')),
+    W('D-22', 'Card form', 'Brand detected from the number', T.DForm('card', 'New card')),
+    W('D-23', 'Note form', '', T.DForm('note', 'New note')),
+    W('D-24', 'Identity form', 'Add section: Contact, Work, IDs, custom', T.DForm('identity', 'New identity')),
+    W('D-25', 'Delete forever dialog', 'From Trash (one item) · Move to trash elsewhere never asks; it shows an Undo toast', trashWin(h(T.Dialog, { icon: 'trash', tone: 'danger', title: 'Delete Shopping alias forever?', body: 'The alias stops forwarding and the item is removed from every device. This can’t be undone.', actions: [['Cancel'], ['Delete forever', 'danger']] }))),
+    W('D-26', 'Discard changes dialog', 'Esc, Cancel, or selecting another item while a form has edits', T.DForm('login', 'Edit login', { overlay: h(T.Dialog, { title: 'Discard changes?', body: 'Your edits to GitHub will be lost.', actions: [['Keep editing'], ['Discard', 'danger']] }) }))
+  ];
+  ReactDOM.createRoot(document.getElementById('root')).render(h(T.Canvas, { cols: 2, title: 'Desktop: create and edit', intro: 'Forms open in the detail pane so the list stays visible. Same fields as mobile.' }, frames));
+</script>
+</body>
+</html>

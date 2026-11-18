@@ -1,0 +1,12 @@
+<!-- @dsCard group="Actions" height=88 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>IconButton — preview</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo' }, h(K.IconButton, { icon: 'copy', label: 'Copy password' }), h(K.IconButton, { icon: 'eye', label: 'Reveal' }), h(K.IconButton, { icon: 'more', label: 'More actions' }), h(K.IconButton, { icon: 'star', label: 'Add to favourites', variant: 'secondary' }), h(K.IconButton, { icon: 'lock', label: 'Lock now', variant: 'secondary' }), h(K.IconButton, { icon: 'plus', label: 'Create item', variant: 'primary', size: 'lg' }), h(K.IconButton, { icon: 'copy', label: 'Copy', size: 'sm' })));
+</script>
+</body>
+</html>

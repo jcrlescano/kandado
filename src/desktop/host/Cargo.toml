@@ -1,0 +1,42 @@
+[package]
+name = "kandado"
+description = "The Kandado desktop app for Windows: GPUI views, windows, tray, hotkeys and updater."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kandado_host"
+
+[[bin]]
+name = "kandado"
+path = "src/main.rs"
+
+[dependencies]
+gpui-kit = "=0.9.1"
+kandado-app = { path = "../crates/kandado-app" }
+kandado-model = { path = "../../shared/kandado-model" }
+kandado-protocol = { path = "../../shared/kandado-protocol" }
+time = { version = "=0.3.55", features = ["local-offset"] }
+tracing = "=0.1.44"
+tray-icon = { version = "=0.26.1", default-features = false }
+tracing-subscriber = { version = "=0.3.23", features = ["env-filter"] }
+uuid = "=1.29.2"
+
+[target.'cfg(windows)'.dependencies]
+raw-window-handle = "=0.6.2"
+
+[dev-dependencies]
+zeroize = "=1.9.1"
+gpui-kit = { version = "=0.9.1", features = ["test-support"] }
+kandado-crypto = { path = "../../shared/kandado-crypto" }
+tokio = { version = "=1.54.1", features = ["rt-multi-thread"] }
+
+[build-dependencies]
+serde_json = "=1.0.154"
+
+[lints]
+workspace = true

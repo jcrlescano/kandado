@@ -1,0 +1,24 @@
+<!-- @dsCard group="Screens · Browser extension" height=1580 width=2424 page subtitle="E-27 to E-31: welcome tab and settings tab" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Extension: welcome and settings — Kandado</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, T = K.Kit, h = React.createElement;
+  function F(id, label, flow, el) { return h(T.Frame, { key: id, id: id, label: label, flow: flow, wide: true }, el); }
+  var welcome = h(T.Browser, { host: 'Kandado', path: ' · welcome' }, h('div', { className: 'kt-opt', style: { justifyContent: 'center' } }, h('div', { className: 'kt-opt-main', style: { maxWidth: 460, alignItems: 'center', textAlign: 'center', paddingTop: 36 } },
+    h(K.Logo, { size: 56 }), h('h1', { className: 'kt-display', style: { fontSize: 30, lineHeight: '36px' } }, 'Kandado is installed'), h('p', { className: 'kt-p' }, 'Pin it so it’s one click away, then sign in.'),
+    T.Rows([{ lead: h('b', { className: 'kt-id' }, '1'), label: 'Click the puzzle icon in the toolbar' }, { lead: h('b', { className: 'kt-id' }, '2'), label: 'Pin Kandado' }, { lead: h('b', { className: 'kt-id' }, '3'), label: 'Sign in below' }]),
+    h('div', { style: { display: 'flex', gap: 8 } }, h(K.Button, { variant: 'primary', size: 'lg' }, 'Sign in'), h(K.Button, { size: 'lg', icon: 'grid' }, 'Use desktop app'), h(K.Button, { variant: 'ghost', size: 'lg' }, 'Create account')))));
+  var frames = [
+    F('E-27', 'Welcome tab', 'Opens once after install · sign-in happens in this tab, not the popup', welcome),
+    F('E-28', 'Settings: General', 'Popup ⋯ › Settings opens this tab', h(T.OptPage, { active: 'General' }, T.Lbl('Theme'), T.Seg(['System', 'Dark', 'Light'], 0), T.Rows([{ icon: 'bolt', label: 'Show item count on the toolbar icon', toggle: true }, { icon: 'key', label: 'Open popup shortcut', value: 'Ctrl Shift L', chev: true }, { icon: 'globe', label: 'Show website icons', toggle: false }]))),
+    F('E-29', 'Settings: Autofill', 'Autofill on page load stays off by default (safer against hidden-field attacks)', h(T.OptPage, { active: 'Autofill' }, T.Rows([{ icon: 'key', label: 'Show Kandado in form fields', toggle: true }, { icon: 'bolt', label: 'Autofill on page load', desc: 'Off is safer', toggle: false }, { icon: 'clock', label: 'Copy two-factor code after filling', toggle: true }]), T.Rows([{ icon: 'alias', label: 'Suggest aliases in email fields', toggle: true }, { icon: 'refresh', label: 'Suggest passwords in new-password fields', toggle: true }, { icon: 'plus', label: 'Offer to save and update logins', toggle: true }, { icon: 'passkey', label: 'Use Kandado for passkeys', toggle: true }]))),
+    F('E-30', 'Settings: Excluded sites', 'Sites added from "Never for this site" or by hand', h(T.OptPage, { active: 'Excluded sites' }, T.Set.excluded())),
+    F('E-31', 'Settings: Security', 'Lock follows the desktop app when paired; otherwise its own PIN and timer', h(T.OptPage, { active: 'Security' }, T.Rows([{ icon: 'grid', label: 'Lock and unlock with the desktop app', toggle: true }, { icon: 'key', label: 'Extension PIN', value: 'Set', chev: true }, { icon: 'clock', label: 'Lock after', value: '15 minutes', chev: true }, { icon: 'lock', label: 'Lock when the browser closes', toggle: true }, { icon: 'copy', label: 'Clear clipboard after', value: '60 seconds', chev: true }])))
+  ];
+  ReactDOM.createRoot(document.getElementById('root')).render(h(T.Canvas, { cols: 3, title: 'Browser extension: welcome and settings', intro: 'Full-page tabs the extension opens. Same nav pattern as desktop settings.' }, frames));
+</script>
+</body>
+</html>

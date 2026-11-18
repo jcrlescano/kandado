@@ -1,0 +1,53 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kandado</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--surface-000); color: var(--ink); font-family: var(--font-sans); overflow: hidden; }
+  .cover { position: relative; width: 960px; height: 288px; overflow: hidden; }
+  .art { position: absolute; top: 0; left: 480px; width: 480px; height: 288px; overflow: hidden; }
+  .art svg { display: block; }
+  .brass { fill: var(--brass); }
+  .shackle { fill: none; stroke: var(--brass); stroke-width: 24px; }
+  .teal { fill: var(--teal); }
+  .coral { fill: var(--coral); }
+  .deep { fill: var(--ink); }
+  .cut { fill: var(--surface-000); }
+  .blk { rx: var(--radius-lg); }
+  .words { position: absolute; left: var(--space-6); bottom: var(--space-6); max-width: 440px; }
+  .name { margin: 0; font-family: var(--font-display); font-size: 104px; line-height: .92; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
+  .tag { margin: var(--space-2) 0 0 4px; font-size: 14px; line-height: 20px; color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      brass padlock body 176x184 bleeding off the bottom (the brand colour, largest) with its brass shackle · teal 256x120 bleeding off the right · coral 128x136 and ink 128x136 bleeding off the bottom — about 40% of 960x288
+  arrangement one tall brass slab (the lock) with satellites in a flush modular grid, space-4 gutters
+  pattern     a literal motif, from the name itself (Tagalog for padlock): the keyhole cut from the brass body, and twelve masked-password bullets cut from the teal block ("Passwords show masked as 12 bullets")
+  scales      gutters space-4 (16); bullet pitch space-4, bullet r space-1 (4); block corners radius-lg (16); keyhole slot rx = half its 16px width
+-->
+<path class="shackle" d="M48 136V88a56 56 0 0 1 112 0v48"/>
+<rect class="brass blk" x="16" y="120" width="176" height="184" rx="16"/>
+<circle class="cut" cx="104" cy="188" r="16"/>
+<rect class="cut" x="96" y="196" width="16" height="40" rx="8"/>
+<rect class="teal blk" x="208" y="32" width="288" height="120" rx="16"/>
+<circle class="cut" cx="240" cy="92" r="4"/><circle class="cut" cx="256" cy="92" r="4"/><circle class="cut" cx="272" cy="92" r="4"/><circle class="cut" cx="288" cy="92" r="4"/>
+<circle class="cut" cx="304" cy="92" r="4"/><circle class="cut" cx="320" cy="92" r="4"/><circle class="cut" cx="336" cy="92" r="4"/><circle class="cut" cx="352" cy="92" r="4"/>
+<circle class="cut" cx="368" cy="92" r="4"/><circle class="cut" cx="384" cy="92" r="4"/><circle class="cut" cx="400" cy="92" r="4"/><circle class="cut" cx="416" cy="92" r="4"/>
+<rect class="coral blk" x="208" y="168" width="128" height="136" rx="16"/>
+<rect class="deep blk" x="352" y="168" width="144" height="136" rx="16"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">Kandado</h1>
+<p class="tag">Your vault, your keys.</p>
+</div>
+</div>
+</body>
+</html>

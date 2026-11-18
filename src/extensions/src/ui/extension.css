@@ -1,0 +1,233 @@
+/* Layout the extension pages need on top of the design system classes. Every
+   value is a token. The popup's own layout classes (kt-pop, kt-phead, ...) come
+   from the design system bundle, which draws the same screens. */
+html,
+body {
+  background: var(--surface-000);
+}
+.kx-popup {
+  width: 380px;
+  height: 600px;
+}
+.kx-popup .kt-pop {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.kx-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 -12px;
+  padding: 0 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.kx-scroll > * {
+  flex-shrink: 0;
+}
+.kx-toast {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 72px;
+  z-index: 10;
+}
+.kx-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.kx-menu-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kx-menu-button.kt-menu-on {
+  background: var(--surface-300);
+}
+.kx-menu-button.kt-danger,
+.kx-menu-button.kt-danger > .kd-icon {
+  color: var(--danger);
+}
+.kx-menu-button:hover,
+.kx-menu-button:focus-visible {
+  background: var(--surface-200);
+}
+.kx-menu-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.kx-hidden-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+}
+.kx-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 14px;
+  line-height: 20px;
+}
+.kx-center {
+  align-items: center;
+  text-align: center;
+}
+
+/* The in-page dropdown (E-16 to E-22), an extension page inside the site's page.
+   The iframe is 340 px wide; the margin leaves room for the shadow. */
+html:has(.kx-dropdown-page),
+.kx-dropdown-page {
+  background: transparent;
+}
+/* An iframe whose colour scheme differs from the page around it gets an opaque
+   backdrop. The dropdown draws its own surface, so it keeps the page's scheme. */
+/* Repeated :root outweighs every theme rule in tokens.css. */
+:root:root:root:has(.kx-dropdown-page) {
+  color-scheme: normal;
+}
+.kx-dropdown-page {
+  padding: 0 8px 16px;
+}
+.kx-dropdown-page .kt-drop-in {
+  position: static;
+  width: 100%;
+}
+.kx-dd-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kx-dd-button:hover {
+  background: var(--surface-200);
+}
+.kx-dd-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* The save and update prompt (E-23, E-24), top right of the site's page. */
+html:has(.kx-prompt-page),
+.kx-prompt-page {
+  background: transparent;
+}
+:root:root:root:has(.kx-prompt-page) {
+  color-scheme: normal;
+}
+.kx-prompt-page {
+  padding: 8px 12px 20px;
+}
+.kx-prompt-page .kt-prompt {
+  position: static;
+  width: 100%;
+}
+
+/* Full-page tabs: welcome (E-27) and settings (E-28 to E-31). */
+.kx-page,
+.kx-page #root {
+  min-height: 100vh;
+}
+.kx-fullpage {
+  min-height: 100vh;
+}
+.kx-fullpage .kt-opt-main {
+  max-width: 720px;
+  overflow: visible;
+}
+.kx-nav-button,
+.kx-row-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kx-nav-button:hover,
+.kx-row-button:hover {
+  background: var(--surface-200);
+}
+.kx-nav-button.kt-nav-on:hover {
+  background: var(--brass-soft);
+}
+.kx-nav-button:focus-visible,
+.kx-row-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.kx-pin-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+.kx-panel {
+  background: var(--surface-100);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.kx-welcome {
+  display: flex;
+  justify-content: center;
+  padding: 72px 16px;
+}
+.kx-welcome .kt-opt-main {
+  max-width: 460px;
+  align-items: center;
+  text-align: center;
+  overflow: visible;
+}
+.kx-welcome .kd-group {
+  width: 100%;
+  text-align: left;
+}
+.kx-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.kx-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* A setting's value chosen from a short list, at the end of its row (E-31). */
+.kx-inline-select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface-300);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+}
+.kx-inline-select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.kx-welcome {
+  box-sizing: border-box;
+}

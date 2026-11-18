@@ -1,0 +1,4 @@
+name,url,username,password,note
+github.com,https://github.com/login,juan-dc,gh-pass-1,my note
+netflix.com,https://netflix.com/login,family@example.test,nf-pass,
+,,,,

@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Kandado",
+  "description": "Your passwords, notes and cards, encrypted on your device.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "identity",
+    "scripting",
+    "activeTab",
+    "clipboardWrite",
+    "webNavigation",
+    "nativeMessaging"
+  ],
+  "host_permissions": [],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "action": {
+    "default_title": "Kandado",
+    "default_popup": "src/popup/index.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/content/dropdown/index.html", "src/content/prompts/index.html"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "options_ui": {
+    "page": "src/pages/settings/index.html",
+    "open_in_tab": true
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L"
+      },
+      "description": "Open Kandado"
+    }
+  }
+}

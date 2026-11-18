@@ -1,0 +1,37 @@
+# Rust
+target/
+
+# Node
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+src/extensions/wasm/pkg/
+src/extensions/wasm/pkg-test/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Local data
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.log
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code (personal setup)
+.claude/
+
+# Playwright output
+src/extensions/test-results/
+
+# Implementation plan (kept local)
+docs/implementation-plan/

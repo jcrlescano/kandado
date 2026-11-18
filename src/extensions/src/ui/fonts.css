@@ -1,0 +1,20 @@
+/* The same font files as the desktop app (src/desktop/resources/fonts, SIL OFL),
+   copied into the build, so no page asks a font service for anything. */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/BricolageGrotesque.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: block;
+}
+@font-face {
+  font-family: "Figtree";
+  src: url("/fonts/Figtree.ttf") format("truetype");
+  font-weight: 300 900;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono.ttf") format("truetype");
+  font-weight: 100 800;
+  font-display: block;
+}

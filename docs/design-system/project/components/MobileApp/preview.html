@@ -1,0 +1,95 @@
+<!-- @dsCard group="Screens · Overview" height=912 width=1720 page subtitle="Mobile app: unlock, items, item detail, create sheet" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Mobile app — Kandado</title>
+<style>
+  .stage { display: flex; gap: 32px; padding: 24px; background: var(--surface-000); width: max-content; }
+  .phone { position: relative; width: 268px; height: 580px; zoom: 1.4; border-radius: 36px; border: 6px solid var(--surface-300); background: var(--surface-000); overflow: hidden; display: flex; flex-direction: column; }
+  .status { height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 11px; font-weight: 600; color: var(--ink); }
+  .scr { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .top { display: flex; align-items: center; gap: 6px; padding: 6px 12px 8px; }
+  .top h1 { margin: 0; flex: 1; font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 600; }
+  .pad { padding: 0 12px; }
+  .rows { flex: 1; overflow: hidden; padding: 4px 6px; display: flex; flex-direction: column; gap: 2px; }
+  .rows .kd-row { min-height: 58px; }
+  .tabs { flex: none; height: 58px; display: flex; border-top: 1px solid var(--line); background: var(--surface-100); }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 600; color: var(--ink-muted); }
+  .tab.on { color: var(--brass); }
+  .fab { position: absolute; right: 14px; bottom: 72px; }
+  .fab .kd-iconbtn { width: 52px; height: 52px; border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); }
+  .unlock { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 48px 20px 24px; text-align: center; gap: 12px; }
+  .unlock h1 { margin: 16px 0 0; font-family: var(--font-display); font-size: 28px; line-height: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .unlock p { margin: 0; color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+  .bio { margin-top: auto; width: 76px; height: 76px; border-radius: var(--radius-pill); border: 1.5px solid var(--line-strong); background: var(--surface-200); color: var(--brass); display: flex; align-items: center; justify-content: center; }
+  .unlock .kd-btn { margin-top: 8px; }
+  .link { color: var(--link); font-size: 14px; font-weight: 600; }
+  .dhead { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 12px 16px; }
+  .dhead h2 { margin: 0; font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 600; }
+  .dbody { padding: 0 12px; display: flex; flex-direction: column; gap: 12px; }
+  .dbody .kd-secret, .dbody .kd-totp { min-height: 58px; padding: 8px 6px 8px 12px; gap: 8px; }
+  .actbar { display: flex; gap: 8px; padding: 0 12px 12px; margin-top: auto; }
+  .scrim { position: absolute; inset: 0; background: var(--scrim); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface-100); border-radius: var(--radius-xl) var(--radius-xl) 0 0; box-shadow: var(--shadow-sheet); padding: 8px 10px 16px; }
+  .grab { width: 36px; height: 4px; border-radius: var(--radius-pill); background: var(--line-strong); margin: 0 auto 10px; }
+  .sheet h3 { margin: 0 6px 8px; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+  .bg { flex: 1; padding: 6px; display: flex; flex-direction: column; gap: 2px; opacity: 1; }
+  .cap { font-size: 13px; font-weight: 600; color: var(--ink-muted); text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  function Status() { return h('div', { className: 'status' }, h('span', null, '9:41'), h('span', null, '5G ▮')); }
+  function Tabs(p) {
+    var t = [['grid', 'Items'], ['search', 'Search'], ['shield', 'Monitor'], ['settings', 'Settings']];
+    return h('nav', { className: 'tabs' }, t.map(function (x, i) { return h('div', { key: x[1], className: 'tab' + (i === p.on ? ' on' : '') }, h(K.Icon, { name: x[0], size: 22 }), x[1]); }));
+  }
+  function Unlock() {
+    return h('div', { className: 'phone' }, h(Status), h('div', { className: 'unlock' },
+      h(K.Logo, { size: 56 }), h('h1', null, 'Welcome back'), h('p', null, 'Your vault is locked.', h('br'), 'juan.delacruz@kandado.me'),
+      h('div', { className: 'bio', 'aria-hidden': true }, h(K.Icon, { name: 'fingerprint', size: 36 })),
+      h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Unlock with fingerprint'),
+      h('span', { className: 'link' }, 'Use PIN instead')));
+  }
+  function Items() {
+    return h('div', { className: 'phone' }, h(Status), h('div', { className: 'scr' },
+      h('div', { className: 'top' }, h('h1', null, 'Items'), h(K.VaultChip, { name: 'Personal', dropdown: true })),
+      h('div', { className: 'pad' }, h(K.SearchBar, { placeholder: 'Search in Personal' })),
+      h('div', { className: 'rows' },
+        h(K.ItemRow, { kind: 'login', letter: 'G', title: 'GitHub', subtitle: 'juan-dc', favorite: true }),
+        h(K.ItemRow, { kind: 'login', letter: 'S', title: 'Shopee', subtitle: 'juan.delacruz@kandado.me', badge: h(K.Badge, { tone: 'danger' }, 'Breached') }),
+        h(K.ItemRow, { kind: 'card', title: 'BPI Visa', subtitle: '•••• 4821' }),
+        h(K.ItemRow, { kind: 'alias', title: 'Newsletter alias', subtitle: 'quiet.lantern42@kandado.me' }),
+        h(K.ItemRow, { kind: 'note', title: 'Wi-Fi at home', subtitle: 'Network: Bahay-5G' }),
+        h(K.ItemRow, { kind: 'identity', title: 'Juan Dela Cruz', subtitle: 'Personal identity' })
+      )),
+      h('div', { className: 'fab' }, h(K.IconButton, { icon: 'plus', label: 'Create item', variant: 'primary', size: 'lg' })),
+      h(Tabs, { on: 0 }));
+  }
+  function Detail() {
+    return h('div', { className: 'phone' }, h(Status), h('div', { className: 'scr' },
+      h('div', { className: 'top' }, h(K.IconButton, { icon: 'chevron', label: 'Back', style: { transform: 'scaleX(-1)' } }), h('span', { style: { flex: 1 } }), h(K.IconButton, { icon: 'star', label: 'Favourite' }), h(K.IconButton, { icon: 'more', label: 'More actions' })),
+      h('div', { className: 'dhead' }, h(K.ItemIcon, { kind: 'login', letter: 'G', size: 56 }), h('h2', null, 'GitHub'), h(K.Badge, { tone: 'teal' }, 'Strong')),
+      h('div', { className: 'dbody' },
+        h('div', { className: 'kd-group' },
+          h(K.SecretField, { label: 'Username', value: 'juan-dc', concealed: false }),
+          h(K.SecretField, { label: 'Password', value: 'Tq7#vL2m!Ox0-r9P' }),
+          h(K.TotpCode, { code: '482913' })),
+        h('div', { className: 'kd-group' }, h(K.SecretField, { label: 'Website', value: 'github.com', concealed: false, valueColor: 'var(--link)' }))),
+      h('div', { className: 'actbar', style: { paddingTop: 12 } }, h(K.Button, { icon: 'share', size: 'lg', block: true }, 'Share'), h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Edit'))));
+  }
+  function Create() {
+    var kinds = [['login', 'Login', 'Username, password, website'], ['alias', 'Alias', 'Hide your real email'], ['card', 'Card', 'Credit or debit card'], ['note', 'Note', 'Encrypted text'], ['identity', 'Identity', 'Name, address, IDs'], ['password', 'Password', 'Generate a strong password']];
+    return h('div', { className: 'phone' }, h(Status), h('div', { className: 'bg' },
+      h(K.ItemRow, { kind: 'login', letter: 'G', title: 'GitHub', subtitle: 'juan-dc' }), h(K.ItemRow, { kind: 'card', title: 'BPI Visa', subtitle: '•••• 4821' })),
+      h('div', { className: 'scrim' }),
+      h('div', { className: 'sheet', role: 'dialog', 'aria-label': 'Create' }, h('div', { className: 'grab' }), h('h3', null, 'Create'),
+        kinds.map(function (k) { return h(K.ItemRow, { key: k[0], kind: k[0], title: k[1], subtitle: k[2], dense: true }); })));
+  }
+  function Labeled(p) { return h('div', null, p.children, h('div', { className: 'cap' }, p.label)); }
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'stage' },
+    h(Labeled, { label: 'Unlock' }, h(Unlock)), h(Labeled, { label: 'Items' }, h(Items)), h(Labeled, { label: 'Item detail' }, h(Detail)), h(Labeled, { label: 'Create sheet' }, h(Create))));
+</script>
+</body>
+</html>

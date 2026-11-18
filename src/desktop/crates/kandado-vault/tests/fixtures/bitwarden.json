@@ -1,0 +1,17 @@
+{
+  "encrypted": false,
+  "folders": [ { "id": "f1", "name": "Work" }, { "id": "f2", "name": "Family" } ],
+  "items": [
+    { "id": "1", "folderId": "f1", "type": 1, "name": "GitHub", "notes": "Work account", "favorite": true, "reprompt": 0,
+      "login": { "uris": [ { "match": null, "uri": "https://github.com" }, { "match": 1, "uri": "https://gist.github.com" }, { "match": 5, "uri": "https://never.example.test" } ],
+                 "username": "juan-dc", "password": "gh-pass-1", "totp": "otpauth://totp/GitHub:juan?secret=JBSWY3DPEHPK3PXP" },
+      "fields": [ { "name": "Recovery", "value": "r@example.test", "type": 0 }, { "name": "Answer", "value": "bahay kubo", "type": 1 }, { "name": "Remember", "value": "true", "type": 2 }, { "name": "Linked", "value": null, "type": 3, "linkedId": 100 } ],
+      "deletedDate": null },
+    { "id": "2", "folderId": null, "type": 2, "name": "Wi-Fi", "notes": "Network: Bahay-5G", "favorite": false, "secureNote": { "type": 0 }, "deletedDate": "2026-10-01T00:00:00.000Z" },
+    { "id": "3", "folderId": "f2", "type": 3, "name": "BPI Visa", "notes": "", "favorite": false,
+      "card": { "cardholderName": "JUAN DELA CRUZ", "brand": "Visa", "number": "4111111111111111", "expMonth": "8", "expYear": "2029", "code": "214" }, "deletedDate": null },
+    { "id": "4", "folderId": null, "type": 4, "name": "Me", "notes": "", "favorite": false,
+      "identity": { "title": "Mr", "firstName": "Juan", "middleName": "D", "lastName": "Dela Cruz", "address1": "12 Mabini St.", "address2": "3F", "address3": "", "city": "Quezon City", "state": "NCR", "postalCode": "1109", "country": "PH", "company": "Acme", "email": "juan@example.test", "phone": "+63 917 555 0142", "ssn": "123-45-6789", "username": "juan", "passportNumber": "P1234567A", "licenseNumber": "" }, "deletedDate": null },
+    { "id": "5", "folderId": null, "type": 5, "name": "Deploy key", "notes": "", "favorite": false, "sshKey": { "privateKey": "-----BEGIN-----\nAAAA", "publicKey": "ssh-ed25519 AAAA", "keyFingerprint": "SHA256:xyz" }, "deletedDate": null }
+  ]
+}

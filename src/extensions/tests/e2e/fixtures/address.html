@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Delivery address</title>
+<style>body{font:16px system-ui;margin:40px}label{display:block;margin:12px 0 4px}input{font:inherit;padding:8px;width:280px}</style></head>
+<body>
+<h1>Delivery address</h1>
+<form id="address" onsubmit="event.preventDefault()">
+  <label for="name">Full name</label>
+  <input id="name" name="name" autocomplete="name">
+  <label for="tel">Phone</label>
+  <input id="tel" name="phone" type="tel" autocomplete="tel">
+  <label for="street">Street</label>
+  <input id="street" name="street" autocomplete="address-line1">
+  <label for="city">City</label>
+  <input id="city" name="city" autocomplete="address-level2">
+  <p><button type="submit">Save address</button></p>
+</form>
+</body>
+</html>

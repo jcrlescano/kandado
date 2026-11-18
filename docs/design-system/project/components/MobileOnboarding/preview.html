@@ -1,0 +1,79 @@
+<!-- @dsCard group="Screens · Mobile" height=2880 width=2100 page subtitle="M-01 to M-14: first run, sign in, unlock" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Mobile: first run and unlock — Kandado</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, T = K.Kit, h = React.createElement;
+  function H1(t, big) { return h('h1', { className: 'kt-display', style: big ? null : { fontSize: 28, lineHeight: '34px' } }, t); }
+  function P(t) { return h('p', { className: 'kt-p', style: { fontSize: 15, lineHeight: '22px' } }, t); }
+  function Foot() { return h('div', { className: 'kt-mfoot kt-col' }, [].slice.call(arguments)); }
+  function Promise_(icon, t) { return h('div', { className: 'kt-promise' }, h(K.Icon, { name: icon, size: 20 }), h('span', null, t)); }
+  var eye = h(K.IconButton, { icon: 'eye', size: 'sm', label: 'Show password' });
+
+  var frames = [
+    h(T.Frame, { id: 'M-01', label: 'Welcome', flow: 'Create account → M-03 · Sign in → M-02' }, h(T.Phone, null,
+      h(T.MBody, { center: true, style: { gap: 20 } }, h(K.Logo, { size: 72 }), H1('Your vault, your keys.', true), P('One place for every password, alias, card and note. Encrypted on your device before it syncs.'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 } }, Promise_('lock', 'End-to-end encrypted. Not even Kandado can read it.'), Promise_('alias', 'Hide your email with aliases.'), Promise_('shield', 'Alerts when a password leaks.'))),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Create account'), h(K.Button, { size: 'lg', block: true }, 'Sign in')))),
+
+    h(T.Frame, { id: 'M-02', label: 'Sign in', flow: 'Sign in → M-04 on a new device, else M-06. Error shows under the field.' }, h(T.Phone, null,
+      h(T.Top, { back: true }), h(T.MBody, { style: { gap: 16 } }, H1('Sign in'), P('Use your Kandado account.'),
+        T.TF('Email', 'juan.delacruz@gmail.com', { icon: 'mail' }), T.TF('Password', 'wrong-pass', { type: 'password', icon: 'lock', trailing: eye, error: 'Wrong email or password. 4 tries left.' }),
+        h('a', { className: 'kt-link' }, 'Forgot password?')),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Sign in'), h(K.Button, { variant: 'ghost', size: 'lg', block: true }, 'Create an account instead')))),
+
+    h(T.Frame, { id: 'M-03', label: 'Create account', flow: 'Continue → M-04' }, h(T.Phone, null,
+      h(T.Top, { back: true }), h(T.MBody, { style: { gap: 16 } }, H1('Create your account'), T.TF('Email', 'juan.delacruz@gmail.com', { icon: 'mail' }),
+        T.TF('Account password', 'Bahay-kubo-2026!', { type: 'password', icon: 'lock', trailing: eye, hint: 'This password unlocks everything. Kandado can’t reset it for you.' }), h(K.StrengthMeter, { score: 3, detail: 'Good' }),
+        T.TF('Confirm password', 'Bahay-kubo-2026!', { type: 'password', icon: 'lock' }), h('p', { className: 'kt-p kt-small' }, 'By continuing you agree to the Terms and Privacy policy.')),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Continue')))),
+
+    h(T.Frame, { id: 'M-04', label: 'Verify email', flow: 'Sixth digit → M-05 automatically. Wrong code: boxes turn danger, "Try again".' }, h(T.Phone, null,
+      h(T.Top, { back: true }), h(T.MBody, { style: { gap: 18 } }, H1('Check your email'), P('We sent a 6-digit code to juan.delacruz@gmail.com.'), T.Code('4829', 4), h('p', { className: 'kt-p kt-center' }, 'Resend code in 0:42'), h('a', { className: 'kt-link kt-center' }, 'Change email')))),
+
+    h(T.Frame, { id: 'M-05', label: 'Recovery phrase', flow: 'Continue is disabled until the box is ticked → M-06' }, h(T.Phone, null,
+      h(T.Top, { back: true }), h(T.MBody, { style: { gap: 14 } }, H1('Save your recovery phrase'), P('If you forget your password, these 12 words are the only way back in. Keep them offline.'), T.Phrase(),
+        h('div', { className: 'kt-row2' }, h(K.Button, { icon: 'copy' }, 'Copy'), h(K.Button, { icon: 'share' }, 'Save file')),
+        T.Grp(h(T.SRow, { check: true, label: 'I saved my recovery phrase somewhere safe' }))),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Continue')))),
+
+    h(T.Frame, { id: 'M-06', label: 'Set PIN', flow: 'Six digits → "Enter it again" → match → M-07; mismatch shakes and restarts' }, h(T.Phone, null,
+      h(T.Top, { back: true }), h(T.MBody, { center: true, style: { gap: 18, justifyContent: 'flex-start', paddingTop: 24 } }, h(K.Icon, { name: 'key', size: 36, style: { color: 'var(--brass)' } }), H1('Set a PIN'), P('Use it when biometrics aren’t available.'), T.Pin(3), h('div', { style: { flex: 1 } }), T.Keypad(false)))),
+
+    h(T.Frame, { id: 'M-07', label: 'Biometrics', flow: 'Turn on (OS prompt) or Not now → M-08' }, h(T.Phone, null,
+      h(T.MBody, { center: true, style: { gap: 18 } }, h('div', { className: 'kt-bio' }, h(K.Icon, { name: 'fingerprint', size: 40 })), H1('Unlock with your fingerprint'), P('Faster than a PIN. Your fingerprint never leaves this phone.')),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Turn on'), h(K.Button, { variant: 'ghost', size: 'lg', block: true }, 'Not now')))),
+
+    h(T.Frame, { id: 'M-08', label: 'Turn on autofill', flow: 'Open settings deep-links to the OS page; returning detects the change → M-09' }, h(T.Phone, null,
+      h(T.MBody, { style: { gap: 16, paddingTop: 24 } }, h(K.Icon, { name: 'key', size: 36, style: { color: 'var(--brass)' } }), H1('Fill passwords in any app'), P('Make Kandado your autofill service. It takes four taps.'),
+        T.Rows([{ lead: h('b', { className: 'kt-id' }, '1'), label: 'Open Settings' }, { lead: h('b', { className: 'kt-id' }, '2'), label: 'Passwords and accounts' }, { lead: h('b', { className: 'kt-id' }, '3'), label: 'Autofill service' }, { lead: h('b', { className: 'kt-id' }, '4'), label: 'Choose Kandado' }])),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Open settings'), h(K.Button, { variant: 'ghost', size: 'lg', block: true }, 'Later')))),
+
+    h(T.Frame, { id: 'M-09', label: 'Import (first run)', flow: 'Pick a source → M-63 · Skip → M-18 empty vault' }, h(T.Phone, null,
+      h(T.MBody, { style: { gap: 14, paddingTop: 24 } }, H1('Bring your passwords'), P('Moving from another manager? Import everything in one go.'), T.Set.importSrc()),
+      Foot(h(K.Button, { variant: 'ghost', size: 'lg', block: true }, 'Skip for now')))),
+
+    h(T.Frame, { id: 'M-10', label: 'Unlock, biometrics', flow: 'Success → last screen · Use PIN → M-11' }, h(T.Phone, null,
+      h(T.MBody, { center: true, style: { gap: 14 } }, h(K.Logo, { size: 64 }), H1('Welcome back'), P('juan.delacruz@gmail.com'), h('div', { style: { flex: 1 } }), h('div', { className: 'kt-bio' }, h(K.Icon, { name: 'fingerprint', size: 40 }))),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Unlock with fingerprint'), h(K.Button, { variant: 'ghost', size: 'lg', block: true }, 'Use PIN')))),
+
+    h(T.Frame, { id: 'M-11', label: 'Unlock, PIN', flow: 'Correct → last screen · wrong → M-12 · fingerprint key retries biometrics' }, h(T.Phone, null,
+      h(T.MBody, { center: true, style: { gap: 18, justifyContent: 'flex-start', paddingTop: 40 } }, h(K.Logo, { size: 48 }), H1('Enter your PIN'), T.Pin(4), h('div', { style: { flex: 1 } }), T.Keypad(true), h('a', { className: 'kt-link' }, 'Use account password')))),
+
+    h(T.Frame, { id: 'M-12', label: 'Wrong PIN', flow: 'Dots shake and clear. After 5 wrong tries → M-13' }, h(T.Phone, null,
+      h(T.MBody, { center: true, style: { gap: 18, justifyContent: 'flex-start', paddingTop: 40 } }, h(K.Logo, { size: 48 }), H1('Enter your PIN'), T.Pin(6, true), h(K.Badge, { tone: 'danger' }, 'Wrong PIN. 2 tries left.'), h('div', { style: { flex: 1 } }), T.Keypad(true), h('a', { className: 'kt-link' }, 'Use account password')))),
+
+    h(T.Frame, { id: 'M-13', label: 'Locked out', flow: 'PIN is disabled until the account password is entered → M-14' }, h(T.Phone, null,
+      h(T.MBody, { center: true, style: { gap: 16 } }, h('div', { className: 'kt-empty-ic kt-tone-danger' }, h(K.Icon, { name: 'lock', size: 28 })), H1('Too many tries'), P('For your safety, PIN unlock is off. Unlock with your account password to turn it back on.')),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Unlock with password'), h(K.Button, { variant: 'ghost', size: 'lg', block: true }, 'Sign out')))),
+
+    h(T.Frame, { id: 'M-14', label: 'Unlock, password', flow: 'Unlock → M-15 · Forgot → recovery phrase flow' }, h(T.Phone, null,
+      h(T.MBody, { style: { gap: 16, paddingTop: 40 } }, h(K.Logo, { size: 48 }), H1('Unlock Kandado'), P('juan.delacruz@gmail.com'), T.TF('Account password', 'Bahay-kubo-2026!', { type: 'password', icon: 'lock', trailing: eye }), h('a', { className: 'kt-link' }, 'Forgot password? Use recovery phrase')),
+      Foot(h(K.Button, { variant: 'primary', size: 'lg', block: true }, 'Unlock'))))
+  ];
+  ReactDOM.createRoot(document.getElementById('root')).render(h(T.Canvas, { cols: 5, title: 'Mobile: first run and unlock', intro: 'From install to an unlocked vault. Captions name the next screen; IDs match screens.md.' }, frames));
+</script>
+</body>
+</html>

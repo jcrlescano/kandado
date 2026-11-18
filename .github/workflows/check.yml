@@ -1,0 +1,126 @@
+# Runs on pull requests, on manual dispatch and from the release workflow.
+# The same checks run locally with `pnpm check`.
+name: Check
+
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Lint, test and build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # The pnpm version comes from "packageManager" in package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          cache: true
+      # rust-toolchain.toml pins the version, components and the wasm32 target.
+      - name: Install Rust
+        run: rustup toolchain install --no-self-update
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: pnpm install --frozen-lockfile
+
+      - name: npm security audit
+        run: pnpm audit --audit-level low
+      - name: Rust security audit
+        run: |
+          cargo install cargo-audit --version 0.23.0 --locked
+          cargo audit
+
+      # The steps of `pnpm check`, split so a failure names the tool.
+      # Keep in sync with scripts/check.mjs.
+      - name: Biome
+        run: pnpm lint
+      - name: Generated files
+        run: pnpm check:generated
+      - name: rustfmt
+        run: cargo fmt --all --check
+      # The desktop app (package `kandado`) is Windows only, so Linux skips it.
+      - name: Clippy
+        run: cargo clippy --workspace $EXCLUDE --all-targets --locked -- -D warnings
+        env:
+          EXCLUDE: ${{ runner.os == 'Linux' && '--exclude kandado' || '' }}
+      # The backend tests need PostgreSQL 18, which only the Linux runner can
+      # start (a container). Windows skips the backend crate.
+      - name: Start PostgreSQL
+        if: runner.os == 'Linux'
+        run: |
+          docker run -d --name pg -p 54329:5432             -e POSTGRES_USER=kandado -e POSTGRES_PASSWORD=kandado -e POSTGRES_DB=kandado             postgres:18
+          for _ in $(seq 1 30); do
+            docker exec pg pg_isready -U kandado -d kandado && break
+            sleep 1
+          done
+      - name: Tests
+        run: cargo test --workspace $EXCLUDE --locked
+        env:
+          EXCLUDE: ${{ runner.os == 'Linux' && '--exclude kandado' || '--exclude kandado-server' }}
+          DATABASE_URL: postgres://kandado:kandado@127.0.0.1:54329/kandado
+
+      # Phase 1's exit criteria with the real server: two computers, one account,
+      # revoking a device, recovering with the phrase.
+      - name: Desktop end-to-end
+        if: runner.os == 'Linux'
+        env:
+          DATABASE_URL: postgres://kandado:kandado@127.0.0.1:54329/kandado
+        run: |
+          cargo build -p kandado-server --locked
+          cargo test -p kandado-app --test e2e --locked -- --ignored
+
+      # The same crypto vectors as the native tests, in WebAssembly in headless
+      # Chrome. Once is enough; the Linux runner ships Chrome and chromedriver.
+      - name: WebAssembly tests in a browser
+        if: runner.os == 'Linux'
+        env:
+          CHROMEDRIVER: /usr/bin/chromedriver
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.130 --locked
+          cargo test -p kandado-wasm --target wasm32-unknown-unknown --locked
+
+      # The extension: types, unit tests (they build the WebAssembly core with
+      # the test helpers first) and a build of every browser's folder.
+      - name: Extension types and tests
+        if: runner.os == 'Linux'
+        run: |
+          node src/extensions/node_modules/typescript/bin/tsc -p src/extensions --noEmit
+          node src/extensions/node_modules/vitest/vitest.mjs run --root src/extensions
+      - name: Extension build
+        if: runner.os == 'Linux'
+        run: node scripts/build-extension.mjs
+      # The built extension in a real browser, against the fake server the tests
+      # start. Branded Chrome no longer loads unpacked extensions, so CI uses
+      # Playwright's own Chromium, headed under a virtual display.
+      - name: Extension end-to-end
+        if: runner.os == 'Linux'
+        env:
+          KANDADO_BROWSER_CHANNEL: chromium
+        run: |
+          node scripts/build-extension.mjs --dev --browser=edge --skip-wasm --server=http://127.0.0.1:8787
+          cd src/extensions
+          node node_modules/@playwright/test/cli.js install --with-deps chromium
+          xvfb-run --auto-servernum node node_modules/@playwright/test/cli.js test

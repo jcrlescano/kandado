@@ -1,0 +1,18 @@
+<!-- @dsCard group="Items" height=384 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ItemRow — preview</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo-col', style: { maxWidth: 380, gap: 2, background: 'var(--surface-100)' }, role: 'listbox', 'aria-label': 'Items' },
+      h(K.ItemRow, { kind: 'login', letter: 'G', title: 'GitHub', subtitle: 'juan-dc', selected: true, favorite: true, onCopy: function () {} }),
+      h(K.ItemRow, { kind: 'login', letter: 'S', title: 'Shopee', subtitle: 'juan.delacruz@kandado.me', badge: h(K.Badge, { tone: 'danger' }, 'Breached'), onCopy: function () {} }),
+      h(K.ItemRow, { kind: 'alias', title: 'Newsletter alias', subtitle: 'quiet.lantern42@kandado.me' }),
+      h(K.ItemRow, { kind: 'card', title: 'BPI Visa', subtitle: '•••• 4821' }),
+      h(K.ItemRow, { kind: 'note', title: 'Wi-Fi at home', subtitle: 'Network: Bahay-5G' }),
+      h(K.ItemRow, { kind: 'identity', title: 'Juan Dela Cruz', subtitle: 'Personal identity', dense: true })));
+</script>
+</body>
+</html>

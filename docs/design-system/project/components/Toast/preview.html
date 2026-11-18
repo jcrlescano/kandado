@@ -1,0 +1,12 @@
+<!-- @dsCard group="Status" height=208 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Toast — preview</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo-col', style: { alignItems: 'flex-start' } }, h(K.Toast, null, 'Password copied. Clears in 60 s.'), h(K.Toast, { icon: 'trash', action: 'Undo' }, 'Moved to trash'), h(K.Toast, { tone: 'danger' }, 'Couldn\u2019t sync. Retrying.')));
+</script>
+</body>
+</html>

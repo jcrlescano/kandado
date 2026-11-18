@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Sign in to Local</title>
+<style>body{font:16px system-ui;margin:40px}label{display:block;margin:12px 0 4px}input{font:inherit;padding:8px;width:280px}</style></head>
+<body>
+<h1>Sign in to Local</h1>
+<form id="signin" action="/session" method="post" onsubmit="event.preventDefault()">
+  <label for="login">Username or email</label>
+  <input id="login" name="login" autocomplete="username">
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password">
+  <p><button type="submit">Sign in</button></p>
+</form>
+<!-- What a framework sees: the value it tracks through input events. -->
+<p>Tracked: <output id="tracked"></output></p>
+<script>
+  for (const id of ["login", "password"]) {
+    document.getElementById(id).addEventListener("input", () => {
+      document.getElementById("tracked").textContent =
+        `${document.getElementById("login").value}|${document.getElementById("password").value.length}`;
+    });
+  }
+</script>
+</body>
+</html>

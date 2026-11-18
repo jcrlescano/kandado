@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Two-factor authentication</title>
+<style>body{font:16px system-ui;margin:40px}label{display:block;margin:12px 0 4px}input{font:inherit;padding:8px;width:280px}</style></head>
+<body>
+<h1>Two-factor authentication</h1>
+<form id="otp" onsubmit="event.preventDefault()">
+  <label for="code">Authentication code</label>
+  <input id="code" name="otp" autocomplete="one-time-code" inputmode="numeric" maxlength="6">
+  <p><button type="submit">Verify</button></p>
+</form>
+</body>
+</html>

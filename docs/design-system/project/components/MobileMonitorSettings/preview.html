@@ -1,0 +1,31 @@
+<!-- @dsCard group="Screens · Mobile" height=4280 width=2100 page subtitle="M-52 to M-67: Monitor and every settings page" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Mobile: Monitor and settings — Kandado</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, T = K.Kit, h = React.createElement;
+  function Page(title, body, o) { o = o || {}; return h(T.Phone, { tabs: o.tabs, full: o.full }, T.MPage(title, body, o)); }
+  var frames = [
+    h(T.Frame, { id: 'M-52', label: 'Monitor overview', flow: 'Monitor tab · each row opens its list · tab shows a dot while issues remain' }, h(T.Phone, { tabs: 2, full: true }, h(T.Top, { title: 'Monitor', large: true }), h(T.MBody, null, T.Feat.monitor()))),
+    h(T.Frame, { id: 'M-53', label: 'Breach detail', flow: 'Change password opens the site in the browser · Mark as resolved removes the alert' }, Page('Breach', T.Feat.breach(), { full: true })),
+    h(T.Frame, { id: 'M-54', label: 'Weak passwords', flow: 'Row → item · changing the password removes it here' }, Page('Weak passwords', T.Feat.weak())),
+    h(T.Frame, { id: 'M-55', label: 'Reused passwords', flow: 'Grouped by shared password · fix all but one' }, Page('Reused passwords', T.Feat.reused())),
+    h(T.Frame, { id: 'M-56', label: 'Missing two-factor', flow: 'Add code → M-35 for that login' }, Page('Missing two-factor', T.Feat.twofa())),
+    h(T.Frame, { id: 'M-57', label: 'Email monitoring', flow: 'Add address sends a verification code first' }, Page('Email monitoring', T.Feat.emails())),
+    h(T.Frame, { id: 'M-58', label: 'Settings', flow: 'Settings tab · each row → its page · Sign out → M-67' }, h(T.Phone, { tabs: 3, full: true }, h(T.Top, { title: 'Settings', large: true }), h(T.MBody, null, T.Set.root()))),
+    h(T.Frame, { id: 'M-59', label: 'Security', flow: 'Lock after: Immediately, 1, 5, 15, 60 min, Never · Change PIN asks for the current PIN' }, Page('Security', T.Set.security())),
+    h(T.Frame, { id: 'M-60', label: 'Autofill', flow: 'Banner turns warning when Kandado is not the OS autofill service' }, Page('Autofill', T.Set.autofill(), { full: true })),
+    h(T.Frame, { id: 'M-61', label: 'Appearance', flow: 'Theme applies instantly' }, Page('Appearance', T.Set.appearance())),
+    h(T.Frame, { id: 'M-62', label: 'Aliases settings', flow: 'Add mailbox sends a verification email · custom domains need DNS records (shown on tap)' }, Page('Aliases', T.Set.aliases())),
+    h(T.Frame, { id: 'M-63', label: 'Import', flow: 'Pick file → progress → result · Review lists skipped items' }, Page('Import from Proton Pass', T.Set.importRun())),
+    h(T.Frame, { id: 'M-64', label: 'Export', flow: 'Requires the account password · file goes to the OS share sheet' }, Page('Export', T.Set.exportBody())),
+    h(T.Frame, { id: 'M-65', label: 'Devices', flow: 'Sign out of one device or all others' }, Page('Devices', T.Set.devices())),
+    h(T.Frame, { id: 'M-66', label: 'Account', flow: 'Delete account asks for the password and typing DELETE' }, Page('Account', T.Set.account())),
+    h(T.Frame, { id: 'M-67', label: 'Sign out dialog', flow: 'Sign out → M-01; local encrypted data is removed from this device' }, h(T.Phone, { tabs: 3, overlay: h(T.Dialog, { icon: 'logout', tone: 'danger', title: 'Sign out of Kandado?', body: 'Your vault stays safe in your account. This phone forgets it until you sign in again.', stack: true, actions: [['Cancel'], ['Sign out', 'danger']] }) }, h(T.Top, { title: 'Settings', large: true }), h(T.MBody, null, T.Set.root())))
+  ];
+  ReactDOM.createRoot(document.getElementById('root')).render(h(T.Canvas, { cols: 5, title: 'Mobile: Monitor and settings', intro: 'Monitor finds weak spots; settings control unlock, autofill, aliases, import and export.' }, frames));
+</script>
+</body>
+</html>

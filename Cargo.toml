@@ -1,0 +1,46 @@
+[workspace]
+resolver = "3"
+# Crates are added here as each one is scaffolded (see docs/architecture/README.md).
+members = [
+  "src/desktop/crates/kandado-vault",
+  "src/desktop/crates/kandado-app",
+  "src/desktop/crates/kandado-bridge",
+  "src/shared/kandado-crypto",
+  "src/shared/kandado-model",
+  "src/shared/kandado-protocol",
+  "src/extensions/wasm",
+  "src/backend/kandado-server",
+  "src/desktop/host",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100.0"
+license = "AGPL-3.0-or-later"
+authors = ["Kandado contributors"]
+publish = false
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+opt-level = 3
+panic = "abort"
+strip = true
+
+[profile.dev]
+debug = "line-tables-only"
+
+# Dependencies build once and are cached, so optimise them. Argon2id in
+# particular is unusably slow at opt-level 0.
+[profile.dev.package."*"]
+opt-level = 2
+debug = false

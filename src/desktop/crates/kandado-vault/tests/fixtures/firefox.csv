@@ -1,0 +1,3 @@
+"url","username","password","httpRealm","formActionOrigin","guid","timeCreated","timeLastUsed","timePasswordChanged"
+"https://github.com","juan-dc","gh-pass-1","","https://github.com","{guid-1}","1700000000000","1700000000000","1700000000000"
+"https://netflix.com","family@example.test","nf-pass","","https://netflix.com","{guid-2}","1700000000000","1700000000000","1700000000000"

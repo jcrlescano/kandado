@@ -1,0 +1,17 @@
+[
+  {
+    "user": "42424242424242424242424242424242",
+    "password": "correct horse battery staple",
+    "phrase": "model panic isolate submit yard upgrade vocal custom version plate name escape",
+    "user_key": "f4f0df046c10af762a6141f9526d7eab861494990a769a15726b039825749f4f",
+    "version": 1,
+    "kdf_salt": "528d725bd107be7d1a0fe186d93123e3",
+    "memory_kib": 19456,
+    "iterations": 2,
+    "parallelism": 1,
+    "user_key_by_master": "01221ed64fdd8d1973d63d8066ac9c7c637f8ca80969b66e14873c7b092cea9ee1936c6273aaa537dc3626e48d7a8845cb8e030056e85cf63d67e39597d9a2843175a52031e31683f3",
+    "user_key_by_recovery": "018703d7e8249a5f432a37e249de402809ac81d45dd2684fce1b72e265aecea51b9d6eab221054012bcc6987a43611e26adf5367d877d5b6739b3b8821d4efe2a868638b877c9ff985",
+    "public_x25519": "0797d629341c18e15ed029bdd5300021c97b993f7e0466c6c4eb480038db436e",
+    "private_keys_enc": "01241ef85b936a91b0e75b8dfd610da48e14881f6b67b80ede661aaaa4015ae652f793c5df4a0431e1c27233656a5c8c689af0cf0b5ef0bd876c50bf8383426141d7154ea1dff1defc"
+  }
+]

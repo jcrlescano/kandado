@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Payment</title>
+<style>body{font:16px system-ui;margin:40px}label{display:block;margin:12px 0 4px}input{font:inherit;padding:8px;width:280px}</style></head>
+<body>
+<h1>Payment</h1>
+<form id="pay" onsubmit="event.preventDefault()">
+  <label for="number">Card number</label>
+  <input id="number" name="cardnumber" autocomplete="cc-number" inputmode="numeric">
+  <label for="holder">Name on card</label>
+  <input id="holder" name="ccname" autocomplete="cc-name">
+  <label for="exp">Expiry</label>
+  <input id="exp" name="exp" autocomplete="cc-exp" placeholder="MM / YY">
+  <label for="cvc">Security code</label>
+  <input id="cvc" name="cvc" autocomplete="cc-csc">
+  <p><button type="submit">Pay</button></p>
+</form>
+</body>
+</html>

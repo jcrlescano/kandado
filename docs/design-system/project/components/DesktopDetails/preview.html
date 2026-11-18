@@ -1,0 +1,20 @@
+<!-- @dsCard group="Screens · Desktop" height=3450 width=2504 page subtitle="D-07 to D-13: item detail for every kind" -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Desktop: item details — Kandado</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, T = K.Kit, h = React.createElement;
+  var kinds = [['D-07', 'login', 'Login detail', 'Ctrl B copies username, Ctrl C password, Ctrl T code · Edit → D-19 · ⋯ → Share, Move, History (D-16), Duplicate, Trash'],
+    ['D-08', 'alias', 'Alias detail', 'Toggle stops forwarding at once · Edit → D-21'],
+    ['D-09', 'card', 'Card detail', 'Concealed fields reveal per field; clipboard clears after 60 s · Edit → D-22'],
+    ['D-10', 'note', 'Note detail', 'Edit → D-23'],
+    ['D-11', 'identity', 'Identity detail', 'Edit → D-24'],
+    ['D-12', 'password', 'Password detail', '⋯ › Save as login'],
+    ['D-13', 'passkey', 'Passkey detail', '⋯ › Delete passkey (confirm)']];
+  var frames = kinds.map(function (k) { return h(T.Frame, { key: k[0], id: k[0], label: k[2], flow: k[3], wide: true }, T.DDetail(k[1])); });
+  ReactDOM.createRoot(document.getElementById('root')).render(h(T.Canvas, { cols: 2, title: 'Desktop: item details', intro: 'Three panes: sidebar, list, detail. The selected row has the brass bar; the detail pane scrolls on its own.' }, frames));
+</script>
+</body>
+</html>

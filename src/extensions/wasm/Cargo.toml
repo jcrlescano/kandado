@@ -1,0 +1,39 @@
+[package]
+name = "kandado-wasm"
+description = "WebAssembly facade over the shared Kandado crates, for the browser extension."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# The stateless crypto functions the shared vectors call. The extension build
+# turns it off, so no function that takes or returns a raw key is exported.
+default = ["vectors"]
+vectors = []
+# Makes accounts and vaults inside the session, so the TypeScript tests can build
+# a world to sync. Never in the extension build.
+testing = []
+
+[dependencies]
+# Not used directly: turns on the browser random source for every crate in the build.
+getrandom = { version = "=0.4.3", features = ["wasm_js"] }
+kandado-crypto = { path = "../../shared/kandado-crypto" }
+kandado-model = { path = "../../shared/kandado-model" }
+kandado-protocol = { path = "../../shared/kandado-protocol" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+uuid = { version = "=1.29.2", default-features = false }
+wasm-bindgen = "=0.2.130"
+
+[dev-dependencies]
+hex = "=0.4.3"
+wasm-bindgen-test = "=0.3.80"
+
+[lints]
+workspace = true

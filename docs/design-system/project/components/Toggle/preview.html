@@ -1,0 +1,15 @@
+<!-- @dsCard group="Inputs" height=168 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Toggle — preview</title></head>
+<body>
+<div id="root"></div>
+<script>
+  var K = window.Kandado, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo-col', style: { maxWidth: 420, gap: 4 } },
+      h(K.Toggle, { label: 'Unlock with Windows Hello', defaultChecked: true }),
+      h(K.Toggle, { label: 'Lock on sleep', description: 'Kandado locks when your device sleeps.' }),
+      h(K.Toggle, { label: 'Clear clipboard after 60 s', defaultChecked: true, disabled: true })));
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+{
+  "context": [
+    {
+      "purpose": 1,
+      "owner": "11111111111111111111111111111111",
+      "object": "00000000000000000000000000000000",
+      "format": 1,
+      "bytes": "6b616e6461646f01011111111111111111111111111111111100000000000000000000000000000000"
+    },
+    {
+      "purpose": 8,
+      "owner": "00000000000000000000000000000000",
+      "object": "22222222222222222222222222222222",
+      "format": 1,
+      "bytes": "6b616e6461646f08010000000000000000000000000000000022222222222222222222222222222222"
+    },
+    {
+      "purpose": 10,
+      "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "object": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "format": 255,
+      "bytes": "6b616e6461646f0affaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "purpose": 11,
+      "owner": "00000000000000000000000000000000",
+      "object": "00000000000000000000000000000000",
+      "format": 1,
+      "bytes": "6b616e6461646f0b010000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "aead": [
+    {
+      "key": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "context": {
+        "purpose": 8,
+        "owner": "00000000000000000000000000000000",
+        "object": "22222222222222222222222222222222",
+        "format": 1
+      },
+      "plaintext": "",
+      "blob": "01f97e9af48a5d0ef83752edd42c00ec3730ec3c5f58d26b9862e490be914adfe98cc0080207d4f4f6"
+    },
+    {
+      "key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "context": {
+        "purpose": 8,
+        "owner": "00000000000000000000000000000000",
+        "object": "22222222222222222222222222222222",
+        "format": 1
+      },
+      "plaintext": "7b227469746c65223a224578616d706c65222c2270617373776f7264223a2268756e74657232227d",
+      "blob": "01c749a609f870fed0beeba95bd2ae8ce364583ea30670443f8dc95a20e6b04e2b88e54abdccce2be0af4bfd0e21aab5b15fbf1c38fa4eb13b2929c54f5ad3ffd7995c682f5dddae8752656a1853165986"
+    },
+    {
+      "key": "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+      "context": {
+        "purpose": 10,
+        "owner": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "object": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "format": 255
+      },
+      "plaintext": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "blob": "01e3d475b58e696caaea4b41cc59a8e5a72a514133943b6e9fd50ce4e6dcbadcad74768916f4063991b62a7bf76c39bbd30d692638431ffb621116f90bb8363d460dcb270848775831059cb14a97fbe8898ac0fd2168e6def7d5ac1dfd9209a7536314caeb17e562ecd1b64f0ba198ba3e8309a57f52ccda35bf2dc1ad60343efae7367068ab8653da450d369cd9bcaa97bf7ff5a391b6e54db276628d5e6c509c89252bb7323b1e0f749a6ad9aceda1a16e48b542582987db66b64eefbb1c8c51c6f7b0407f83b89acb2b04284ff5d6ec9cbd7f93494d39baa4c98a63839261866431fb1131453b54de93b8a587f5b9c6c951f608cfce2f63ce603d4982f1f68130ad86fa385253e363ac54fbdd5cb8432dc4d27cce42ca72ee14b4b35a931dc8f796ccf6e945a48fa30e6cdb9afda58f924ee96716174f11ae7f856843f36b9403b298cb5f583beb65920d9c56961069680c1991"
+    }
+  ],
+  "kdf": [
+    {
+      "password": "correct horse battery staple",
+      "salt": "01010101010101010101010101010101",
+      "memory_kib": 19456,
+      "iterations": 2,
+      "parallelism": 1,
+      "key": "eb641d1b946edf14c62d7dca0578e4dc9236cb4aaf2bfe103e9751bc8ac66242"
+    },
+    {
+      "password": "pässwörd ✓ 密码",
+      "salt": "02020202020202020202020202020202",
+      "memory_kib": 65536,
+      "iterations": 3,
+      "parallelism": 1,
+      "key": "8450fd76d1989b33f61ec084f7ca3aa950677ebbc5c0fe24c0762810130dbebc"
+    }
+  ],
+  "wrap": [
+    {
+      "wrapping_key": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "context": {
+        "purpose": 1,
+        "owner": "11111111111111111111111111111111",
+        "object": "00000000000000000000000000000000",
+        "format": 1
+      },
+      "key": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+      "blob": "017d553c9892eab1f73ca17755e0390052f647da77cdacddce5cc3a43a9b304bfe89e5a1d0736bdfa71c692315eb2180387ee86020877e41fa4d20354fc93a710115906a99c2b9c10f"
+    }
+  ],
+  "seal": [
+    {
+      "private_key": "f84e2cdca08b2a9ded213fbf7f314fe0e9fb0aa5ef9cb6c875dfc2e21dd16452",
+      "public_key": "37a7d8e1f4f236db6b0cbaa7ace45dda4f961396772b6ee2f6f79532aa025e3b",
+      "context": {
+        "purpose": 5,
+        "owner": "33333333333333333333333333333333",
+        "object": "44444444444444444444444444444444",
+        "format": 1
+      },
+      "plaintext": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+      "blob": "018ecdef1dab41d201557f9390b5d8fb1437f7346e23ab001a60e05d633670206c5cd147b4fb20bb96e087fedbec393cec7ec07618a703df4df459685d133a21aa8f6230c03246cf3b6ce29402a0c9473c"
+    }
+  ],
+  "recovery": [
+    {
+      "phrase": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "key": "fc20fcace5d716a18a8270606b9c1086bba718dca98cbb285d31b9a1d8330d26"
+    },
+    {
+      "phrase": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+      "key": "2947f39823f6c9e67900665487ddfd0a666822855c8645346430231d6b7e974c"
+    },
+    {
+      "phrase": "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong",
+      "key": "e64f32dbd73c1926d8d224389d3acd921e11c919075af9a966d04acd37560d57"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+url,username,password,extra,name,grouping,fav
+https://github.com,juan-dc,gh-pass-1,Work account,GitHub,Work,1
+http://sn,,,"NoteType:Server
+Hostname:db.example.test
+Password:s3cret",Database server,Servers,0
+https://netflix.com,family@example.test,nf-pass,,Netflix,,0
+,,,,,,

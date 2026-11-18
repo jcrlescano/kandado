@@ -1,0 +1,4 @@
+type,name,url,email,username,password,note,totp,createTime,modifyTime,vault
+login,GitHub,https://github.com,juan@example.test,juan-dc,gh-pass-1,Work account,otpauth://totp/GitHub:juan?secret=JBSWY3DPEHPK3PXP,2026-01-01,2026-01-02,Personal
+note,Wi-Fi at home,,,,,Network: Bahay-5G,,2026-01-01,2026-01-02,Personal
+login,Jira,https://acme.atlassian.net,juan@acme.test,,jira-pass,,,2026-01-01,2026-01-02,Work

@@ -1,0 +1,2 @@
+Title,URL,Username,Password,Notes,OTPAuth
+github.com (juan-dc),https://github.com,juan-dc,gh-pass-1,my note,otpauth://totp/GitHub:juan?secret=JBSWY3DPEHPK3PXP
