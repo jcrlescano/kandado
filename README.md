@@ -148,7 +148,6 @@ Skip a half with `--no-rust` or `--no-js`. Other useful scripts:
 | --- | --- |
 | [docs/design-system/](docs/design-system/project/README.md) | What Kandado looks like and says: tokens, components, screens |
 | [docs/architecture/](docs/architecture/README.md) | How Kandado is built: crates, key hierarchy, API, schema |
-| [docs/implementation-plan/](docs/implementation-plan/README.md) | In what order it is built: phases, exit criteria, open decisions |
 
 ## License
 
