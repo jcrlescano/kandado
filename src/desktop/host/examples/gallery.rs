@@ -1,16 +1,17 @@
 //! Every design system component in one window, for comparison with the
 //! previews in `docs/design-system`. `cargo run -p kandado --example gallery`
 //!
-//! `--paper` starts in the light theme; the button in the title bar switches.
+//! It starts in the light theme (Enamel); `--dark` starts in Graphite. The
+//! button in the title bar switches.
 
 use gpui_kit::*;
 use kandado_host::{assets::Assets, gallery::Gallery, theme};
 
 fn main() {
-    let kind = if std::env::args().any(|arg| arg == "--paper") {
-        theme::ThemeKind::Paper
+    let kind = if std::env::args().any(|arg| arg == "--dark") {
+        theme::ThemeKind::Graphite
     } else {
-        theme::ThemeKind::Vault
+        theme::ThemeKind::Enamel
     };
     gpui_kit::application().with_assets(Assets).run(move |cx| {
         gpui_kit::init(cx);

@@ -109,10 +109,10 @@ test("pair with the code, unlock with the desktop app, and lock and unlock toget
   await popup.bringToFront();
   await popup.getByRole("button", { name: "Lock now" }).click();
   await expect(
-    popup.getByRole("button", { name: "Unlock with desktop app" }).first(),
+    popup.getByRole("button", { name: "Unlock with the desktop app" }).first(),
   ).toBeVisible();
   await both(popup, "E-02-desktop");
-  await popup.getByRole("button", { name: "Unlock with desktop app" }).first().click();
+  await popup.getByRole("button", { name: "Unlock with the desktop app" }).first().click();
   await expect(popup.getByRole("option", { name: /GitHub/ })).toBeVisible();
 
   // The desktop app locks: so does the extension. It unlocks: so does the extension.
@@ -123,7 +123,10 @@ test("pair with the code, unlock with the desktop app, and lock and unlock toget
     .poll(
       async () => {
         await popup.reload();
-        return popup.getByRole("button", { name: "Unlock with desktop app" }).first().isVisible();
+        return popup
+          .getByRole("button", { name: "Unlock with the desktop app" })
+          .first()
+          .isVisible();
       },
       { timeout: 15_000 },
     )

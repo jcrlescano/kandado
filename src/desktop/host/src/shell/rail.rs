@@ -22,10 +22,11 @@ use super::{
 use crate::{
     assets::IconName,
     components::{
-        Button, ButtonSize, ButtonVariant, Dialog, EmptyState, FilterChip, Hue, Icon, IconButton,
-        ItemIcon, ItemRow, NavItem, Tone, check, kbd, radio, section_label, window_layer,
+        Button, ButtonSize, ButtonVariant, Dialog, EmptyState, Hue, Icon, IconButton,
+        IconButtonVariant, ItemIcon, ItemRow, LightState, NavItem, Segmented, StatusLight, Tone,
+        check, hardware::lip, kbd, panel, radio, raised, section_label, well, window_layer,
     },
-    theme::{DISPLAY_FACE, KandadoTheme, TextStyles as _, color, focus_ring, shadow, tokens},
+    theme::{KandadoTheme, TextStyles as _, color, focus_ring, shadow, tokens},
     views::{
         Nav, heading,
         items::detail::letter,
@@ -47,83 +48,46 @@ pub const CREATE_KINDS: [(ItemKind, &str); 5] = [
 /// The list's filter chips.
 const FILTERS: [(Option<ItemKind>, &str); 5] = [
     (None, "All"),
-    (Some(ItemKind::Login), "Logins"),
-    (Some(ItemKind::Card), "Cards"),
-    (Some(ItemKind::Note), "Notes"),
-    (Some(ItemKind::Identity), "Identities"),
+    (Some(ItemKind::Login), "Login"),
+    (Some(ItemKind::Card), "Card"),
+    (Some(ItemKind::Note), "Note"),
+    (Some(ItemKind::Identity), "ID"),
 ];
 
-fn count(n: usize, cx: &gpui_kit::App) -> impl IntoElement {
+/// A count at the end of a navigation entry (`hw-count`): mono, engraved.
+fn count(text: impl Into<SharedString>) -> impl IntoElement {
     div()
-        .text_size(px(12.))
-        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-        .text_color(color(cx.palette().ink_muted))
-        .child(n.to_string())
-}
-
-/// The coloured dot that stands for a vault in the sidebar.
-fn vault_dot(hue: Hue, icon: IconName, cx: &gpui_kit::App) -> impl IntoElement {
-    let (ink, ground) = hue.colors(cx.palette());
-    div()
-        .flex()
-        .flex_none()
-        .items_center()
-        .justify_center()
-        .size(px(24.))
-        .rounded(px(tokens::RADIUS_PILL))
-        .bg(ground)
-        .child(Icon::new(icon).size(px(14.)).color(ink))
+        .font_family(tokens::FONT_MONO)
+        .text_size(px(11.))
+        .opacity(0.8)
+        .child(text.into())
 }
 
 impl VaultShell {
+    /// The vault panel (`Desktop-Sidebar` board): vaults as raised keys with
+    /// their light, the tools, and the account in a well at the bottom. Below
+    /// `RAIL_BREAKPOINT` it narrows to icons.
     pub(super) fn sidebar(&self, rail: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let p = cx.palette();
-        let nav =
+        let heading = |text: &'static str| {
+            div()
+                .px(px(4.))
+                .py(px(2.))
+                .when(rail, |heading| heading.invisible().h(px(1.)))
+                .child(section_label(text, cx))
+        };
+        let tool =
             |id: &'static str, icon: IconName, label: &str, place: Place, n: Option<usize>| {
                 NavItem::new(id, icon, label.to_owned())
                     .rail(rail)
                     .selected(self.place == place)
-                    .when_some(n, |item, n| item.trailing(count(n, cx)))
+                    .when_some(n, |item, n| item.trailing(count(n.to_string())))
                     .on_click(cx.listener(move |this, _, window, cx| this.go(place, window, cx)))
             };
-        let heading = |text: &'static str| {
-            div()
-                .mt(px(tokens::SPACE_4))
-                .mb(px(6.))
-                .px(px(tokens::SPACE_2))
-                .when(rail, |heading| heading.invisible().h(px(1.)))
-                .child(section_label(text, cx))
-        };
 
-        // Three parts: Create on top and the account at the bottom stay put;
-        // the vaults and tools between them scroll when there are many vaults.
-        let side = v_flex()
-            .id("sidebar")
-            .w(if rail { RAIL_WIDTH } else { SIDEBAR_WIDTH })
-            .flex_none()
-            .h_full()
-            .gap(px(2.))
-            .p(px(tokens::SPACE_3))
-            .when(rail, |side| side.items_center())
-            .bg(color(p.surface_100))
-            .border_r_1()
-            .border_color(color(p.line))
-            .child(if rail {
-                IconButton::new("create-item", IconName::Plus, "Create item")
-                    .variant(crate::components::IconButtonVariant::Primary)
-                    .on_click(cx.listener(|this, _, _, cx| this.open_create_menu(cx)))
-                    .into_any_element()
-            } else {
-                Button::new("create-item", "Create item")
-                    .primary()
-                    .icon(IconName::Plus)
-                    .block()
-                    .on_click(cx.listener(|this, _, _, cx| this.open_create_menu(cx)))
-                    .into_any_element()
-            });
         let mut list = v_flex()
             .w_full()
-            .gap(px(2.))
+            .gap(px(tokens::SPACE_2))
             .when(rail, |list| list.items_center())
             .child(
                 h_flex()
@@ -132,175 +96,169 @@ impl VaultShell {
                     .child(div().flex_1().child(heading("Vaults")))
                     .when(!rail, |row| {
                         row.child(
-                            div().mt(px(tokens::SPACE_3)).child(
-                                IconButton::new("new-vault", IconName::Plus, "Create vault")
-                                    .size(ButtonSize::Sm)
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.open_vault_dialog(None, window, cx)
-                                    })),
-                            ),
+                            IconButton::new("new-vault", IconName::Plus, "Create vault")
+                                .variant(IconButtonVariant::Secondary)
+                                .size(ButtonSize::Sm)
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.open_vault_dialog(None, window, cx)
+                                })),
                         )
                     }),
             )
-            .child(nav(
-                "nav-all",
-                IconName::Grid,
-                "All vaults",
-                Place::AllVaults,
-                Some(self.counts.0),
-            ));
+            .child(
+                NavItem::new("nav-all", IconName::Grid, "All vaults")
+                    .rail(rail)
+                    .raised(true)
+                    .selected(self.place == Place::AllVaults)
+                    .trailing(count(self.counts.0.to_string()))
+                    .on_click(
+                        cx.listener(|this, _, window, cx| this.go(Place::AllVaults, window, cx)),
+                    ),
+            );
         for (index, vault) in self.vaults.iter().enumerate() {
             let place = Place::Vault(vault.id);
             let id = vault.id;
             let selected = self.place == place;
-            let dot = vault_dot(hue_of(&vault.meta.colour), vault_icon(&vault.meta.icon), cx);
+            let light = hue_of(&vault.meta.colour).light(p);
             list = list.child(
-                h_flex()
-                    .id(("nav-vault", index))
-                    .group("vault-row")
-                    .items_center()
-                    .gap(px(10.))
-                    .h(px(40.))
-                    .when(rail, |row| row.w(px(40.)).justify_center())
-                    .when(!rail, |row| row.px(px(10.)))
-                    .rounded(px(tokens::RADIUS_MD))
-                    .cursor_pointer()
-                    .tab_index(0)
-                    .focus_visible(|row| row.shadow(focus_ring(p, p.surface_100)))
-                    .map(|row| {
-                        if selected {
-                            row.bg(color(p.brass_soft))
-                        } else {
-                            row.hover(|row| row.bg(color(p.surface_200)))
-                        }
-                    })
-                    .when(rail, |row| {
-                        let name: SharedString = vault.meta.name.clone().into();
-                        row.tooltip(move |window, cx| {
-                            gpui_kit::component::tooltip::Tooltip::new(name.clone())
-                                .build(window, cx)
+                NavItem::new(
+                    ("nav-vault", index),
+                    vault_icon(&vault.meta.icon),
+                    vault.meta.name.clone(),
+                )
+                .rail(rail)
+                .raised(true)
+                .light(light)
+                .selected(selected)
+                .trailing(
+                    h_flex()
+                        .items_center()
+                        .gap(px(6.))
+                        .when(selected, |end| {
+                            end.child(
+                                IconButton::new(
+                                    ("edit-vault", index),
+                                    IconName::Settings,
+                                    "Edit vault",
+                                )
+                                .variant(IconButtonVariant::Secondary)
+                                .size(ButtonSize::Sm)
+                                .on_click(cx.listener(
+                                    move |this, _, window, cx| {
+                                        cx.stop_propagation();
+                                        this.open_vault_dialog(Some(id), window, cx)
+                                    },
+                                )),
+                            )
                         })
-                    })
-                    .on_click(cx.listener(move |this, _, window, cx| this.go(place, window, cx)))
-                    .child(dot)
-                    .when(!rail, |row| {
-                        row.child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .truncate()
-                                .text_token(tokens::BODY_STRONG)
-                                .text_color(color(p.ink))
-                                .child(vault.meta.name.clone()),
-                        )
-                        .child(
-                            div()
-                                .invisible()
-                                .group_hover("vault-row", |edit| edit.visible())
-                                .when(selected, |edit| edit.visible())
-                                .child(
-                                    IconButton::new(
-                                        ("edit-vault", index),
-                                        IconName::Settings,
-                                        "Edit vault",
-                                    )
-                                    .size(ButtonSize::Sm)
-                                    .on_click(cx.listener(
-                                        move |this, _, window, cx| {
-                                            cx.stop_propagation();
-                                            this.open_vault_dialog(Some(id), window, cx)
-                                        },
-                                    )),
-                                ),
-                        )
-                        .child(count(vault.item_count, cx))
-                    }),
+                        .child(count(vault.item_count.to_string())),
+                )
+                .on_click(cx.listener(move |this, _, window, cx| this.go(place, window, cx))),
             );
         }
         let list = list
+            .child(div().h(px(10.)))
             .child(heading("Tools"))
-            .child(nav(
+            .child(tool(
                 "nav-monitor",
                 IconName::Shield,
-                "Monitor",
+                "Health",
                 Place::Monitor,
                 None,
             ))
-            .child(nav(
+            .child(tool(
                 "nav-trash",
                 IconName::Trash,
                 "Trash",
                 Place::Trash,
                 (self.counts.1 > 0).then_some(self.counts.1),
             ));
-        side.child(
-            div()
-                .id("sidebar-scroll")
-                .flex_1()
-                .min_h_0()
-                .w_full()
-                .overflow_y_scrollbar()
-                .child(list),
-        )
-        .child(
-            h_flex()
-                .items_center()
-                .gap(px(10.))
-                .pt(px(10.))
-                .border_t_1()
-                .border_color(color(p.line))
-                .when(rail, |foot| foot.justify_center())
-                .child(
-                    div()
-                        .flex()
-                        .flex_none()
-                        .items_center()
-                        .justify_center()
-                        .size(px(32.))
-                        .rounded(px(tokens::RADIUS_PILL))
-                        .bg(color(p.teal_soft))
-                        .text_color(color(p.teal))
-                        .font_family(DISPLAY_FACE)
-                        .font_weight(gpui_kit::FontWeight::BOLD)
+
+        let initial: String = self
+            .email
+            .chars()
+            .next()
+            .map(|c| c.to_uppercase().collect())
+            .unwrap_or_default();
+        let account = well(cx)
+            .flex()
+            .items_center()
+            .gap(px(10.))
+            .p(px(10.))
+            .when(rail, |foot| foot.justify_center().p(px(6.)))
+            .child(
+                div()
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .justify_center()
+                    .size(px(36.))
+                    .rounded(px(10.))
+                    .bg(color(p.dark_key))
+                    .text_color(color(p.on_dark_key))
+                    .shadow(vec![lip(p.dark_key_edge, 3.)])
+                    .font_family(tokens::FONT_SANS)
+                    .font_weight(gpui_kit::FontWeight::EXTRA_BOLD)
+                    .text_size(px(14.))
+                    .child(initial),
+            )
+            .when(!rail, |foot| {
+                foot.child(
+                    v_flex()
+                        .flex_1()
+                        .min_w_0()
                         .child(
-                            self.email
-                                .chars()
-                                .next()
-                                .map(|c| c.to_uppercase().collect::<String>())
-                                .unwrap_or_default(),
-                        ),
-                )
-                .when(!rail, |foot| {
-                    foot.child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .truncate()
-                                    .text_size(px(14.))
-                                    .text_color(color(p.ink))
-                                    .child(self.email.clone()),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(13.))
-                                    .text_color(color(p.ink_muted))
-                                    .child(crate::views::sync_text(
+                            div()
+                                .truncate()
+                                .text_size(px(13.))
+                                .font_weight(gpui_kit::FontWeight::BOLD)
+                                .text_color(color(p.ink))
+                                .child(self.email.clone()),
+                        )
+                        .child(
+                            div()
+                                .truncate()
+                                .font_family(tokens::FONT_MONO)
+                                .text_size(px(10.))
+                                .text_color(color(p.ink_2))
+                                .child(SharedString::from(
+                                    crate::views::sync_text(
                                         &self.services.app.sync_status(),
                                         kandado_app::vault::now(),
-                                    )),
-                            ),
-                    )
-                    .child(
-                        IconButton::new("open-settings", IconName::Settings, "Settings")
-                            .size(ButtonSize::Sm)
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.ask_settings(window, cx)),
-                            ),
-                    )
-                }),
-        )
+                                    )
+                                    .to_uppercase(),
+                                )),
+                        ),
+                )
+                .child(
+                    IconButton::new("open-settings", IconName::Settings, "Settings")
+                        .variant(IconButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .on_click(cx.listener(|this, _, window, cx| this.ask_settings(window, cx))),
+                )
+            });
+
+        // The vaults and tools scroll when there are many vaults; the account stays put.
+        panel(cx)
+            .id("sidebar")
+            .flex()
+            .flex_col()
+            .w(if rail { RAIL_WIDTH } else { SIDEBAR_WIDTH })
+            .flex_none()
+            .h_full()
+            .gap(px(tokens::SPACE_2))
+            .p(px(if rail { 10. } else { tokens::SPACE_4 }))
+            .when(rail, |side| side.items_center())
+            .child(
+                div()
+                    .id("sidebar-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .w_full()
+                    .overflow_y_scrollbar()
+                    .child(list),
+            )
+            .child(account)
     }
 
     fn row(&self, index: usize, cx: &mut Context<Self>) -> AnyElement {
@@ -359,6 +317,7 @@ impl VaultShell {
                 )
             })
             .child(div().flex_1().min_w_0().child(item))
+            .pb(px(4.))
             .text_color(color(p.ink))
             .into_any_element()
     }
@@ -370,19 +329,12 @@ impl VaultShell {
         let head = h_flex()
             .items_center()
             .gap(px(tokens::SPACE_2))
-            .pt(px(14.))
-            .pb(px(10.))
-            .pl(px(tokens::SPACE_4))
-            .pr(px(tokens::SPACE_3))
             .child(
                 div()
                     .flex_1()
                     .min_w_0()
                     .truncate()
-                    .font_family(DISPLAY_FACE)
-                    .text_size(px(18.))
-                    .line_height(px(24.))
-                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                    .text_token(tokens::HEADING)
                     .text_color(color(p.ink))
                     .child(self.place_title()),
             )
@@ -404,31 +356,34 @@ impl VaultShell {
                             .on_click(cx.listener(|this, _, _, cx| this.check_all(cx))),
                     )
                 },
-            );
-        let filters = h_flex()
-            .flex_wrap()
-            .gap(px(6.))
-            .px(px(tokens::SPACE_4))
-            .pb(px(10.))
-            .children(
-                FILTERS
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, (kind, label))| {
-                        FilterChip::new(("filter", index), label)
-                            .on(self.kind == kind)
-                            .on_click(cx.listener(move |this, _, _, cx| this.set_kind(kind, cx)))
-                    }),
-            );
+            )
+            .when(!trash && self.place != Place::Monitor, |head| {
+                head.child(
+                    Button::new("create-item", "New")
+                        .primary()
+                        .size(ButtonSize::Sm)
+                        .icon(IconName::Plus)
+                        .on_click(cx.listener(|this, _, _, cx| this.open_create_menu(cx))),
+                )
+            });
+        // The kind filter, as one segmented control (ALL, LOGIN, CARD…).
+        let selected = FILTERS
+            .iter()
+            .position(|(kind, _)| *kind == self.kind)
+            .unwrap_or(0);
+        let filters = Segmented::new("kind-filter", FILTERS.map(|(_, label)| label), selected)
+            .on_select({
+                let entity = cx.entity();
+                move |index, _, cx| {
+                    entity.update(cx, |this, cx| this.set_kind(FILTERS[index].0, cx));
+                }
+            });
         let bulk = (!self.checked.is_empty()).then(|| {
-            h_flex()
+            raised(cx)
+                .flex()
                 .items_center()
-                .mx(px(tokens::SPACE_2))
-                .mb(px(tokens::SPACE_2))
                 .px(px(tokens::SPACE_3))
                 .h(px(40.))
-                .rounded(px(tokens::RADIUS_MD))
-                .bg(color(p.brass_soft))
                 .text_token(tokens::BODY_STRONG)
                 .text_color(color(p.ink))
                 .child(
@@ -483,25 +438,27 @@ impl VaultShell {
             .into_any_element()
         };
 
-        v_flex()
+        panel(cx)
             .id("item-list")
+            .flex()
+            .flex_col()
             .w(LIST_WIDTH)
             .flex_none()
             .h_full()
-            .bg(color(p.surface_100))
-            .border_r_1()
-            .border_color(color(p.line))
+            .p(px(tokens::SPACE_4))
+            .gap(px(tokens::SPACE_3))
             .child(head)
             .when(!trash && self.place != Place::Monitor, |pane| {
                 pane.child(filters)
             })
             .when_some(bulk, |pane, bulk| pane.child(bulk))
             .child(
-                v_flex()
+                well(cx)
+                    .flex()
+                    .flex_col()
                     .flex_1()
                     .min_h_0()
-                    .px(px(tokens::SPACE_2))
-                    .pb(px(tokens::SPACE_2))
+                    .p(px(6.))
                     .child(body),
             )
     }
@@ -663,7 +620,7 @@ impl VaultShell {
                     .child(
                         div()
                             .text_token(tokens::BODY)
-                            .text_color(color(p.ink_muted))
+                            .text_color(color(p.ink_2))
                             .child(format!("Nothing matches \u{201c}{query}\u{201d}.")),
                     )
                     .child(
@@ -733,10 +690,10 @@ impl VaultShell {
             .id("search-results")
             .w(px(520.))
             .max_h(px(480.))
-            .rounded(px(tokens::RADIUS_LG))
+            .rounded(px(tokens::RADIUS_PANEL))
             .border_1()
-            .border_color(color(p.line))
-            .bg(color(p.surface_100))
+            .border_color(color(p.edge))
+            .bg(color(p.panel))
             .shadow(shadow(tokens::SHADOW_POP, cx.theme_kind()))
             .occlude()
             .child(
@@ -754,9 +711,9 @@ impl VaultShell {
                     .px(px(tokens::SPACE_4))
                     .py(px(tokens::SPACE_2))
                     .border_t_1()
-                    .border_color(color(p.line))
+                    .border_color(color(p.edge))
                     .text_token(tokens::SMALL)
-                    .text_color(color(p.ink_muted))
+                    .text_color(color(p.ink_2))
                     .child(hint("↑↓", "Move"))
                     .child(hint("Enter", "Open"))
                     .child(hint("Ctrl C", "Copy password"))
@@ -783,10 +740,10 @@ impl VaultShell {
             .left(px(tokens::SPACE_3))
             .w(px(260.))
             .p(px(6.))
-            .rounded(px(tokens::RADIUS_LG))
+            .rounded(px(tokens::RADIUS_PANEL))
             .border_1()
-            .border_color(color(p.line))
-            .bg(color(p.surface_100))
+            .border_color(color(p.edge))
+            .bg(color(p.panel))
             .shadow(shadow(tokens::SHADOW_POP, cx.theme_kind()))
             .occlude()
             .on_mouse_down_out(cx.listener(|this, _, window, cx| this.close_dialog(window, cx)))
@@ -797,11 +754,11 @@ impl VaultShell {
                     .gap(px(tokens::SPACE_3))
                     .h(px(44.))
                     .px(px(tokens::SPACE_2))
-                    .rounded(px(tokens::RADIUS_MD))
+                    .rounded(px(tokens::RADIUS_KEY))
                     .cursor_pointer()
                     .tab_index(0)
-                    .hover(|row| row.bg(color(p.surface_200)))
-                    .focus_visible(|row| row.shadow(focus_ring(p, p.surface_100)))
+                    .hover(|row| row.bg(color(p.raised)))
+                    .focus_visible(|row| row.shadow(focus_ring(p, p.panel)))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.overlay = Overlay::None;
                         this.create(kind, window, cx)
@@ -816,7 +773,7 @@ impl VaultShell {
                     )
                     .when(kind == ItemKind::Login, |row| row.child(kbd("Ctrl N", cx)))
             }))
-            .child(div().h(px(1.)).my(px(4.)).bg(color(p.line)))
+            .child(div().h(px(1.)).my(px(4.)).bg(color(p.edge)))
             .child(
                 h_flex()
                     .id("create-import")
@@ -824,11 +781,11 @@ impl VaultShell {
                     .gap(px(tokens::SPACE_3))
                     .h(px(44.))
                     .px(px(tokens::SPACE_2))
-                    .rounded(px(tokens::RADIUS_MD))
+                    .rounded(px(tokens::RADIUS_KEY))
                     .cursor_pointer()
                     .tab_index(0)
-                    .hover(|row| row.bg(color(p.surface_200)))
-                    .focus_visible(|row| row.shadow(focus_ring(p, p.surface_100)))
+                    .hover(|row| row.bg(color(p.raised)))
+                    .focus_visible(|row| row.shadow(focus_ring(p, p.panel)))
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.overlay = Overlay::None;
                         cx.emit(Nav::Import(None));
@@ -842,7 +799,7 @@ impl VaultShell {
                             .child(
                                 Icon::new(IconName::Refresh)
                                     .size(px(18.))
-                                    .color(color(p.ink_muted)),
+                                    .color(color(p.ink_2)),
                             ),
                     )
                     .child(
@@ -885,18 +842,18 @@ impl VaultShell {
                     .child(crate::components::group_row_hover(cx))
                     .cursor_pointer()
                     .tab_index(0)
-                    .focus_visible(|row| row.shadow(focus_ring(p, p.surface_200)))
+                    .focus_visible(|row| row.shadow(focus_ring(p, p.raised)))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         if let Overlay::Move { target, .. } = &mut this.overlay {
                             *target = id;
                         }
                         cx.notify();
                     }))
-                    .child(vault_dot(
-                        hue_of(&vault.meta.colour),
-                        vault_icon(&vault.meta.icon),
-                        cx,
-                    ))
+                    .child(
+                        StatusLight::new(LightState::Ok)
+                            .size(10.)
+                            .color(hue_of(&vault.meta.colour).light(p)),
+                    )
                     .child(
                         v_flex()
                             .flex_1()
@@ -910,7 +867,7 @@ impl VaultShell {
                                 text.child(
                                     div()
                                         .text_token(tokens::SMALL)
-                                        .text_color(color(p.ink_muted))
+                                        .text_color(color(p.ink_2))
                                         .child("Current vault"),
                                 )
                             }),

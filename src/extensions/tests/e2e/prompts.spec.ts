@@ -56,7 +56,7 @@ async function promptFrame(page: Page): Promise<Frame> {
     .toBe(true);
   const frame = page.frames().find((f) => f.url().includes("/src/content/prompts/"));
   if (!frame) throw new Error("no prompt");
-  await expect(frame.locator(".kt-prompt")).toBeVisible();
+  await expect(frame.locator(".kx-prompt")).toBeVisible();
   return frame;
 }
 

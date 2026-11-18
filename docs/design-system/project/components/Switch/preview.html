@@ -1,0 +1,23 @@
+<!-- @dsCard group="Inputs" height=220 subtitle="On, off and locked on" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Switch</title></head>
+<body style="margin:0">
+<div class="hw" style="padding: 20px;">
+  <div class="hw-well" style="max-width: 520px; padding: 4px 16px;">
+    <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--edge);">
+      <span style="flex: 1;"><span style="display: block; font-weight: 700;">Unlock with Windows Hello</span><span class="hw-sub">Use your face, fingerprint or PIN instead of typing the master password.</span></span>
+      <button role="switch" aria-checked="true" class="hw-switch" aria-label="Unlock with Windows Hello"></button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--edge);">
+      <span style="flex: 1;">Start Kandado when I sign in to my computer</span>
+      <button role="switch" aria-checked="false" class="hw-switch" aria-label="Start Kandado when I sign in to my computer"></button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0;">
+      <span style="flex: 1;"><span style="display: block;">Lock when the browser closes</span><span class="hw-sub">Always on: the keys are kept only in memory.</span></span>
+      <button role="switch" aria-checked="true" class="hw-switch" disabled aria-label="Lock when the browser closes"></button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

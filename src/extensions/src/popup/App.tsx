@@ -5,19 +5,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ItemContentJson, Summary } from "../background/keyring";
 import { PinSetup } from "../pages/parts";
 import type { Status } from "../shared/messages";
-import { K } from "../ui/kandado";
+import { Panel, Toast } from "../ui/hardware";
 import { ask } from "../ui/messaging";
 import { Detail, Generator, Home, Locked, LoginForm, SignedOut } from "./screens";
 
 type Screen =
   | { name: "home" }
   | { name: "detail"; item: Summary }
-  | { name: "create-login" }
+  | { name: "create-login"; password?: string }
   | { name: "edit-login"; item: Summary; content: ItemContentJson }
   | { name: "generator" }
   | { name: "set-pin" };
 
-interface Toast {
+interface ToastState {
   text: string;
   tone: "neutral" | "danger";
 }
@@ -46,7 +46,7 @@ export function App() {
   const [tabUrl, setTabUrl] = useState<string | undefined>();
   const [tabId, setTabId] = useState<number | undefined>();
   const [vaultFilter, setVaultFilter] = useState<string | null>(null);
-  const [toast, setToast] = useState<Toast | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export function App() {
       : chrome.storage.local.set({ [VAULT_FILTER_KEY]: vault }));
   };
 
-  if (!status) return <div className="kt-pop" aria-busy="true" />;
+  if (!status) return <div className="kx-pop" aria-busy="true" />;
   if (status.state === "signed_out") return <SignedOut onStatus={onStatus} />;
   if (status.state === "locked") return <Locked status={status} onStatus={onStatus} />;
 
@@ -138,6 +138,7 @@ export function App() {
       view = (
         <LoginForm
           tabUrl={tabUrl}
+          password={screen.password}
           onCancel={home}
           onDone={(message) => {
             showToast(message);
@@ -160,12 +161,18 @@ export function App() {
       );
       break;
     case "generator":
-      view = <Generator onBack={home} onToast={showToast} />;
+      view = (
+        <Generator
+          onBack={home}
+          onToast={showToast}
+          onSaveAsLogin={(password) => setScreen({ name: "create-login", password })}
+        />
+      );
       break;
     case "set-pin":
       view = (
-        <div className="kt-pop">
-          <div className="kt-pbody" style={{ justifyContent: "center" }}>
+        <div className="kx-pop" style={{ justifyContent: "center" }}>
+          <Panel>
             <PinSetup
               cancelLabel="Not now"
               onCancel={home}
@@ -175,7 +182,7 @@ export function App() {
                 home();
               }}
             />
-          </div>
+          </Panel>
         </div>
       );
       break;
@@ -184,8 +191,8 @@ export function App() {
     <>
       {view}
       {toast && (
-        <div className="kx-toast">
-          <K.Toast tone={toast.tone}>{toast.text}</K.Toast>
+        <div className="kx-toast-layer">
+          <Toast tone={toast.tone}>{toast.text}</Toast>
         </div>
       )}
     </>

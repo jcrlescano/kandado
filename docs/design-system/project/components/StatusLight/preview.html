@@ -1,0 +1,20 @@
+<!-- @dsCard group="Display" height=230 subtitle="OK, warning, off, setup steps and vault lights" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>StatusLight</title></head>
+<body style="margin:0">
+<div class="hw" style="padding: 20px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start;">
+  <div style="display: flex; gap: 22px; flex-wrap: wrap;">
+    <span class="hw-mono" style="display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.08em;"><span class="hw-led"></span>SYNCED</span>
+    <span class="hw-mono" style="display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.08em;"><span class="hw-led hw-led--warn"></span>3 TO FIX</span>
+    <span class="hw-mono" style="display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.08em;"><span class="hw-led hw-led--off"></span>NOT SET</span>
+  </div>
+  <ol aria-label="Setup steps" class="hw-well" style="margin: 0; list-style: none; padding: 10px 14px; display: flex; gap: 18px; flex-wrap: wrap;">
+    <li class="hw-mono" style="display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.08em;"><span class="hw-led"></span>SIGN IN</li>
+    <li class="hw-mono" style="display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.08em; font-weight: 600;" aria-current="step"><span class="hw-led hw-led--warn"></span>MASTER PASSWORD</li>
+    <li class="hw-mono" style="display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.08em; color: var(--ink-2);"><span class="hw-led hw-led--off"></span>RECOVERY PHRASE</li>
+  </ol>
+  <div aria-label="Vault lights" style="display: flex; gap: 8px; flex-wrap: wrap;"><span class="hw-raised" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 600; font-size: 13px;"><span class="hw-led hw-led--vault hw-vault-green"></span>Personal</span><span class="hw-raised" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 600; font-size: 13px;"><span class="hw-led hw-led--vault hw-vault-orange"></span>Family</span><span class="hw-raised" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 600; font-size: 13px;"><span class="hw-led hw-led--vault hw-vault-sky"></span>Work</span><span class="hw-raised" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 600; font-size: 13px;"><span class="hw-led hw-led--vault hw-vault-plum"></span>Travel</span><span class="hw-raised" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 600; font-size: 13px;"><span class="hw-led hw-led--vault hw-vault-amber"></span>Shared</span><span class="hw-raised" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 600; font-size: 13px;"><span class="hw-led hw-led--vault hw-vault-graphite"></span>Archive</span></div>
+</div>
+</body>
+</html>

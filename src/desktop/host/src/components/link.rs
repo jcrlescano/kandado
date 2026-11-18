@@ -37,13 +37,13 @@ impl Link {
 impl RenderOnce for Link {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        let link = color(p.link);
+        let link = color(p.green);
         let mut element = div()
             .id(self.id)
             .cursor(CursorStyle::PointingHand)
             .text_token(tokens::BODY_STRONG)
             .text_color(link)
-            .rounded(px(tokens::RADIUS_SM))
+            .rounded(px(tokens::RADIUS_KEY_SM))
             .hover(|style| style.underline())
             .child(self.label);
         if let Some(handler) = self.on_click {

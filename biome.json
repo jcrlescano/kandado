@@ -6,7 +6,15 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!docs", "!**/*.md", "!**/tokens.json", "!src/desktop/resources", "!src/extensions/src/ui/vendor", "!.claude"]
+    "includes": [
+      "**",
+      "!docs",
+      "!**/*.md",
+      "!**/tokens.json",
+      "!src/desktop/resources",
+      "!src/extensions/src/ui/vendor",
+      "!.claude"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

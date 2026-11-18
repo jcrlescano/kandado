@@ -7,7 +7,10 @@ use gpui_kit::{
     prelude::FluentBuilder as _, px,
 };
 
-use super::{Icon, Tone};
+use super::{
+    Icon, Tone,
+    hardware::{LightState, StatusLight, lip, well},
+};
 use crate::{
     assets::IconName,
     theme::{self, KandadoTheme, TextStyles as _, color, focus_ring, tokens},
@@ -83,10 +86,8 @@ impl RenderOnce for Toast {
             } else {
                 tokens::SPACE_4
             }))
-            .rounded(px(tokens::RADIUS_LG))
-            .border_1()
-            .border_color(color(p.line))
-            .bg(color(p.surface_100))
+            .rounded(px(tokens::RADIUS_PANEL))
+            .bg(color(p.panel))
             .shadow(theme::shadow(tokens::SHADOW_POP, cx.theme_kind()))
             .text_color(color(p.ink))
             .font_family(tokens::FONT_SANS)
@@ -94,7 +95,7 @@ impl RenderOnce for Toast {
             .child(Icon::new(icon).size(px(18.)).color(color(if self.danger {
                 p.danger
             } else {
-                p.teal
+                p.green
             })))
             .child(self.message)
             .when_some(self.action, |toast, (label, handler)| {
@@ -105,13 +106,14 @@ impl RenderOnce for Toast {
                         .items_center()
                         .h(px(32.))
                         .px(px(tokens::SPACE_3))
-                        .rounded(px(tokens::RADIUS_SM))
-                        .text_color(color(p.teal))
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .rounded(px(tokens::RADIUS_KEY_SM))
+                        .bg(color(p.raised))
+                        .shadow(vec![lip(p.edge_key, 3.)])
+                        .text_color(color(p.ink))
+                        .font_weight(FontWeight::BOLD)
                         .cursor_pointer()
                         .tab_index(0)
-                        .hover(|action| action.bg(color(p.surface_200)))
-                        .focus_visible(|action| action.shadow(focus_ring(p, p.surface_100)))
+                        .focus_visible(|action| action.shadow(focus_ring(p, p.panel)))
                         .on_click(handler)
                         .child(label),
                 )
@@ -119,8 +121,9 @@ impl RenderOnce for Toast {
     }
 }
 
-/// A full-width message at the top of a pane: a breach, being offline, an
-/// invitation, an update that is ready.
+/// A full-width message at the top of a pane (hw-banner): a breach, being
+/// offline, an invitation, an update that is ready. A status light and one
+/// sentence on a soft ground; the light never carries the meaning alone.
 #[derive(IntoElement)]
 pub struct Banner {
     message: SharedString,
@@ -154,27 +157,30 @@ impl Banner {
 impl RenderOnce for Banner {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        let (text, ground) = self.tone.colors(p);
-        let icon = self.icon.unwrap_or(match self.tone {
-            Tone::Danger | Tone::Warning => IconName::Alert,
-            Tone::Teal => IconName::Check,
-            Tone::Neutral | Tone::Brass => IconName::Shield,
-        });
+        let (ground, light) = match self.tone {
+            Tone::Danger => (p.danger_soft, LightState::Warn),
+            Tone::Warning => (p.warn_soft, LightState::Warn),
+            Tone::Teal => (p.raised, LightState::Ok),
+            Tone::Neutral | Tone::Brass => (p.raised, LightState::Off),
+        };
         div()
             .flex()
             .items_center()
             .gap(px(tokens::SPACE_3))
             .min_h(px(48.))
-            .py(px(tokens::SPACE_2))
-            .px(px(tokens::SPACE_4))
-            .rounded(px(tokens::RADIUS_LG))
-            .bg(ground)
-            .child(Icon::new(icon).size(px(20.)).color(text))
+            .py(px(tokens::SPACE_3))
+            .px(px(tokens::SPACE_5))
+            .rounded(px(tokens::RADIUS_WELL))
+            .bg(color(ground))
+            .map(|banner| match self.icon {
+                Some(icon) => banner.child(Icon::new(icon).size(px(18.)).color(color(p.ink))),
+                None => banner.child(StatusLight::new(light)),
+            })
             .child(
                 div()
                     .flex_1()
                     .min_w_0()
-                    .text_token(tokens::BODY)
+                    .text_token(tokens::SMALL)
                     .text_color(color(p.ink))
                     .child(self.message),
             )
@@ -182,7 +188,9 @@ impl RenderOnce for Banner {
     }
 }
 
-/// One entry of the sidebar or the settings navigation.
+/// One entry of the sidebar or the settings navigation (hw-navbtn): flat,
+/// a raised key face (`raised`, for vaults), or green and sunk when it is
+/// the current page. A vault shows its colour as a small light before the name.
 #[derive(IntoElement)]
 pub struct NavItem {
     id: ElementId,
@@ -192,6 +200,8 @@ pub struct NavItem {
     /// Icon only, for the 64 px rail (D-17).
     rail: bool,
     danger: bool,
+    raised: bool,
+    light: Option<u32>,
     trailing: Option<AnyElement>,
     on_click: Option<ClickHandler>,
 }
@@ -205,9 +215,24 @@ impl NavItem {
             selected: false,
             rail: false,
             danger: false,
+            raised: false,
+            light: None,
             trailing: None,
             on_click: None,
         }
+    }
+
+    /// A key face, so the entry reads as something you press: vaults.
+    pub fn raised(mut self, raised: bool) -> Self {
+        self.raised = raised;
+        self
+    }
+
+    /// A small light in this colour before the name, in place of the icon:
+    /// a vault's colour.
+    pub fn light(mut self, token: u32) -> Self {
+        self.light = Some(token);
+        self
     }
 
     /// A destructive entry, such as Sign out.
@@ -244,43 +269,73 @@ impl NavItem {
 impl RenderOnce for NavItem {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
+        let selected = self.selected;
         div()
             .id(self.id)
             .flex()
+            .flex_none()
             .items_center()
-            .gap(px(tokens::SPACE_3))
-            .h(px(40.))
-            .rounded(px(tokens::RADIUS_MD))
+            .gap(px(10.))
+            .h(px(44.))
+            .rounded(px(tokens::RADIUS_KEY))
             .cursor_pointer()
             .tab_index(0)
-            .focus_visible(|item| item.shadow(focus_ring(p, p.surface_100)))
+            .focus_visible(|item| item.shadow(focus_ring(p, p.panel)))
             .map(|item| {
                 if self.rail {
-                    item.w(px(40.)).justify_center()
+                    item.w(px(44.)).justify_center()
                 } else {
                     item.px(px(tokens::SPACE_3))
                 }
             })
             .map(|item| {
-                if self.selected {
-                    item.bg(color(p.brass_soft)).text_color(color(p.brass))
+                if selected {
+                    item.bg(color(p.green))
+                        .text_color(color(p.on_green))
+                        .shadow(vec![gpui_kit::BoxShadow {
+                            color: gpui_kit::hsla(0., 0., 0., 0.3),
+                            offset: gpui_kit::point(px(0.), px(2.)),
+                            blur_radius: px(3.),
+                            spread_radius: px(0.),
+                            inset: true,
+                        }])
+                } else if self.raised {
+                    item.bg(color(p.raised))
+                        .text_color(color(p.ink))
+                        .shadow(vec![lip(p.edge, 2.)])
                 } else if self.danger {
                     item.text_color(color(p.danger))
-                        .hover(|item| item.bg(color(p.danger_soft)))
                 } else {
-                    item.text_color(color(p.ink_muted))
-                        .hover(|item| item.bg(color(p.surface_200)).text_color(color(p.ink)))
+                    item.text_color(color(p.ink_2))
+                        .hover(|item| item.text_color(color(p.ink)))
                 }
             })
-            .child(Icon::new(self.icon).size(px(24.)))
+            .map(|item| match self.light {
+                Some(token) if !self.rail => item.child(
+                    StatusLight::new(LightState::Ok)
+                        .size(8.)
+                        .color(if selected { p.lcd_ink } else { token }),
+                ),
+                _ => item.child(Icon::new(self.icon).size(px(20.))),
+            })
             .when(!self.rail, |item| {
                 item.child(
                     div()
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .text_token(tokens::BODY_STRONG)
-                        .text_color(color(if self.danger { p.danger } else { p.ink }))
+                        .text_token(if selected || self.raised {
+                            tokens::BODY_STRONG
+                        } else {
+                            tokens::BODY
+                        })
+                        .text_color(color(if selected {
+                            p.on_green
+                        } else if self.danger {
+                            p.danger
+                        } else {
+                            p.ink
+                        }))
                         .child(self.label),
                 )
                 .when_some(self.trailing, |item, trailing| item.child(trailing))
@@ -331,33 +386,25 @@ impl RenderOnce for Table {
                 }
             })
         };
-        div()
+        well(cx)
             .flex()
             .flex_col()
-            .rounded(px(tokens::RADIUS_LG))
-            .border_1()
-            .border_color(color(p.line))
             .overflow_hidden()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .h(px(40.))
-                    .bg(color(p.surface_200))
-                    .children(self.headers.into_iter().enumerate().map(|(index, header)| {
-                        cell(index)
-                            .text_token(tokens::LABEL)
-                            .text_color(color(p.ink_muted))
-                            .child(SharedString::from(header.to_uppercase()))
-                    })),
-            )
+            .child(div().flex().items_center().h(px(40.)).children(
+                self.headers.into_iter().enumerate().map(|(index, header)| {
+                    cell(index)
+                        .text_token(tokens::LABEL)
+                        .text_color(color(p.ink_2))
+                        .child(SharedString::from(header.to_uppercase()))
+                }),
+            ))
             .children(self.rows.into_iter().map(|cells| {
                 div()
                     .flex()
                     .items_center()
                     .min_h(px(56.))
                     .border_t_1()
-                    .border_color(color(p.line))
+                    .border_color(color(p.edge))
                     .text_token(tokens::BODY)
                     .children(
                         cells

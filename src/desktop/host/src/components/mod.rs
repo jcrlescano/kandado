@@ -1,6 +1,8 @@
-//! The design system's components, in GPUI. Each has the name and the props
-//! of its counterpart in `docs/design-system/project/components`, and every
-//! colour and size comes from the tokens.
+//! The design system's components, in GPUI, drawn as Kandado Hardware
+//! (`docs/design-system/project/components`): panels, wells, keys with a
+//! lip, status lights and the LCD. Most keep the name and the props they had
+//! under the previous design system; [`hardware`] holds the parts Hardware
+//! adds. Every colour and size comes from the tokens.
 //!
 //! `cargo run -p kandado --example gallery` shows them all in both themes.
 //!
@@ -13,6 +15,7 @@ mod chip;
 mod dialog;
 mod field;
 mod generator;
+pub mod hardware;
 mod icon;
 mod item;
 mod layout;
@@ -30,6 +33,7 @@ pub use field::{
     FieldGroup, GROUP_ROW, MASK, SearchBar, SecretField, TextField, TotpCode, group_row_hover,
 };
 pub use generator::{GeneratorEvent, PasswordGenerator};
+pub use hardware::{LcdStatus, LightState, StatusLight, Tag, TagTone, lcd, panel, raised, well};
 pub use icon::Icon;
 pub use item::{Hue, ItemIcon, ItemRow};
 pub use kandado_model::ItemKind;

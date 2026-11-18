@@ -13,7 +13,7 @@ use kandado_model::{
     strength,
 };
 
-use super::{Button, ButtonSize, IconButton, StrengthMeter, Toggle};
+use super::{Button, ButtonSize, IconButton, StrengthMeter, Toggle, hardware::lcd};
 use crate::{
     assets::IconName,
     theme::{KandadoTheme, TextStyles as _, color, focus_ring, tokens},
@@ -117,17 +117,18 @@ impl PasswordGenerator {
         self.regenerate(cx);
     }
 
-    /// The password with digits in sky and symbols in brass, so a person can
+    /// The password on the LCD, with digits in the LCD's label green and symbols
+    /// in its warning tint, so a person can
     /// read it back without mistaking one for the other.
     fn colored(password: &str, cx: &App) -> StyledText {
         let p = cx.palette();
         let highlights = password.char_indices().filter_map(|(start, c)| {
             let token = if c.is_ascii_digit() {
-                p.sky
+                p.lcd_label
             } else if c.is_ascii_alphabetic() || c == ' ' {
                 return None;
             } else {
-                p.brass
+                p.lcd_warn
             };
             let style = HighlightStyle {
                 color: Some(color(token)),
@@ -159,16 +160,16 @@ impl PasswordGenerator {
             .text_size(px(14.))
             .cursor_pointer()
             .tab_index(0)
-            .focus_visible(|segment| segment.shadow(focus_ring(p, p.surface_300)))
+            .focus_visible(|segment| segment.shadow(focus_ring(p, p.well)))
             .map(|segment| {
                 if on {
                     segment
-                        .bg(color(p.surface_100))
+                        .bg(color(p.panel))
                         .text_color(color(p.ink))
                         .border_1()
-                        .border_color(color(p.line_strong))
+                        .border_color(color(p.edge_key))
                 } else {
-                    segment.text_color(color(p.ink_muted))
+                    segment.text_color(color(p.ink_2))
                 }
             })
             .on_click(
@@ -223,28 +224,26 @@ impl Render for PasswordGenerator {
             .text_token(tokens::BODY)
             .text_color(color(p.ink))
             .child(
-                div()
+                lcd(cx)
                     .flex()
                     .items_center()
                     .gap(px(tokens::SPACE_2))
-                    .py(px(tokens::SPACE_3))
-                    .pl(px(tokens::SPACE_4))
+                    .py(px(14.))
+                    .pl(px(tokens::SPACE_5))
                     .pr(px(tokens::SPACE_2))
-                    .rounded(px(tokens::RADIUS_LG))
-                    .bg(color(p.surface_300))
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
                             .font_family(tokens::FONT_MONO)
                             .font_weight(FontWeight::MEDIUM)
-                            .text_size(px(18.))
-                            .line_height(px(26.))
+                            .text_size(px(17.))
+                            .line_height(px(24.))
                             .map(|value| match &password {
                                 Some(password) => value.child(Self::colored(password.expose(), cx)),
                                 None => value
-                                    .text_color(color(p.danger))
-                                    .child("Couldn't generate a password."),
+                                    .text_color(color(p.lcd_warn))
+                                    .child("COULDN'T GENERATE A PASSWORD"),
                             }),
                     )
                     .child(
@@ -264,8 +263,8 @@ impl Render for PasswordGenerator {
                 div()
                     .flex()
                     .p(px(3.))
-                    .rounded(px(tokens::RADIUS_MD))
-                    .bg(color(p.surface_300))
+                    .rounded(px(tokens::RADIUS_KEY))
+                    .bg(color(p.well))
                     .child(self.segment("mode-random", "Random", false, cx))
                     .child(self.segment("mode-memorable", "Memorable", true, cx)),
             )

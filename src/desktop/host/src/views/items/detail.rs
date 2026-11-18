@@ -30,10 +30,10 @@ use super::super::{Services, date, explain};
 use crate::{
     assets::IconName,
     components::{
-        Badge, Banner, Button, ButtonVariant, FieldGroup, Hue, Icon, IconButton, IconButtonVariant,
-        ItemIcon, Link, SecretField, Tone, TotpCode, section_label,
+        Badge, Banner, Button, ButtonVariant, Hue, Icon, IconButton, IconButtonVariant, ItemIcon,
+        LightState, Link, SecretField, StatusLight, Tone, TotpCode, section_label, well,
     },
-    theme::{DISPLAY_FACE, KandadoTheme, TextStyles as _, color, tokens},
+    theme::{KandadoTheme, TextStyles as _, color, tokens},
 };
 
 /// What the pane asks the shell to do. The pane itself only reveals, copies
@@ -282,6 +282,7 @@ impl DetailView {
                 .into_any_element();
         }
         let mut row = SecretField::new(("field", index), field.label.clone())
+            .stacked(true)
             .mono(field.mono)
             .link(field.link)
             .copied(copied)
@@ -301,11 +302,10 @@ impl DetailView {
     fn header(&self, detail: &ItemDetail, cx: &mut Context<Self>) -> impl IntoElement {
         let p = cx.palette();
         let trashed = detail.days_left.is_some();
-        let mut icon = ItemIcon::new(detail.kind).size(px(56.));
+        let mut icon = ItemIcon::new(detail.kind).size(px(52.));
         if let Some(letter) = letter(detail.kind, &detail.title) {
             icon = icon.letter(letter);
         }
-        let (vault_ink, _) = self.vault_hue.colors(p);
         let title = if detail.title.is_empty() {
             SharedString::from("Untitled")
         } else {
@@ -362,11 +362,8 @@ impl DetailView {
                             "Add to favourites"
                         },
                     )
-                    .variant(if detail.favourite {
-                        IconButtonVariant::Primary
-                    } else {
-                        IconButtonVariant::Secondary
-                    })
+                    .variant(IconButtonVariant::Secondary)
+                    .checked(detail.favourite)
                     .on_click(cx.listener(|this, _, _, cx| this.toggle_favourite(cx))),
                 )
                 .child(
@@ -377,21 +374,20 @@ impl DetailView {
                 .child(more)
         };
 
+        let meta = format!("{} · {}", Hue::kind_label(detail.kind), self.vault_name);
         h_flex()
+            .flex_wrap()
             .items_center()
-            .gap(px(tokens::SPACE_4))
+            .gap(px(14.))
             .child(icon)
             .child(
                 v_flex()
                     .flex_1()
-                    .min_w_0()
+                    .min_w(px(200.))
                     .child(
                         div()
                             .truncate()
-                            .font_family(DISPLAY_FACE)
-                            .text_size(px(24.))
-                            .line_height(px(30.))
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                            .text_token(tokens::TITLE)
                             .text_color(color(p.ink))
                             .child(title),
                     )
@@ -399,11 +395,15 @@ impl DetailView {
                         h_flex()
                             .items_center()
                             .gap(px(tokens::SPACE_2))
-                            .mt(px(2.))
-                            .text_token(tokens::SMALL)
-                            .text_color(color(p.ink_muted))
-                            .child(Icon::new(IconName::Vault).size(px(14.)).color(vault_ink))
-                            .child(self.vault_name.clone())
+                            .mt(px(4.))
+                            .text_token(tokens::LABEL)
+                            .text_color(color(p.ink_3))
+                            .child(
+                                StatusLight::new(LightState::Ok)
+                                    .size(8.)
+                                    .color(self.vault_hue.light(p)),
+                            )
+                            .child(SharedString::from(meta.to_uppercase()))
                             .when_some(detail.strength, |line, strength| {
                                 line.child(
                                     Badge::new(strength.label())
@@ -421,20 +421,19 @@ impl DetailView {
     }
 }
 
-/// The box a note is shown in. Notes are not concealed.
+/// The note, as a labelled well (hw-field). Notes are not concealed.
 pub fn note_box(text: &str, cx: &gpui_kit::App) -> impl IntoElement {
     let p = cx.palette();
-    FieldGroup::new().child(
-        v_flex()
-            .gap(px(4.))
-            .py(px(14.))
-            .px(px(tokens::SPACE_4))
-            .child(section_label("Note", cx))
+    v_flex().gap(px(6.)).child(section_label("Note", cx)).child(
+        well(cx)
+            .rounded(px(tokens::RADIUS_KEY))
+            .py(px(tokens::SPACE_3))
+            .px(px(14.))
             .children(text.lines().map(|line| {
                 div()
                     .min_h(px(20.))
                     .text_size(px(14.))
-                    .line_height(px(20.))
+                    .line_height(px(21.))
                     .text_color(color(p.ink))
                     .child(SharedString::from(line.to_owned()))
             })),
@@ -449,8 +448,8 @@ impl Render for DetailView {
         };
         let mut body = v_flex()
             .w_full()
-            .max_w(px(680.))
-            .gap(px(tokens::SPACE_4))
+            .max_w(px(820.))
+            .gap(px(18.))
             .child(self.header(&detail, cx));
 
         if let Some(days_left) = detail.days_left {
@@ -466,15 +465,29 @@ impl Render for DetailView {
                 .icon(IconName::Clock),
             );
         }
+        // The two-factor code reads on the LCD, under the title.
+        for field in detail.sections.iter().flat_map(|section| &section.fields) {
+            if field.totp {
+                body = body.child(self.field(field, cx));
+            }
+        }
         for section in &detail.sections {
+            let fields: Vec<&Field> = section.fields.iter().filter(|field| !field.totp).collect();
+            if fields.is_empty() {
+                continue;
+            }
             if let Some(label) = section.label {
                 body = body.child(section_label(label, cx).mt(px(tokens::SPACE_1)));
             }
-            let mut group = FieldGroup::new();
-            for field in &section.fields {
-                group = group.child(self.field(field, cx));
-            }
-            body = body.child(group);
+            body = body.child(h_flex().flex_wrap().gap(px(tokens::SPACE_3)).children(
+                fields.into_iter().map(|field| {
+                    div()
+                        .flex_grow(1.)
+                        .flex_basis(px(240.))
+                        .min_w(px(240.))
+                        .child(self.field(field, cx))
+                }),
+            ));
         }
         if !detail.note.trim().is_empty() {
             body = body.child(note_box(&detail.note, cx));
@@ -484,7 +497,7 @@ impl Render for DetailView {
                 .flex_wrap()
                 .gap(px(tokens::SPACE_4))
                 .text_token(tokens::SMALL)
-                .text_color(color(p.ink_muted))
+                .text_color(color(p.ink_2))
                 .child(format!("Created {}", date(detail.created_at)))
                 .child(format!("Modified {}", date(detail.updated_at)))
                 .when(detail.days_left.is_none(), |meta| {
@@ -500,12 +513,7 @@ impl Render for DetailView {
             .flex_1()
             .min_h_0()
             .overflow_y_scrollbar()
-            .child(
-                v_flex()
-                    .px(px(tokens::SPACE_6))
-                    .py(px(tokens::SPACE_5))
-                    .child(body),
-            )
+            .child(v_flex().px(px(tokens::SPACE_6)).py(px(22.)).child(body))
             .into_any_element()
     }
 }

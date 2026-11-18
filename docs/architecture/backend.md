@@ -71,33 +71,7 @@ Trash, restore, move, favourite, create, edit and delete are all item state chan
 
 ## Database schema
 
-Outline only; columns are finalised in each migration. All IDs are UUIDv7. All `*_enc` and `*_wrapped` columns are opaque bytes.
-
-| Table | Purpose | Key columns |
-| --- | --- | --- |
-| `users` | Account | `id`, `email`, `display_name`, `plan`, `created_at`, `deleted_at` |
-| `oauth_identities` | Google link | `provider`, `subject`, `user_id`, unique (`provider`, `subject`) |
-| `user_keys` | Wrapped keys | `user_id`, `kdf_salt`, `kdf_*` (memory, iterations, parallelism), `user_key_by_master`, `user_key_by_recovery`, `public_x25519`, `private_keys_enc`, `version` (Ed25519 joins later) |
-| `devices` | Sessions (D-49) | `id`, `user_id`, `name`, `platform`, `refresh_token_hash`, `previous_refresh_token_hash`, `authenticated_at`, `last_seen_at`, `revoked_at` |
-| `auth_handoffs` | Single-use sign-in codes | `code_hash`, `challenge`, `user_id`, `purpose`, `auth_time`, `expires_at` |
-| `auth_flows` | Google round trip in progress (10 min) | `state_hash`, `nonce`, `pkce_verifier`, `client_challenge`, `redirect`, `purpose`, `user_id` |
-| `vaults` | Vault | `id`, `owner_id`, `meta_enc` (name, colour, icon), `revision`, `deleted_at` |
-| `vault_members` | Membership | `vault_id`, `user_id`, `role` (viewer, editor, manager, owner), `vault_key_sealed` |
-| `vault_invites` | Pending invites | `id`, `vault_id`, `email`, `role`, `invited_by`, `state`, `expires_at` |
-| `items` | Current item | `id`, `vault_id`, `kind`, `item_key_wrapped`, `content_enc`, `revision`, `trashed_at`, `deleted_at` |
-| `item_revisions` | History (D-16) | `item_id`, `revision`, `content_enc`, `item_key_wrapped`, `author_id`, `created_at` |
-| `item_shares` | Single-item shares | `item_id`, `user_id`, `role`, `item_key_sealed` |
-| `secure_links` | Links (D-33) | `id`, `item_id`, `owner_id`, `payload_enc`, `expires_at`, `max_views`, `views`, `revoked_at` |
-| `monitored_emails` | Email monitoring | `id`, `user_id`, `address`, `enabled` |
-| `breaches` | Known breaches | `id`, `name`, `domain`, `occurred_on`, `data_classes` |
-| `user_breaches` | Matches (D-36) | `user_id`, `breach_id`, `address`, `resolved_at` |
-| `aliases` | Aliases | `id`, `user_id`, `address`, `mailbox_id`, `enabled`, counters |
-| `mailboxes` | Forward targets | `id`, `user_id`, `address`, `verified_at` |
-| `audit_events` | Security log | `user_id`, `device_id`, `kind`, `at`, `detail` |
-
-`kind` on `items` is plaintext (login, alias, card, note, identity, password, passkey) so the server can count and filter without reading content (decided: decision 11 in [decisions.md](../implementation-plan/decisions.md)).
-
-Authorisation is enforced in SQL: every query joins through `vault_members` or `item_shares` for the calling user. Role rules: viewer reads; editor writes items; manager also invites and changes roles; owner also deletes the vault.
+Tables, the revision sequence, authorisation in SQL, tombstones and migrations are in [database.md](database.md). In short: all IDs are UUIDv7, every `*_enc`, `*_wrapped` and `*_sealed` column is opaque bytes, and every query that returns user data joins through `vault_members` for the caller.
 
 ## Jobs
 

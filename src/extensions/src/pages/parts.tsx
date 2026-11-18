@@ -1,19 +1,17 @@
-// Parts the full-page tabs share: the settings layout (E-28 to E-31, the same
-// navigation pattern as desktop settings) and its rows, and the PIN setup that
-// E-31 and the popup both use.
+// Parts the full-page tabs share: the settings layout (E-28 to E-31: a nav panel
+// beside the page panel, as the Hardware settings board draws it) and its rows,
+// and the PIN setup that E-31 and the popup both use.
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { PinDots } from "../popup/parts";
-import { K } from "../ui/kandado";
-import type { IconName } from "../ui/vendor/kandado";
+import { Key, Logo, NavButton, Panel, PinDisplay, Well } from "../ui/hardware";
 
 export type SettingsPage = "general" | "autofill" | "excluded" | "security";
 
-export const PAGES: { id: SettingsPage; icon: IconName; label: string }[] = [
-  { id: "general", icon: "settings", label: "General" },
-  { id: "autofill", icon: "key", label: "Autofill" },
-  { id: "excluded", icon: "x", label: "Excluded sites" },
-  { id: "security", icon: "lock", label: "Security" },
+export const PAGES: { id: SettingsPage; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "autofill", label: "Autofill" },
+  { id: "excluded", label: "Excluded sites" },
+  { id: "security", label: "Security" },
 ];
 
 export function OptPage({
@@ -27,80 +25,54 @@ export function OptPage({
 }) {
   const title = PAGES.find((page) => page.id === active)?.label ?? "";
   return (
-    <div className="kt-opt kx-fullpage">
-      <nav className="kt-opt-nav" aria-label="Settings">
-        <K.Logo size={26} wordmark />
+    <div className="kx-settings">
+      <Panel as="nav" className="kx-settings-nav" aria-label="Settings">
+        <Logo size={28} wordmark="EXTENSION" />
         {PAGES.map((page) => (
-          <button
+          <NavButton
             key={page.id}
-            type="button"
-            className={`kt-nav kx-nav-button${page.id === active ? " kt-nav-on" : ""}`}
+            on={page.id === active}
             aria-current={page.id === active ? "page" : undefined}
             onClick={() => onNavigate(page.id)}
           >
-            <K.Icon name={page.icon} size={20} />
-            <span className="kt-nav-l">{page.label}</span>
-          </button>
+            {page.label}
+          </NavButton>
         ))}
-      </nav>
-      <main className="kt-opt-main">
-        <h1>{title}</h1>
+      </Panel>
+      <Panel as="main" className="kx-settings-main">
+        <h1 className="hw-h2">{title}</h1>
         {children}
-      </main>
+      </Panel>
     </div>
   );
 }
 
-/** One settings row (the design's `SRow`), inside a `Rows` group. */
+/** One settings row inside a `Rows` well: its name, a line of consequence, its control. */
 export function Row({
-  icon,
   label,
   description,
-  value,
-  toggle,
-  disabled,
-  onToggle,
-  onOpen,
-  action,
+  strong,
+  children,
 }: {
-  icon: IconName;
   label: string;
-  description?: string;
-  value?: string;
-  toggle?: boolean;
-  disabled?: boolean;
-  onToggle?: (on: boolean) => void;
-  /** Makes the whole row a button with a chevron. */
-  onOpen?: () => void;
-  action?: ReactNode;
+  description?: ReactNode;
+  /** The row is a heading for its control (Theme). */
+  strong?: boolean;
+  children?: ReactNode;
 }) {
-  const body = (
-    <>
-      <K.Icon name={icon} size={20} className="kt-srow-ic" />
-      <div className="kt-srow-t">
-        <div className="kt-srow-l">{label}</div>
-        {description && <div className="kt-srow-d">{description}</div>}
-      </div>
-      {value && <span className="kt-srow-v">{value}</span>}
-      {toggle !== undefined && (
-        <K.Toggle ariaLabel={label} checked={toggle} disabled={disabled} onChange={onToggle} />
-      )}
-      {action}
-      {onOpen && <K.Icon name="chevron" size={16} className="kt-srow-ch" />}
-    </>
+  return (
+    <div className="kx-row">
+      <span className="kx-row-text">
+        <span className={`kx-row-label${strong ? " kx-row-strong" : ""}`}>{label}</span>
+        {description && <span className="hw-sub">{description}</span>}
+      </span>
+      {children}
+    </div>
   );
-  if (onOpen) {
-    return (
-      <button type="button" className="kt-srow kx-row-button" onClick={onOpen} disabled={disabled}>
-        {body}
-      </button>
-    );
-  }
-  return <div className="kt-srow">{body}</div>;
 }
 
 export function Rows({ children }: { children: ReactNode }) {
-  return <div className="kd-group">{children}</div>;
+  return <Well className="kx-rows">{children}</Well>;
 }
 
 /**
@@ -146,16 +118,14 @@ export function PinSetup({
 
   return (
     <div className="kx-pin-setup">
-      <h2 className="kt-display" style={{ fontSize: 24, lineHeight: "30px" }}>
-        {first === null ? "Choose a PIN" : "Enter it again"}
-      </h2>
-      <p className="kt-p">
+      <h2 className="hw-h2">{first === null ? "Choose a PIN" : "Enter it again"}</h2>
+      <p className="hw-sub">
         Six digits unlock Kandado until the browser closes. After that, your master password is
         needed again.
       </p>
-      <label style={{ cursor: "text", display: "flex", flexDirection: "column", gap: 12 }}>
+      <label className="kx-pin-label">
         <span className="kx-hidden-input">PIN</span>
-        <PinDots filled={pin.length} error={error !== null} />
+        <PinDisplay filled={pin.length} error={error !== null} />
         <input
           ref={input}
           className="kx-hidden-input"
@@ -168,13 +138,11 @@ export function PinSetup({
         />
       </label>
       {error && (
-        <p className="kx-error" role="alert">
+        <p className="hw-error kx-sub" role="alert">
           {error}
         </p>
       )}
-      <K.Button variant="ghost" onClick={onCancel}>
-        {cancelLabel}
-      </K.Button>
+      <Key onClick={onCancel}>{cancelLabel}</Key>
     </div>
   );
 }

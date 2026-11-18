@@ -6,8 +6,7 @@
 // It never asks for a list or a secret itself.
 
 import type { DropdownKey, Reply, WorkerMessage } from "../shared/messages";
-import tokens from "../ui/tokens.json";
-import logo from "../ui/vendor/logo.svg?raw";
+import tokens from "../ui/vendor/hardware/tokens.json";
 import { captureFrom, formAround } from "./capture";
 import { type DetectedForm, detect } from "./detect";
 import { fill } from "./fill";
@@ -38,19 +37,24 @@ const shadow = host.attachShadow({ mode: "closed" });
 host.style.cssText =
   "all: initial; position: fixed; inset: 0 auto auto 0; width: 0; height: 0; z-index: 2147483647;";
 
-function brass(scheme: "dark" | "light"): string {
-  const value = tokens.color.tokens.find((token) => token.name === "brass")?.value;
+/** A Kandado Hardware colour, for the mark drawn in the page (no stylesheet reaches here). */
+function colour(name: string, scheme: "dark" | "light"): string {
+  const value = tokens.color.tokens.find((token) => token.name === name)?.value;
   return typeof value === "object" ? value[scheme] : (value ?? "currentColor");
 }
 
 const style = document.createElement("style");
 style.textContent = `
   .mark { position: fixed; width: 22px; height: 22px; padding: 2px; border: 0; margin: 0;
-          background: transparent; cursor: pointer; color: ${brass("light")}; line-height: 0; }
-  @media (prefers-color-scheme: dark) { .mark { color: ${brass("dark")}; } }
-  .mark svg { width: 18px; height: 18px; }
-  .mark [fill="#000"] { fill: currentColor; }
-  .mark [stroke="#000"] { stroke: currentColor; }
+          background: transparent; cursor: pointer; line-height: 0; }
+  .mark svg { width: 17px; height: 18px; }
+  .mark .body { fill: ${colour("green", "light")}; }
+  .mark .shackle { fill: none; stroke: ${colour("ink", "light")}; stroke-width: 3.2; stroke-linecap: round; }
+  .mark .hole { fill: #FFFFFF; }
+  @media (prefers-color-scheme: dark) {
+    .mark .body { fill: ${colour("green", "dark")}; }
+    .mark .shackle { stroke: ${colour("ink", "dark")}; }
+  }
   iframe { position: fixed; border: 0; width: ${DROPDOWN_WIDTH}px; height: 0;
            color-scheme: normal; background: transparent; }
   iframe.prompt { top: 4px; right: 4px; left: auto; width: ${PROMPT_WIDTH}px; }
@@ -60,7 +64,11 @@ mark.className = "mark";
 mark.type = "button";
 mark.tabIndex = -1;
 mark.setAttribute("aria-label", "Kandado");
-mark.innerHTML = logo.replace(/id="keyhole"/, 'id="k"').replace("url(#keyhole)", "url(#k)");
+// The Hardware padlock mark (closed shackle), as the design draws it in a field.
+mark.innerHTML =
+  '<svg viewBox="0 0 30 32" aria-hidden="true"><path class="shackle" d="M8 13 V9 a7 7 0 0 1 14 0 V13"/>' +
+  '<rect class="body" x="3" y="12" width="24" height="18" rx="5"/>' +
+  '<circle class="hole" cx="15" cy="20" r="2.6"/><rect class="hole" x="14" y="21" width="2" height="5" rx="1"/></svg>';
 let frame: HTMLIFrameElement | null = null;
 shadow.append(style);
 

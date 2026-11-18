@@ -56,7 +56,7 @@ async function dropdown(page: Page): Promise<Frame> {
     .toBe(true);
   const frame = page.frames().find((f) => f.url().includes("/src/content/dropdown/"));
   if (!frame) throw new Error("no dropdown");
-  await expect(frame.locator(".kt-drop-in")).toBeVisible();
+  await expect(frame.locator(".kx-dropdown")).toBeVisible();
   return frame;
 }
 

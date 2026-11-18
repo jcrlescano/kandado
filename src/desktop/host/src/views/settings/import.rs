@@ -717,7 +717,7 @@ impl Render for ImportPage {
                     .child(
                         div()
                             .text_token(tokens::SMALL)
-                            .text_color(color(p.ink_muted))
+                            .text_color(color(p.ink_2))
                             .child(format!("Importing {done} of {total}\u{2026}")),
                     )
                     .child(

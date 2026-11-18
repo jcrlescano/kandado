@@ -23,7 +23,7 @@ use crate::{
     components::{
         Button, FieldGroup, Icon, IconButton, IconButtonVariant, SecretField, radio, section_label,
     },
-    theme::{DISPLAY_FACE, KandadoTheme, TextStyles as _, color, focus_ring, tokens},
+    theme::{KandadoTheme, TextStyles as _, color, focus_ring, tokens},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,12 +135,12 @@ impl Render for HistoryView {
                     .child(crate::components::group_row_hover(cx))
                     .cursor_pointer()
                     .tab_index(0)
-                    .focus_visible(|row| row.shadow(focus_ring(p, p.surface_200)))
+                    .focus_visible(|row| row.shadow(focus_ring(p, p.raised)))
                     .on_click(cx.listener(move |this, _, _, cx| this.choose(revision, cx)))
                     .child(
                         Icon::new(IconName::Clock)
                             .size(px(20.))
-                            .color(color(p.ink_muted)),
+                            .color(color(p.ink_2)),
                     )
                     .child(
                         v_flex()
@@ -155,7 +155,7 @@ impl Render for HistoryView {
                             .child(
                                 div()
                                     .text_token(tokens::SMALL)
-                                    .text_color(color(p.ink_muted))
+                                    .text_color(color(p.ink_2))
                                     .child(if version.current {
                                         format!("Current version · {}", version.summary)
                                     } else {
@@ -238,7 +238,7 @@ impl Render for HistoryView {
                             .child(
                                 div()
                                     .truncate()
-                                    .font_family(DISPLAY_FACE)
+                                    .font_family(tokens::FONT_SANS)
                                     .text_size(px(24.))
                                     .line_height(px(30.))
                                     .font_weight(gpui_kit::FontWeight::SEMIBOLD)

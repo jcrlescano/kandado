@@ -216,7 +216,11 @@ impl Spike {
                     .child(
                         Button::new("toggle-theme")
                             .small()
-                            .label(if dark { "Paper theme" } else { "Vault theme" })
+                            .label(if dark {
+                                "Enamel theme"
+                            } else {
+                                "Graphite theme"
+                            })
                             .on_click(|_, window, cx| {
                                 let kind = cx.theme_kind().other();
                                 theme::apply(kind, Some(window), cx);

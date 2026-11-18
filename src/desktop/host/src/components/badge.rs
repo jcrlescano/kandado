@@ -3,7 +3,10 @@ use gpui_kit::{
     prelude::FluentBuilder as _, px,
 };
 
-use super::Icon;
+use super::{
+    Icon,
+    hardware::{LightState, StatusLight},
+};
 use crate::{
     assets::IconName,
     theme::{KandadoTheme, TextStyles as _, color, tokens, tokens::Palette},
@@ -29,11 +32,11 @@ impl Tone {
     /// `(text, ground)` for this tone.
     pub fn colors(self, p: &Palette) -> (Hsla, Hsla) {
         let (text, ground) = match self {
-            Self::Neutral => (p.ink_muted, p.surface_300),
-            Self::Brass => (p.brass, p.brass_soft),
-            Self::Teal => (p.teal, p.teal_soft),
+            Self::Neutral => (p.ink_2, p.well),
+            Self::Brass => (p.green, p.raised),
+            Self::Teal => (p.green, p.raised),
             Self::Danger => (p.danger, p.danger_soft),
-            Self::Warning => (p.warning, p.warning_soft),
+            Self::Warning => (p.danger, p.warn_soft),
         };
         (color(text), color(ground))
     }
@@ -42,18 +45,11 @@ impl Tone {
     pub fn solid(self, p: &Palette) -> Hsla {
         self.colors(p).0
     }
-
-    /// The icon that keeps the state from resting on colour alone.
-    fn default_icon(self) -> Option<IconName> {
-        match self {
-            Self::Danger | Self::Warning => Some(IconName::Alert),
-            Self::Teal => Some(IconName::Check),
-            Self::Neutral | Self::Brass => None,
-        }
-    }
 }
 
-/// A short status label: one or two words, sentence case.
+/// A short status label, drawn as an engraved tag (hw-tag): one or two words
+/// in mono capitals. Danger and warning add an orange light, so the state
+/// never rests on colour alone.
 #[derive(IntoElement)]
 pub struct Badge {
     label: SharedString,
@@ -90,23 +86,35 @@ impl Badge {
 
 impl RenderOnce for Badge {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let (text, ground) = self.tone.colors(cx.palette());
-        let icon = self.icon.unwrap_or_else(|| self.tone.default_icon());
+        let p = cx.palette();
+        let (border, text) = match self.tone {
+            Tone::Neutral => (p.tag, p.ink_2),
+            Tone::Brass | Tone::Teal => (p.green, p.green),
+            Tone::Danger => (p.danger, p.danger),
+            Tone::Warning => (p.led_warn, p.danger),
+        };
+        let light = matches!(self.tone, Tone::Danger | Tone::Warning);
+        // An icon only when the caller asked for one; tags are words.
+        let icon = self.icon.flatten();
         div()
             .flex()
             .flex_none()
             .items_center()
-            .gap(px(tokens::SPACE_1))
-            .h(px(22.))
-            .px(px(tokens::SPACE_2))
-            .rounded(px(tokens::RADIUS_SM))
-            .bg(ground)
-            .text_color(text)
-            .text_token(tokens::LABEL)
+            .gap(px(6.))
+            .h(px(20.))
+            .px(px(6.))
+            .rounded(px(tokens::RADIUS_TAG))
+            .border_1()
+            .border_color(color(border))
+            .text_color(color(text))
+            .text_token(tokens::TAG)
             .whitespace_nowrap()
-            .when_some(icon, |badge, icon| {
-                badge.child(Icon::new(icon).size(px(13.)))
+            .when(light && icon.is_none(), |badge| {
+                badge.child(StatusLight::new(LightState::Warn).size(6.))
             })
-            .child(self.label)
+            .when_some(icon, |badge, icon| {
+                badge.child(Icon::new(icon).size(px(12.)))
+            })
+            .child(SharedString::from(self.label.to_uppercase()))
     }
 }

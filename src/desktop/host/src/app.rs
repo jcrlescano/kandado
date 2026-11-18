@@ -9,7 +9,7 @@ use gpui_kit::TestSupportExt as _;
 use gpui_kit::{
     Context, Entity, Global, InteractiveElement as _, IntoElement, KeyBinding, ParentElement,
     Render, Styled, Subscription, Window, actions,
-    component::{TitleBar, h_flex, v_flex},
+    component::{TitleBar, h_flex, input::InputState, v_flex},
     div,
     prelude::FluentBuilder as _,
     px,
@@ -19,7 +19,10 @@ use kandado_model::generator::{self, Options};
 
 use crate::{
     assets::IconName,
-    components::{Banner, Button, ButtonSize, IconButton, Logo, SearchBar, Tone},
+    components::{
+        Banner, Button, ButtonSize, IconButton, Logo, SearchBar, Segmented, StatusLight, Tone,
+        panel,
+    },
     shell::{ShellEvent, VaultShell},
     theme::{self, KandadoTheme, TextStyles as _, color, tokens},
     views::{
@@ -36,12 +39,9 @@ actions!(kandado, [LockNow, OpenSettings]);
 const TICK: Duration = Duration::from_millis(200);
 /// Idle time is checked every this many ticks.
 const IDLE_EVERY: u32 = 25;
-/// The design's title bar (`.kt-titlebar`): tall enough for the 40 px search
-/// field with room above and below. The library default (34 px) is shorter than
-/// the field, which then spilled over the bar.
-const TITLE_BAR_HEIGHT: f32 = 48.;
-/// Three 35 px window controls on the right, less the title bar's own padding.
-const TITLE_BAR_INSET: f32 = 3. * 35. - 12.;
+/// The window's title bar only drags the window and holds its controls; the
+/// header with the search is a panel below it, so it can stay slim.
+const TITLE_BAR_HEIGHT: f32 = 36.;
 
 /// Turns the global shortcut on and off; set at startup when it is watched.
 pub struct Hotkey(pub HotkeyControl);
@@ -414,6 +414,58 @@ impl AppView {
     }
 }
 
+impl AppView {
+    /// The header panel over the vault (Main board): the logo, the search
+    /// across vaults, the sync light and the Lock / Open switch.
+    fn header(&self, search: &Entity<InputState>, cx: &mut Context<Self>) -> impl IntoElement {
+        let p = cx.palette();
+        let (light, word) = crate::views::sync_light(&self.services.app.sync_status());
+        panel(cx)
+            .flex()
+            .flex_none()
+            .flex_wrap()
+            .items_center()
+            .gap(px(tokens::SPACE_5))
+            .px(px(tokens::SPACE_4))
+            .py(px(10.))
+            .child(
+                div()
+                    .flex_none()
+                    .w(px(218.))
+                    .child(Logo::new().size(px(30.)).wordmark()),
+            )
+            .child(
+                div()
+                    .id("search")
+                    .flex_1()
+                    .min_w(px(240.))
+                    .max_w(px(560.))
+                    .child(SearchBar::new(search).shortcut("Ctrl F")),
+            )
+            .child(div().flex_1())
+            .child(
+                h_flex()
+                    .items_center()
+                    .gap(px(tokens::SPACE_2))
+                    .font_family(tokens::FONT_MONO)
+                    .text_size(px(11.))
+                    .text_color(color(p.ink))
+                    .child(StatusLight::new(light))
+                    .child(word),
+            )
+            .child(
+                Segmented::new("vault-lock", ["Lock", "Open"], 1).on_select({
+                    let view = cx.entity();
+                    move |index, window, cx| {
+                        if index == 0 {
+                            view.update(cx, |this, cx| this.lock_or_settings(true, window, cx));
+                        }
+                    }
+                }),
+            )
+    }
+}
+
 impl Render for AppView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = cx.palette();
@@ -431,24 +483,19 @@ impl Render for AppView {
         // D-54: under the title bar, while sync cannot reach the server.
         let banner = if unlocked {
             crate::views::sync_banner(&self.services.app.sync_status()).map(|(message, retry)| {
-                div()
-                    .id("sync-banner")
-                    .test_support()
-                    .px(px(tokens::SPACE_3))
-                    .pt(px(tokens::SPACE_2))
-                    .child(
-                        Banner::new(Tone::Warning, message)
-                            .icon(IconName::Globe)
-                            .when(retry, |banner| {
-                                banner.action(
-                                    Button::new("sync-retry", "Retry")
-                                        .size(ButtonSize::Sm)
-                                        .on_click(cx.listener(|this, _, _, _| {
-                                            this.services.app.sync_soon()
-                                        })),
-                                )
-                            }),
-                    )
+                div().id("sync-banner").test_support().child(
+                    Banner::new(Tone::Warning, message)
+                        .icon(IconName::Globe)
+                        .when(retry, |banner| {
+                            banner.action(
+                                Button::new("sync-retry", "Retry")
+                                    .size(ButtonSize::Sm)
+                                    .on_click(
+                                        cx.listener(|this, _, _, _| this.services.app.sync_soon()),
+                                    ),
+                            )
+                        }),
+                )
             })
         } else {
             None
@@ -459,7 +506,7 @@ impl Render for AppView {
         };
         v_flex()
             .size_full()
-            .bg(color(p.surface_000))
+            .bg(color(p.body))
             .text_color(color(p.ink))
             .text_token(tokens::BODY)
             .key_context("Kandado")
@@ -490,73 +537,42 @@ impl Render for AppView {
                     }
                 }),
             )
+            // The window's own title bar only drags the window and holds its
+            // controls; Kandado's header is a panel below it (Main board).
             .child(
                 TitleBar::new().h(px(TITLE_BAR_HEIGHT)).child(
                     h_flex()
                         .flex_1()
                         .items_center()
-                        .gap(px(tokens::SPACE_4))
+                        .justify_end()
                         .pr(px(tokens::SPACE_3))
-                        .child(
-                            div()
-                                .flex_none()
-                                .w(px(TITLE_BAR_INSET + 120.))
-                                .child(Logo::new().size(px(22.)).wordmark()),
-                        )
-                        .child(h_flex().flex_1().justify_center().when_some(
-                            search,
-                            |bar, search| {
-                                bar.child(
-                                    div()
-                                        .w(px(440.))
-                                        // The title bar is a window-drag area; on
-                                        // Windows a click anywhere over it drags the
-                                        // window unless something on top blocks it.
-                                        .occlude()
-                                        .child(SearchBar::new(&search).shortcut("Ctrl F")),
-                                )
-                            },
-                        ))
-                        .child(
-                            h_flex()
-                                .flex_none()
-                                .w(px(120.))
-                                .justify_end()
-                                .gap(px(tokens::SPACE_1))
-                                .when(unlocked, |bar| {
-                                    // Lock and Settings must take their own clicks,
-                                    // not drag the window (see the search field).
-                                    bar.occlude()
-                                        .child(
-                                            IconButton::new(
-                                                "title-lock",
-                                                IconName::Lock,
-                                                "Lock now",
-                                            )
-                                            .on_click(
-                                                cx.listener(|this, _, window, cx| {
-                                                    this.lock_or_settings(true, window, cx)
-                                                }),
-                                            ),
-                                        )
-                                        .child(
-                                            IconButton::new(
-                                                "title-settings",
-                                                IconName::Settings,
-                                                "Settings",
-                                            )
-                                            .on_click(
-                                                cx.listener(|this, _, window, cx| {
-                                                    this.lock_or_settings(false, window, cx)
-                                                }),
-                                            ),
-                                        )
-                                }),
-                        ),
+                        .when(matches!(self.screen, Screen::Settings(_)), |bar| {
+                            // Lock must take its own click, not drag the window.
+                            bar.child(
+                                div().occlude().child(
+                                    IconButton::new("title-lock", IconName::Lock, "Lock now")
+                                        .size(ButtonSize::Sm)
+                                        .on_click(cx.listener(|this, _, window, cx| {
+                                            this.lock_or_settings(true, window, cx)
+                                        })),
+                                ),
+                            )
+                        }),
                 ),
             )
-            .when_some(banner, |window, banner| window.child(banner))
-            .child(v_flex().flex_1().min_h_0().child(screen))
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_h_0()
+                    .when(unlocked, |body| {
+                        body.px(px(tokens::SPACE_5))
+                            .pb(px(tokens::SPACE_5))
+                            .gap(px(tokens::SPACE_4))
+                    })
+                    .when_some(search, |body, search| body.child(self.header(&search, cx)))
+                    .when_some(banner, |body, banner| body.child(banner))
+                    .child(v_flex().flex_1().min_h_0().child(screen)),
+            )
     }
 }
 

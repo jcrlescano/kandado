@@ -1,69 +1,211 @@
-/* Layout the extension pages need on top of the design system classes. Every
-   value is a token. The popup's own layout classes (kt-pop, kt-phead, ...) come
-   from the design system bundle, which draws the same screens. */
+/* Layout the extension pages need on top of Kandado Hardware's `hw-` classes.
+   Every colour, radius and shadow is a Hardware token. */
 html,
 body {
-  background: var(--surface-000);
+  margin: 0;
+  background: var(--body);
 }
-.kx-popup {
-  width: 380px;
-  height: 600px;
+
+/* ---- Parts of the components in hardware.tsx ---------------------------------- */
+
+/* Engraved and LCD text is written in sentence case and drawn in capitals. */
+.kx-caps,
+.hw-seg > button,
+.hw-lcd-key {
+  text-transform: uppercase;
 }
-.kx-popup .kt-pop {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+.kx-lcd-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  min-width: 0;
 }
-.kx-scroll {
+.kx-lcd-text {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  min-width: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-lcd-end {
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-bars {
+  display: flex;
+  gap: 3px;
+}
+.kx-bars .hw-lcd-bar {
+  width: 6px;
+  height: 22px;
+}
+.kx-totp {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.kx-totp .hw-lcd-key {
+  height: 34px;
+}
+.kx-totp-text {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 0 -12px;
-  padding: 0 12px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  gap: 4px;
 }
-.kx-scroll > * {
-  flex-shrink: 0;
+.kx-totp-code {
+  font-size: 30px;
+  line-height: 1;
 }
-.kx-toast {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 72px;
-  z-index: 10;
+.kx-pin {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px 18px;
 }
-.kx-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
+.kx-pin-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-round);
+  background: var(--lcd-dim);
 }
-.kx-menu-button {
-  width: 100%;
+.kx-pin-on {
+  background: var(--lcd-ink);
+  box-shadow: 0 0 10px rgba(159, 227, 196, 0.35);
+}
+.kx-pin-error .kx-pin-cell {
+  background: var(--lcd-warn);
+  opacity: 0.55;
+}
+.kx-label-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kx-bare-input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
   border: 0;
+  outline: none;
   background: transparent;
   color: var(--ink);
   font: inherit;
+}
+.kx-bare-input.hw-mono {
+  font-size: 14px;
+}
+.kx-invalid {
+  box-shadow:
+    var(--shadow-well),
+    0 0 0 2px var(--danger);
+}
+/* An input set into a well: the well draws the focus ring, not the bare input. */
+.hw-well-row:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.hw-well-row input:focus-visible,
+.kx-lcd-input input:focus-visible {
+  outline: none;
+}
+.kx-select {
+  appearance: auto;
+  max-width: 100%;
   text-align: left;
+}
+.kx-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  padding: 8px 0;
+}
+.kx-masked {
+  letter-spacing: 0.1em;
+}
+a.kx-value {
+  font-weight: 600;
+}
+.kx-seg {
+  flex-wrap: wrap;
+}
+.kx-seg-block {
+  display: flex;
+}
+.kx-seg-block > button {
+  flex: 1;
+}
+.kx-seg-on-well {
+  background: var(--panel);
+}
+.kx-item {
   cursor: pointer;
+  min-width: 0;
 }
-.kx-menu-button.kt-menu-on {
-  background: var(--surface-300);
-}
-.kx-menu-button.kt-danger,
-.kx-menu-button.kt-danger > .kd-icon {
-  color: var(--danger);
-}
-.kx-menu-button:hover,
-.kx-menu-button:focus-visible {
-  background: var(--surface-200);
-}
-.kx-menu-button:focus-visible {
-  outline: 2px solid var(--focus-ring);
+.kx-item:focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
+}
+.kx-item-text {
+  flex: 1;
+  min-width: 0;
+}
+.kx-item .hw-item-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-count {
+  margin-left: auto;
+}
+.kx-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.kx-logotype {
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+}
+.kx-mark-shackle {
+  stroke-width: 18;
+}
+.kx-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.kx-toast-danger .kx-toast-text {
+  color: var(--lcd-warn);
+}
+.kx-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  color: var(--green);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: center;
+}
+.kx-link:hover {
+  color: var(--ink);
 }
 .kx-hidden-input {
   position: absolute;
@@ -72,162 +214,618 @@ body {
   width: 1px;
   height: 1px;
 }
-.kx-error {
+.kx-sub {
   margin: 0;
-  color: var(--danger);
-  font-size: 14px;
-  line-height: 20px;
 }
-.kx-center {
-  align-items: center;
-  text-align: center;
+.kx-grow {
+  flex: 1;
+  min-width: 0;
 }
 
-/* The in-page dropdown (E-16 to E-22), an extension page inside the site's page.
-   The iframe is 340 px wide; the margin leaves room for the shadow. */
-html:has(.kx-dropdown-page),
-.kx-dropdown-page {
-  background: transparent;
+/* ---- The popup, 380 × 600 with a 10px inset ------------------------------------ */
+
+.kx-popup {
+  width: 380px;
+  height: 600px;
+  overflow: hidden;
+  font-size: 14px;
 }
-/* An iframe whose colour scheme differs from the page around it gets an opaque
-   backdrop. The dropdown draws its own surface, so it keeps the page's scheme. */
-/* Repeated :root outweighs every theme rule in tokens.css. */
-:root:root:root:has(.kx-dropdown-page) {
-  color-scheme: normal;
+.kx-pop {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.kx-dropdown-page {
-  padding: 0 8px 16px;
+.kx-pop > * {
+  flex-shrink: 0;
 }
-.kx-dropdown-page .kt-drop-in {
-  position: static;
-  width: 100%;
+.kx-phead {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.kx-dd-button {
-  width: 100%;
+.kx-phead-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.kx-phead-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-detail-title {
+  display: block;
+  font-weight: 800;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-vault-key {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-search {
+  min-height: 40px;
+  padding-right: 12px;
+  color: var(--ink-2);
+}
+.kx-search input {
+  flex: 1;
+  min-width: 0;
   border: 0;
+  outline: none;
   background: transparent;
   color: var(--ink);
   font: inherit;
-  text-align: left;
+}
+.kx-search input::-webkit-search-cancel-button {
   cursor: pointer;
 }
-.kx-dd-button:hover {
-  background: var(--surface-200);
+.kx-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--edge-key) transparent;
 }
-.kx-dd-button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+.kx-list > * {
+  flex-shrink: 0;
+}
+.kx-listbox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kx-list-label {
+  padding: 10px 8px 2px;
+}
+.kx-empty {
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.kx-empty-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+.kx-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+}
+.kx-body > * {
+  flex-shrink: 0;
+}
+.kx-foot {
+  display: flex;
+  gap: 8px;
+}
+.kx-foot > .hw-key {
+  flex: 1;
+}
+.kx-foot > .kx-wide {
+  flex: 2;
+}
+.kx-hero {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.kx-hero .kx-lcd-strip {
+  width: 100%;
+}
+.kx-hero-grow {
+  flex: 1 1 auto;
+}
+.kx-unlock {
+  flex: 1 1 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.kx-sign-in {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.kx-note {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  padding: 12px 14px;
+}
+.kx-gen-out {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kx-gen-value {
+  font-size: 18px;
+  word-break: break-all;
+  min-height: 26px;
+}
+.kx-gen-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kx-gen-meta .hw-lcd-key,
+.kx-lcd-input .hw-lcd-key {
+  height: 32px;
+}
+.kx-lcd-input {
+  padding: 6px 6px 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kx-lcd-input:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.kx-lcd-input input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--lcd-ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.kx-strength {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kx-gen-meta .kx-strength {
+  flex: 1;
+}
+.kx-range {
+  width: 100%;
+  accent-color: var(--green);
+}
+.kx-range-value {
+  font-size: 12px;
+  font-weight: 600;
+}
+.kx-toggles {
+  padding: 2px 14px;
 }
 
-/* The save and update prompt (E-23, E-24), top right of the site's page. */
+/* Rows of settings inside a well (popup generator, settings pages). */
+.kx-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.kx-row + .kx-row {
+  border-top: 1px solid var(--edge);
+}
+.kx-toggles .kx-row {
+  padding: 9px 0;
+}
+.kx-row-text {
+  flex: 1;
+  min-width: 180px;
+}
+.kx-row-label {
+  display: block;
+}
+.kx-row-strong {
+  font-weight: 700;
+}
+
+/* Menus over the popup (vaults, the account menu). Hardware has no menu yet:
+   a floating panel of nav buttons, as the dropdown is. */
+.kx-menu-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.kx-menu {
+  position: absolute;
+  z-index: 6;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: var(--shadow-pop);
+  max-height: 440px;
+  overflow-y: auto;
+}
+.kx-menu .hw-navbtn {
+  height: 40px;
+}
+.kx-menu .hw-navbtn:hover,
+.kx-menu .hw-navbtn:focus-visible {
+  background: var(--raised);
+}
+.kx-menu .hw-navbtn--on,
+.kx-menu .hw-navbtn--on:hover,
+.kx-menu .hw-navbtn--on:focus-visible {
+  background: var(--green);
+}
+.kx-menu .hw-navbtn.kx-menu-danger {
+  color: var(--danger);
+}
+.kx-menu-account {
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid var(--edge);
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.kx-menu-account .hw-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kx-menu-sep {
+  border: 0;
+  height: 1px;
+  background: var(--edge);
+  margin: 4px 6px;
+}
+.kx-toast-layer {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 66px;
+  z-index: 10;
+}
+
+/* ---- In-page dropdown (E-16 to E-22) -----------------------------------------
+   An extension page inside the site's page. The iframe is 340 px wide; the
+   margin leaves room for the shadow. */
+html:has(.kx-dropdown-page),
+.kx-dropdown-page,
 html:has(.kx-prompt-page),
 .kx-prompt-page {
   background: transparent;
 }
+/* An iframe whose colour scheme differs from the page around it gets an opaque
+   backdrop. These pages draw their own surface, so they keep the page's scheme.
+   Repeated :root outweighs every theme rule in tokens.css. */
+:root:root:root:has(.kx-dropdown-page),
 :root:root:root:has(.kx-prompt-page) {
   color-scheme: normal;
 }
-.kx-prompt-page {
-  padding: 8px 12px 20px;
+.kx-dropdown-page {
+  padding: 0 8px 16px;
+  font-size: 14px;
 }
-.kx-prompt-page .kt-prompt {
-  position: static;
-  width: 100%;
+/* shadow-pop would be cut off by the frame edge; this lip and short shadow fit
+   inside the frame margin. */
+.kx-dropdown,
+.kx-prompt {
+  box-shadow:
+    0 2px 0 var(--edge-key),
+    0 4px 8px var(--well-shadow);
 }
-
-/* Full-page tabs: welcome (E-27) and settings (E-28 to E-31). */
-.kx-page,
-.kx-page #root {
-  min-height: 100vh;
+.kx-dropdown {
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.kx-fullpage {
-  min-height: 100vh;
+.kx-dropdown .kx-lcd-strip {
+  padding: 8px 10px;
+  border-radius: 10px;
+  gap: 8px;
 }
-.kx-fullpage .kt-opt-main {
-  max-width: 720px;
-  overflow: visible;
+.kx-dropdown .kx-lcd-text {
+  font-size: 11px;
 }
-.kx-nav-button,
-.kx-row-button {
-  width: 100%;
+.kx-dropdown-well {
+  padding: 4px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kx-dd-action {
+  appearance: none;
   border: 0;
+  margin: 0;
+  width: 100%;
   background: transparent;
-  color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
-.kx-nav-button:hover,
-.kx-row-button:hover {
-  background: var(--surface-200);
+.kx-dd-mono {
+  font-family: var(--font-mono);
 }
-.kx-nav-button.kt-nav-on:hover {
-  background: var(--brass-soft);
+
+/* ---- Save and update prompt (E-23, E-24), top right of the site's page ------- */
+.kx-prompt-page {
+  padding: 8px 12px 20px;
+  font-size: 14px;
 }
-.kx-nav-button:focus-visible,
-.kx-row-button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+.kx-prompt {
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.kx-prompt-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.kx-prompt-title {
+  display: block;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.kx-prompt-keys {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.kx-prompt-vault {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---- Full-page tabs: welcome (E-27) and settings (E-28 to E-31) -------------- */
+.kx-page,
+.kx-page #root {
+  min-height: 100vh;
+}
+.kx-settings {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+}
+.kx-settings-nav {
+  flex: 0 1 240px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kx-settings-nav .kx-wordmark {
+  padding: 4px 4px 12px;
+}
+.kx-settings-nav .kx-logotype {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+}
+.kx-settings-main {
+  flex: 999 1 560px;
+  min-width: 0;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.kx-settings-main > * {
+  max-width: 720px;
+}
+.kx-rows {
+  padding: 4px 16px;
+}
+.kx-sites {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kx-site {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+.kx-site-host {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.kx-add-site {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  align-items: flex-start;
+}
+.kx-add-site .hw-field {
+  flex: 1;
+}
+.kx-add-site .hw-input {
+  height: 40px;
+  background: var(--panel);
+}
+.kx-add-site .hw-key {
+  margin-top: 22px;
+}
+.kx-sites-empty {
+  margin: 0;
+  padding: 8px 10px;
+}
+.kx-pairing {
+  margin-top: 8px;
+  max-width: 320px;
+}
+.kx-pairing .kx-lcd-text {
+  font-size: 18px;
+}
+.kx-kbds {
+  display: flex;
+  gap: 5px;
+  align-items: center;
 }
 .kx-pin-setup {
+  padding: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 16px;
 }
-.kx-panel {
-  background: var(--surface-100);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 24px;
+.kx-pin-setup .hw-sub {
+  margin: 0;
+  max-width: 340px;
 }
-.kx-welcome {
+.kx-pin-setup .kx-pin {
+  min-width: 220px;
+}
+.kx-pin-label {
+  cursor: text;
   display: flex;
-  justify-content: center;
-  padding: 72px 16px;
+  flex-direction: column;
+  gap: 12px;
 }
-.kx-welcome .kt-opt-main {
-  max-width: 460px;
+
+.kx-welcome {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 16px;
+  display: flex;
   align-items: center;
-  text-align: center;
-  overflow: visible;
+  justify-content: center;
 }
-.kx-welcome .kd-group {
+.kx-welcome-panel {
   width: 100%;
-  text-align: left;
+  max-width: 980px;
+  padding: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
 }
-.kx-actions {
+.kx-welcome-intro {
+  flex: 1 1 420px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.kx-welcome-intro .hw-sub {
+  margin: 10px 0 0;
+  font-size: 15px;
+}
+.kx-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kx-step {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.kx-step-now {
+  box-shadow:
+    var(--shadow-well),
+    0 0 0 2px var(--green);
+}
+.kx-step-text {
+  flex: 1;
+}
+.kx-welcome-action {
+  flex: 1 1 340px;
+  padding: 22px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+.kx-welcome-action .hw-sub {
+  margin: 0;
+}
+.kx-welcome-error {
+  padding: 12px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.kx-welcome-error .hw-led {
+  margin-top: 3px;
+}
+.kx-welcome-error-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--lcd-warn);
+}
+.kx-keys {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  justify-content: center;
-}
-
-.kx-fieldset {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-/* A setting's value chosen from a short list, at the end of its row (E-31). */
-.kx-inline-select {
-  font: inherit;
-  font-size: 14px;
-  color: var(--ink);
-  background: var(--surface-300);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  padding: 6px 8px;
-}
-.kx-inline-select:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.kx-welcome {
-  box-sizing: border-box;
 }

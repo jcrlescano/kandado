@@ -12,20 +12,19 @@ use gpui_kit::{
         input::{InputEvent, InputState},
         v_flex,
     },
-    div,
     prelude::FluentBuilder as _,
     px,
 };
 use kandado_app::{Phase, UnlockError};
 
 use super::super::{
-    Nav, Services, auth_shell, explain, explain_unlock, heading, paragraph,
-    system::sign_out_dialog, with_overlay,
+    Nav, Services, auth_frame, explain, explain_unlock, heading, small, system::sign_out_dialog,
+    with_overlay,
 };
 use crate::{
     assets::IconName,
-    components::{Button, ButtonSize, IconButton, Link, Logo, TextField},
-    theme::{KandadoTheme, TextStyles as _, color, tokens},
+    components::{Button, ButtonSize, LightState, Link, TextField},
+    theme::tokens,
 };
 
 pub struct UnlockView {
@@ -187,64 +186,48 @@ impl UnlockView {
 
 impl Render for UnlockView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let p = cx.palette();
-        let reveal = IconButton::new(
+        let reveal = Button::new(
             "reveal-password",
-            if self.revealed {
-                IconName::EyeOff
-            } else {
-                IconName::Eye
-            },
-            if self.revealed {
-                "Hide password"
-            } else {
-                "Show password"
-            },
+            if self.revealed { "Hide" } else { "Show" },
         )
         .size(ButtonSize::Sm)
         .on_click(cx.listener(|this, _, window, cx| this.toggle_reveal(window, cx)));
 
         let form = v_flex()
-            .gap(px(14.))
-            .child(Logo::new().size(px(48.)))
-            .child(heading("Unlock Kandado", cx))
-            .child(paragraph(self.email.clone(), cx))
-            .when(self.hello, |form| {
-                form.child(
-                    Button::new("unlock-hello", "Unlock with Windows Hello")
-                        .primary()
-                        .size(ButtonSize::Lg)
-                        .icon(IconName::Fingerprint)
-                        .block()
-                        .disabled(self.busy)
-                        .on_click(cx.listener(|this, _, _, cx| this.ask_hello(cx))),
-                )
-                .child(
-                    div()
-                        .text_token(tokens::LABEL)
-                        .text_color(color(p.ink_muted))
-                        .flex()
-                        .justify_center()
-                        .child("or"),
-                )
-            })
+            .gap(px(20.))
+            .child(
+                v_flex()
+                    .gap(px(tokens::SPACE_2))
+                    .child(heading("Unlock Kandado", cx))
+                    .child(small(self.email.clone(), cx)),
+            )
             .child(
                 TextField::new(&self.password)
                     .label("Master password")
-                    .icon(IconName::Lock)
+                    .mono(true)
                     .trailing(reveal)
                     .when_some(self.failure.clone(), |field, message| field.error(message)),
             )
             .child(
                 Button::new("unlock", if self.busy { "Unlocking…" } else { "Unlock" })
                     .size(ButtonSize::Lg)
-                    .when(!self.hello, |button| button.primary())
+                    .primary()
                     .block()
                     .disabled(self.busy)
                     .on_click(
                         cx.listener(|this, _, window, cx| this.unlock_with_password(window, cx)),
                     ),
             )
+            .when(self.hello, |form| {
+                form.child(
+                    Button::new("unlock-hello", "Unlock with Windows Hello")
+                        .size(ButtonSize::Lg)
+                        .icon(IconName::Fingerprint)
+                        .block()
+                        .disabled(self.busy)
+                        .on_click(cx.listener(|this, _, _, cx| this.ask_hello(cx))),
+                )
+            })
             .child(
                 h_flex()
                     .justify_between()
@@ -276,6 +259,6 @@ impl Render for UnlockView {
             )
             .into_any_element()
         });
-        with_overlay(auth_shell(form, cx), dialog)
+        with_overlay(auth_frame(form, LightState::Warn, "Locked", cx), dialog)
     }
 }

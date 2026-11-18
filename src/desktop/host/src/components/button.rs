@@ -1,43 +1,53 @@
+//! Keys (`hw-key`): every button is a key face with a lip under it, and
+//! pressing moves it down 2 px. Hardware keys do not change colour on hover;
+//! the pointer cursor is enough.
+
 use gpui_kit::{
-    App, ClickEvent, CursorStyle, ElementId, FontWeight, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window,
-    component::tooltip::Tooltip, div, prelude::FluentBuilder as _, px,
+    App, BoxShadow, ClickEvent, CursorStyle, ElementId, FontWeight, InteractiveElement,
+    IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled,
+    Window, component::tooltip::Tooltip, div, prelude::FluentBuilder as _, px,
 };
 
-use super::Icon;
+use super::{
+    Icon,
+    hardware::{lip, ring},
+};
 use crate::{
     assets::IconName,
-    theme::{KandadoTheme, color, focus_ring, tokens},
+    theme::{KandadoTheme, color, focus_ring, tokens, tokens::Palette},
 };
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
 /// What a disabled control looks like everywhere in the design system.
-pub(crate) const DISABLED_OPACITY: f32 = 0.4;
+pub(crate) const DISABLED_OPACITY: f32 = 0.45;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ButtonVariant {
-    /// Brass. The single main action of a view.
+    /// The green go key: the single main action of a view.
     Primary,
-    /// Other actions beside the primary one.
+    /// A raised key face, for most actions: Copy, Show, Share, Cancel.
     #[default]
     Secondary,
-    /// Low emphasis and toolbar actions.
+    /// A flat key with no face, for low-emphasis actions inside rows.
     Ghost,
     /// Irreversible actions only, such as "Delete forever".
     Danger,
-    /// Reversible destructive actions, such as "Move to trash".
+    /// Reversible destructive actions, such as "Move to trash": a raised face
+    /// with the label in the danger colour.
     DangerQuiet,
+    /// The contrast key, for Lock and similar device controls.
+    Dark,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ButtonSize {
-    /// 32 px, for dense toolbars.
+    /// 32 px, inside fields and rows.
     Sm,
     /// 40 px.
     #[default]
     Md,
-    /// 48 px, for the unlock screen.
+    /// 52 px, on the unlock screen and onboarding.
     Lg,
 }
 
@@ -46,12 +56,45 @@ impl ButtonSize {
         match self {
             Self::Sm => 32.,
             Self::Md => 40.,
-            Self::Lg => 48.,
+            Self::Lg => 52.,
+        }
+    }
+
+    fn radius(self) -> f32 {
+        match self {
+            Self::Sm => tokens::RADIUS_KEY_SM,
+            Self::Md => tokens::RADIUS_KEY,
+            Self::Lg => tokens::RADIUS_WELL,
         }
     }
 }
 
-/// A text button. Labels are verbs in sentence case.
+/// `(face, label, lip)` for a key. `None` lip means a flat key.
+fn finish(variant: ButtonVariant, p: &Palette) -> (Option<u32>, u32, Option<u32>) {
+    match variant {
+        ButtonVariant::Primary => (Some(p.green), p.on_green, Some(p.green_edge)),
+        ButtonVariant::Secondary => (Some(p.raised), p.ink, Some(p.edge_key)),
+        ButtonVariant::Ghost => (None, p.ink, None),
+        ButtonVariant::Danger => (Some(p.danger), p.on_danger, Some(p.danger_edge)),
+        ButtonVariant::DangerQuiet => (Some(p.raised), p.danger, Some(p.edge_key)),
+        ButtonVariant::Dark => (Some(p.dark_key), p.on_dark_key, Some(p.dark_key_edge)),
+    }
+}
+
+/// The shadows of a key at rest or pressed: its lip (3 px, 1 px pressed) and,
+/// when it is a checked toggle, the green ring.
+fn key_shadow(edge: Option<u32>, pressed: bool, checked: bool, p: &Palette) -> Vec<BoxShadow> {
+    let mut shadows: Vec<BoxShadow> = edge
+        .map(|edge| lip(edge, if pressed { 1. } else { 3. }))
+        .into_iter()
+        .collect();
+    if checked {
+        shadows.push(ring(p.green));
+    }
+    shadows
+}
+
+/// A text key. Labels are verbs in sentence case.
 #[derive(IntoElement)]
 pub struct Button {
     id: ElementId,
@@ -61,6 +104,7 @@ pub struct Button {
     icon: Option<IconName>,
     trailing_icon: Option<IconName>,
     block: bool,
+    checked: bool,
     disabled: bool,
     on_click: Option<ClickHandler>,
 }
@@ -75,6 +119,7 @@ impl Button {
             icon: None,
             trailing_icon: None,
             block: false,
+            checked: false,
             disabled: false,
             on_click: None,
         }
@@ -111,6 +156,12 @@ impl Button {
         self
     }
 
+    /// For keys that toggle: draws the green ring while on.
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = checked;
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -128,42 +179,21 @@ impl Button {
 impl RenderOnce for Button {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        let transparent = gpui_kit::transparent_black();
-        let (background, hover, text, border) = match self.variant {
-            ButtonVariant::Primary => (
-                color(p.brass),
-                color(p.brass_strong),
-                color(p.on_brass),
-                transparent,
-            ),
-            ButtonVariant::Secondary => (
-                color(p.surface_200),
-                color(p.surface_300),
-                color(p.ink),
-                color(p.line),
-            ),
-            ButtonVariant::Ghost => (transparent, color(p.surface_200), color(p.ink), transparent),
-            ButtonVariant::Danger => (
-                color(p.danger),
-                color(p.danger),
-                color(p.on_danger),
-                transparent,
-            ),
-            ButtonVariant::DangerQuiet => (
-                color(p.danger_soft),
-                color(p.danger_soft),
-                color(p.danger),
-                transparent,
-            ),
-        };
+        let (face, text, edge) = finish(self.variant, p);
         let (padding, text_size, icon_size) = match self.size {
             ButtonSize::Sm => (tokens::SPACE_3, 13., 16.),
-            ButtonSize::Md => (tokens::SPACE_4, 15., 18.),
-            ButtonSize::Lg => (tokens::SPACE_5, 15., 18.),
+            ButtonSize::Md => (tokens::SPACE_5, 14., 18.),
+            ButtonSize::Lg => (22., 16., 18.),
         };
+        let checked = self.checked;
+        let resting = key_shadow(edge, false, checked, p);
+        let pressed = key_shadow(edge, true, checked, p);
+        let mut focused = resting.clone();
+        focused.extend(focus_ring(p, p.panel));
 
         div()
             .id(self.id)
+            .relative()
             .flex()
             .flex_none()
             .items_center()
@@ -172,16 +202,16 @@ impl RenderOnce for Button {
             .h(px(self.size.height()))
             .px(px(padding))
             .when(self.block, |button| button.w_full())
-            .rounded(px(tokens::RADIUS_MD))
-            .border_1()
-            .border_color(border)
-            .bg(background)
-            .text_color(text)
+            .rounded(px(self.size.radius()))
+            .when_some(face, |button, face| button.bg(color(face)))
+            .shadow(resting)
+            .text_color(color(text))
             .font_family(tokens::FONT_SANS)
-            .font_weight(FontWeight::SEMIBOLD)
+            .font_weight(FontWeight::BOLD)
             .text_size(px(text_size))
+            .line_height(px(text_size))
             .whitespace_nowrap()
-            .focus_visible(|button| button.shadow(focus_ring(p, p.surface_100)))
+            .focus_visible(move |button| button.shadow(focused))
             .when_some(self.icon, |button, icon| {
                 button.child(Icon::new(icon).size(px(icon_size)))
             })
@@ -197,7 +227,7 @@ impl RenderOnce for Button {
                 } else {
                     button
                         .cursor_pointer()
-                        .hover(move |button| button.bg(hover))
+                        .active(move |button| button.top(px(2.)).shadow(pressed))
                         .tab_index(0)
                         .when_some(self.on_click, |button, handler| button.on_click(handler))
                 }
@@ -207,19 +237,21 @@ impl RenderOnce for Button {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum IconButtonVariant {
-    /// Inside rows and fields.
+    /// A flat key, inside rows and fields.
     #[default]
     Ghost,
-    /// In toolbars.
+    /// A raised key face, in toolbars.
     Secondary,
-    /// Brass. Only for the mobile create button.
+    /// The green go key.
     Primary,
+    /// The contrast key: the lock button.
+    Dark,
 }
 
-/// A square icon-only button for copy, reveal, more and toolbar actions.
+/// A square icon-only key for copy, reveal, more and toolbar actions.
 ///
 /// `label` is required: it is the tooltip and the accessible name, and says
-/// what the button acts on ("Copy password", not "Copy").
+/// what the key acts on ("Copy password", not "Copy").
 #[derive(IntoElement)]
 pub struct IconButton {
     id: ElementId,
@@ -227,8 +259,9 @@ pub struct IconButton {
     label: SharedString,
     variant: IconButtonVariant,
     size: ButtonSize,
-    /// Draws the icon in teal, for the moment after a copy.
+    /// Draws the icon in the go colour, for the moment after a copy.
     confirmed: bool,
+    checked: bool,
     flipped: bool,
     disabled: bool,
     on_click: Option<ClickHandler>,
@@ -243,6 +276,7 @@ impl IconButton {
             variant: IconButtonVariant::default(),
             size: ButtonSize::default(),
             confirmed: false,
+            checked: false,
             flipped: false,
             disabled: false,
             on_click: None,
@@ -270,6 +304,12 @@ impl IconButton {
         self
     }
 
+    /// For keys that toggle, such as Favourite: draws the green ring while on.
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = checked;
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -287,60 +327,45 @@ impl IconButton {
 impl RenderOnce for IconButton {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        let transparent = gpui_kit::transparent_black();
-        let (background, hover, text, hover_text, border) = match self.variant {
-            IconButtonVariant::Ghost => (
-                transparent,
-                color(p.surface_300),
-                color(p.ink_muted),
-                color(p.ink),
-                transparent,
-            ),
-            IconButtonVariant::Secondary => (
-                color(p.surface_200),
-                color(p.surface_300),
-                color(p.ink),
-                color(p.ink),
-                color(p.line),
-            ),
-            IconButtonVariant::Primary => (
-                color(p.brass),
-                color(p.brass_strong),
-                color(p.on_brass),
-                color(p.on_brass),
-                transparent,
-            ),
+        let variant = match self.variant {
+            IconButtonVariant::Ghost => ButtonVariant::Ghost,
+            IconButtonVariant::Secondary => ButtonVariant::Secondary,
+            IconButtonVariant::Primary => ButtonVariant::Primary,
+            IconButtonVariant::Dark => ButtonVariant::Dark,
         };
-        let (text, hover_text) = if self.confirmed {
-            (color(p.teal), color(p.teal))
-        } else {
-            (text, hover_text)
+        let (face, text, edge) = finish(variant, p);
+        // Icons on a flat key are secondary until hovered.
+        let (text, hover_text) = match (self.confirmed, self.variant) {
+            (true, _) => (p.green, p.green),
+            (false, IconButtonVariant::Ghost) => (p.ink_2, p.ink),
+            (false, _) => (text, text),
         };
         let side = px(self.size.height());
         let small = self.size == ButtonSize::Sm;
         let label = self.label;
+        let checked = self.checked;
+        let resting = key_shadow(edge, false, checked, p);
+        let pressed = key_shadow(edge, true, checked, p);
+        let mut focused = resting.clone();
+        focused.extend(focus_ring(p, p.panel));
 
         div()
             .id(self.id)
+            .relative()
             .flex()
             .flex_none()
             .items_center()
             .justify_center()
             .size(side)
-            .rounded(px(if small {
-                tokens::RADIUS_SM
-            } else {
-                tokens::RADIUS_MD
-            }))
-            .border_1()
-            .border_color(border)
-            .bg(background)
-            .text_color(text)
-            .focus_visible(|button| button.shadow(focus_ring(p, p.surface_100)))
+            .rounded(px(self.size.radius()))
+            .when_some(face, |button, face| button.bg(color(face)))
+            .shadow(resting)
+            .text_color(color(text))
+            .focus_visible(move |button| button.shadow(focused))
             .child(
                 Icon::new(self.icon)
                     .flipped(self.flipped)
-                    .size(px(if small { 16. } else { 20. })),
+                    .size(px(if small { 16. } else { 18. })),
             )
             .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
             .map(|button| {
@@ -351,7 +376,8 @@ impl RenderOnce for IconButton {
                 } else {
                     button
                         .cursor_pointer()
-                        .hover(move |button| button.bg(hover).text_color(hover_text))
+                        .hover(move |button| button.text_color(color(hover_text)))
+                        .active(move |button| button.top(px(2.)).shadow(pressed))
                         .tab_index(0)
                         .when_some(self.on_click, |button, handler| button.on_click(handler))
                 }

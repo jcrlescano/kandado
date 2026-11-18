@@ -1,6 +1,6 @@
 // The service worker: wires the worker logic to `chrome.*`.
 
-import designTokens from "../ui/tokens.json";
+import designTokens from "../ui/vendor/hardware/tokens.json";
 import { Api, type TokenStore, type Tokens } from "./api";
 import { route } from "./router";
 import { Store } from "./store";
@@ -162,9 +162,10 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 });
 // Locking, unlocking, syncing and settings change what the badge says.
 chrome.storage.onChanged.addListener(() => void updateActiveBadge());
-const brass = designTokens.color.tokens.find((token) => token.name === "brass")?.value;
+// The item count sits on Kandado green (the light theme value, which keeps white text readable).
+const green = designTokens.color.tokens.find((token) => token.name === "green")?.value;
 void chrome.action
-  .setBadgeBackgroundColor({ color: typeof brass === "object" ? brass.dark : (brass ?? "#000") })
+  .setBadgeBackgroundColor({ color: typeof green === "object" ? green.light : (green ?? "#000") })
   .catch(() => {});
 
 // E-27: the welcome tab, once, after install.

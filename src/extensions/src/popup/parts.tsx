@@ -1,109 +1,77 @@
-// Small layout parts the popup screens share. They reproduce the popup layout
-// the design system draws (its `kt-*` classes) with real data and real events.
+// Layout parts the popup screens share, built from Kandado Hardware: the popup is
+// 380 × 600 with a 10px inset, a header panel, an LCD strip, a list well and the
+// keys at the bottom.
 
-import { type ReactNode, useEffect, useRef } from "react";
-import { K } from "../ui/kandado";
-import type { IconName, ItemKind } from "../ui/vendor/kandado";
+import { type CSSProperties, type FormEvent, type ReactNode, useEffect, useRef } from "react";
+import { Key, NavButton, Panel, StatusLight } from "../ui/hardware";
 
 export function Pop({ children, overlay }: { children: ReactNode; overlay?: ReactNode }) {
   return (
-    <div className="kt-pop">
+    <div className="kx-pop">
       {children}
       {overlay}
     </div>
   );
 }
 
-export function Head({ children }: { children: ReactNode }) {
-  return <div className="kt-phead">{children}</div>;
-}
-
-/** The header of an inner screen: Back, a title and optional actions. */
+/** The header of an inner screen: a Back key, a title and optional keys. */
 export function BackHead({
   title,
   onBack,
-  right,
+  children,
 }: {
-  title: string;
+  title: ReactNode;
   onBack: () => void;
-  right?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
-    <Head>
-      <K.IconButton icon="chevron" label="Back" size="sm" className="kt-flip" onClick={onBack} />
-      <div className="kt-top-title kt-small-title">{title}</div>
-      {right}
-    </Head>
+    <Panel as="header" className="kx-phead">
+      <div className="kx-phead-row">
+        <Key size="sm" icon aria-label="Back" onClick={onBack}>
+          ←
+        </Key>
+        {typeof title === "string" ? <h1 className="hw-h3 kx-phead-title">{title}</h1> : title}
+        {children}
+      </div>
+    </Panel>
   );
 }
 
-export function Body({ children, center }: { children: ReactNode; center?: boolean }) {
+/** The panel that holds a screen's fields; it scrolls when they do not fit. */
+export function Body({
+  children,
+  as,
+  onSubmit,
+}: {
+  children: ReactNode;
+  as?: "div" | "form";
+  onSubmit?: (event: FormEvent<HTMLElement>) => void;
+}) {
   return (
-    <div
-      className="kt-pbody"
-      style={
-        center
-          ? { alignItems: "center", justifyContent: "center", textAlign: "center", gap: 14 }
-          : undefined
-      }
-    >
+    <Panel as={as ?? "div"} className="kx-body" onSubmit={onSubmit}>
       {children}
-    </div>
+    </Panel>
   );
 }
 
 export function Foot({ children }: { children: ReactNode }) {
-  return <div className="kt-pfoot">{children}</div>;
+  return <footer className="kx-foot">{children}</footer>;
 }
 
-/** The column footer of the signed-out and locked screens. */
-export function ColumnFoot({ children }: { children: ReactNode }) {
-  return (
-    <div className="kt-mfoot kt-col" style={{ padding: 12 }}>
-      {children}
-    </div>
-  );
-}
-
-export function Section({ icon, children }: { icon?: IconName; children: ReactNode }) {
-  return (
-    <div className="kt-psec">
-      {icon && <K.Icon name={icon} size={14} />}
-      {children}
-    </div>
-  );
-}
-
-export function List({ children, label }: { children: ReactNode; label: string }) {
-  return (
-    <div className="kt-plist" role="listbox" aria-label={label}>
-      {children}
-    </div>
-  );
-}
-
-export function Group({ children }: { children: ReactNode }) {
-  return <div className="kd-group">{children}</div>;
-}
-
+/** Nothing to list: a title, an optional line and an optional key. */
 export function Empty({
-  icon,
   title,
   body,
   children,
 }: {
-  icon: IconName;
   title: string;
   body?: string;
   children?: ReactNode;
 }) {
   return (
-    <div className="kt-empty">
-      <div className="kt-empty-ic kt-tone-teal">
-        <K.Icon name={icon} size={28} />
-      </div>
-      <h3>{title}</h3>
-      {body && <p>{body}</p>}
+    <div className="kx-empty">
+      <p className="kx-empty-title">{title}</p>
+      {body && <p className="hw-sub kx-sub">{body}</p>}
       {children}
     </div>
   );
@@ -112,26 +80,26 @@ export function Empty({
 export interface MenuEntry {
   key: string;
   label: string;
-  icon?: IconName;
-  kind?: ItemKind;
-  hint?: string;
+  /** A vault's status light before its name. */
+  light?: boolean;
   danger?: boolean;
   checked?: boolean;
-  /** Shown but not a button (the account line in E-13). */
-  inert?: boolean;
   onSelect?: () => void;
 }
 
-/** A menu over the popup (E-09, E-13, E-14). Escape or a click outside closes it. */
+/** A menu over the popup (vaults, the account menu). Escape or a click outside closes it. */
 export function Menu({
   entries,
   style,
   label,
+  header,
   onClose,
 }: {
   entries: (MenuEntry | "-")[];
-  style: React.CSSProperties;
+  style: CSSProperties;
   label: string;
+  /** Shown at the top, not a menu item (the account in the account menu). */
+  header?: ReactNode;
   onClose: () => void;
 }) {
   const first = useRef<HTMLButtonElement | null>(null);
@@ -146,128 +114,50 @@ export function Menu({
   let focused = false;
   return (
     <>
-      <div className="kx-scrim" onClick={onClose} aria-hidden="true" />
-      <div
-        className="kt-menu"
-        role="menu"
-        aria-label={label}
-        style={{ position: "absolute", zIndex: 6, ...style }}
-      >
-        {entries.map((entry, index) => {
-          if (entry === "-") {
-            const before = entries[index - 1];
-            const after = typeof before === "object" ? before.key : "start";
-            return <div key={`after-${after}`} className="kt-menu-sep" />;
-          }
-          const content = (
-            <>
-              {entry.kind ? (
-                <K.ItemIcon kind={entry.kind} size={28} />
-              ) : (
-                entry.icon && <K.Icon name={entry.icon} size={18} />
-              )}
-              <span>{entry.label}</span>
-              {entry.hint && <kbd className="kd-kbd">{entry.hint}</kbd>}
-              {entry.checked && <K.Icon name="check" size={16} className="kt-menu-check" />}
-            </>
-          );
-          const classes = [
-            "kt-menu-item",
-            entry.danger && "kt-danger",
-            entry.checked && "kt-menu-on",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          if (entry.inert) {
+      <div className="kx-menu-scrim" onClick={onClose} aria-hidden="true" />
+      <Panel className="kx-menu" style={style}>
+        {header}
+        <div
+          role="menu"
+          aria-label={label}
+          style={{ display: "flex", flexDirection: "column", gap: 2 }}
+        >
+          {entries.map((entry, index) => {
+            if (entry === "-") {
+              const before = entries[index - 1];
+              const after = typeof before === "object" ? before.key : "start";
+              return <hr key={`after-${after}`} className="kx-menu-sep" />;
+            }
+            const isFirst = !focused;
+            focused = true;
             return (
-              <div key={entry.key} className={classes}>
-                {content}
-              </div>
+              <NavButton
+                key={entry.key}
+                {...(entry.checked === undefined
+                  ? { role: "menuitem" }
+                  : { role: "menuitemradio", "aria-checked": entry.checked })}
+                on={entry.checked}
+                className={entry.danger ? "kx-menu-danger" : undefined}
+                ref={isFirst ? first : undefined}
+                onClick={() => {
+                  onClose();
+                  entry.onSelect?.();
+                }}
+              >
+                {entry.light && <StatusLight />}
+                <span>{entry.label}</span>
+              </NavButton>
             );
-          }
-          const isFirst = !focused;
-          focused = true;
-          return (
-            <button
-              key={entry.key}
-              type="button"
-              {...(entry.checked === undefined
-                ? { role: "menuitem" }
-                : { role: "menuitemradio", "aria-checked": entry.checked })}
-              className={`${classes} kx-menu-button`}
-              ref={isFirst ? first : undefined}
-              onClick={() => {
-                onClose();
-                entry.onSelect?.();
-              }}
-            >
-              {content}
-            </button>
-          );
-        })}
-      </div>
+          })}
+        </div>
+      </Panel>
     </>
   );
 }
 
-/** A native select drawn as the design system's field. */
-export function SelectField({
-  label,
-  icon,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  icon?: IconName;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="kd-field">
-      <label className="kd-field-label" htmlFor={`select-${label}`}>
-        {label}
-      </label>
-      <div className="kd-field-box">
-        {icon && <K.Icon name={icon} size={18} className="kd-field-icon" />}
-        <select
-          id={`select-${label}`}
-          className="kd-field-input"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
-
-/** Six PIN dots (E-02). */
-export function PinDots({ filled, error }: { filled: number; error?: boolean }) {
-  return (
-    <div className="kt-pin" aria-hidden="true">
-      {[0, 1, 2, 3, 4, 5].map((index) => (
-        <span
-          key={index}
-          className={["kt-pin-dot", index < filled && "kt-pin-on", error && "kt-pin-err"]
-            .filter(Boolean)
-            .join(" ")}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** The first letter of a title, for a login's tile. */
-export function letterOf(title: string): string | undefined {
-  const letter = title.trim().charAt(0).toUpperCase();
-  return letter || undefined;
+/** The first letter of a title, for an item's badge. */
+export function letterOf(title: string): string {
+  return title.trim().charAt(0).toUpperCase() || "•";
 }
 
 /** The host of a page, without "www.". */

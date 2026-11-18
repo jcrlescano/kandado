@@ -25,10 +25,10 @@ pub const ITEMS: [(&str, Request); 7] = [
     ("Quit Kandado", Request::Quit),
 ];
 
-/// A 32 px tray image: the brass tile with a padlock cut out of it.
+/// A 32 px tray image: a green tile with a padlock cut out of it.
 fn image() -> Icon {
     const SIZE: i32 = 32;
-    let [r, g, b, _] = tokens::DARK.brass.to_be_bytes();
+    let [r, g, b, _] = tokens::DARK.green.to_be_bytes();
     let mut pixels = Vec::with_capacity((SIZE * SIZE * 4) as usize);
     for y in 0..SIZE {
         for x in 0..SIZE {

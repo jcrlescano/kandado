@@ -83,7 +83,7 @@ test("signed out, sign in, unlock, browse, create and generate, in both themes",
   await page.getByRole("option", { name: /GitHub/ }).click();
   await expect(page.getByText("juan", { exact: true })).toBeVisible();
   await expect(page.getByText("Tq7#vL2m!Ox0-r9P")).toHaveCount(0);
-  await page.getByRole("button", { name: "Reveal" }).click();
+  await page.getByRole("button", { name: "Show" }).click();
   await expect(page.getByText("Tq7#vL2m!Ox0-r9P")).toBeVisible();
   await both(page, "E-06");
   await page.getByRole("button", { name: "Back" }).click();
@@ -100,18 +100,16 @@ test("signed out, sign in, unlock, browse, create and generate, in both themes",
   await both(page, "E-13");
   await page.keyboard.press("Escape");
 
-  // E-09 → E-10: a new login is saved and pushed.
-  await page.getByRole("button", { name: "Create" }).click();
-  await expect(page.getByRole("menuitem", { name: "Login" })).toBeVisible();
-  await both(page, "E-09");
-  await page.getByRole("menuitem", { name: "Login" }).click();
+  // E-10: a new login is saved and pushed. (The Hardware popup has one Create
+  // login key; the E-09 menu returns when the popup can create other kinds.)
+  await page.getByRole("button", { name: "Create login" }).click();
   await expect(page.getByText("New login")).toBeVisible();
-  await page.getByLabel("Title").fill("Linear");
-  await page.getByLabel("Username or email").fill("juan@example.com");
+  await page.getByLabel("Name", { exact: true }).fill("Linear");
+  await page.getByLabel("Email or username").fill("juan@example.com");
   await page.getByLabel("Website").fill("https://linear.app");
   await expect(page.getByText(/bits/)).toBeVisible();
   await both(page, "E-10");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Create login" }).click();
   await expect(page.getByText("Login created")).toBeVisible();
   await expect(page.getByRole("option", { name: /Linear/ })).toBeVisible();
   await expect.poll(() => server.sync.items.size).toBe(SAMPLE_ITEMS.length + 1);
@@ -164,7 +162,7 @@ test("suggestions for the site in the tab, and the empty state for a site with n
 
   // E-03: a login saved for this site is suggested on top.
   const suggested = await openPopupOver("http://localhost:8787/site");
-  await expect(suggested.getByText("Suggestions for localhost")).toBeVisible();
+  await expect(suggested.getByText("localhost · 1 login")).toBeVisible();
   await expect(
     suggested.getByRole("listbox", { name: "Suggestions for localhost" }).getByRole("option"),
   ).toHaveCount(1);

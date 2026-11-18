@@ -1,16 +1,15 @@
-//! The three bundled typefaces, all under the SIL Open Font Licence (the
-//! licence texts sit beside the files in `resources/fonts`). Bundling them
+//! The two Kandado Hardware typefaces, both under the SIL Open Font Licence
+//! (the licence texts sit beside the files in `resources/fonts`). Bundling them
 //! means the app looks the same on every machine and never asks the network
-//! for a font.
+//! for a font. The browser extension ships the same files.
 
 use std::borrow::Cow;
 
 use gpui_kit::{App, Result};
 
-const FILES: [&[u8]; 3] = [
-    include_bytes!("../../../resources/fonts/BricolageGrotesque.ttf"),
-    include_bytes!("../../../resources/fonts/Figtree.ttf"),
-    include_bytes!("../../../resources/fonts/JetBrainsMono.ttf"),
+const FILES: [&[u8]; 2] = [
+    include_bytes!("../../../resources/fonts/SchibstedGrotesk.ttf"),
+    include_bytes!("../../../resources/fonts/MartianMono.ttf"),
 ];
 
 /// Makes the fonts named by `tokens::FONT_*` available. Call once at startup.

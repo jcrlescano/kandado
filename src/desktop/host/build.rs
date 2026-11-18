@@ -1,5 +1,5 @@
-//! Turns the synced design tokens (`../resources/tokens.json`) into Rust
-//! constants, so no view hard-codes a colour or a size.
+//! Turns the synced design tokens (`../resources/tokens.json`, Kandado
+//! Hardware) into Rust constants, so no view hard-codes a colour or a size.
 //!
 //! The output is plain data with no GPUI types; `src/theme` gives it meaning.
 //! Anything in the file this script does not understand stops the build:
@@ -10,6 +10,8 @@ use std::{collections::BTreeMap, env, fmt::Write as _, fs, path::Path};
 use serde_json::Value;
 
 const TOKENS: &str = "../resources/tokens.json";
+/// The order of every `[dark, light]` pair in the output, whatever order the
+/// file declares its themes in.
 const THEMES: [&str; 2] = ["dark", "light"];
 
 fn main() {
@@ -165,10 +167,11 @@ fn px(css: &str) -> f64 {
 }
 
 fn colors(tokens: &Value, out: &mut String) {
-    let declared: Vec<&str> = list(tokens, "color", "themes")
+    let mut declared: Vec<&str> = list(tokens, "color", "themes")
         .iter()
         .map(|theme| text(&theme["id"], "theme id"))
         .collect();
+    declared.sort_unstable();
     assert_eq!(
         declared, THEMES,
         "tokens.json: expected exactly the themes {THEMES:?}"
@@ -205,8 +208,8 @@ fn colors(tokens: &Value, out: &mut String) {
     }
     out.push_str("}\n\n");
     for (index, (theme, doc)) in [
-        ("DARK", "Vault, the dark theme."),
-        ("LIGHT", "Paper, the light theme."),
+        ("DARK", "Graphite, the dark theme."),
+        ("LIGHT", "Enamel, the light theme and the default."),
     ]
     .into_iter()
     .enumerate()
@@ -227,16 +230,21 @@ fn colors(tokens: &Value, out: &mut String) {
 
 fn typography(tokens: &Value, out: &mut String) {
     out.push_str(
-        "/// A font family role.\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum Family {\n    Display,\n    Sans,\n    Mono,\n}\n\n\
+        "/// A font family role.\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum Family {\n    Sans,\n    Mono,\n}\n\n\
          /// One text style. Sizes are in pixels; letter spacing is in ems.\n#[derive(Debug, Clone, Copy, PartialEq)]\npub struct TextToken {\n    pub family: Family,\n    pub size: f32,\n    pub line_height: f32,\n    pub weight: u16,\n    pub letter_spacing: f32,\n}\n\n",
     );
 
     // The first name of each CSS font stack is the bundled font.
-    for (role, constant) in [
-        ("display", "FONT_DISPLAY"),
-        ("sans", "FONT_SANS"),
-        ("mono", "FONT_MONO"),
-    ] {
+    let roles: Vec<&String> = tokens["type"]["families"]
+        .as_object()
+        .expect("tokens.json: type.families is not an object")
+        .keys()
+        .collect();
+    assert!(
+        roles.len() == 2 && roles.iter().all(|role| *role == "sans" || *role == "mono"),
+        "tokens.json: expected the font roles sans and mono, found {roles:?}"
+    );
+    for (role, constant) in [("sans", "FONT_SANS"), ("mono", "FONT_MONO")] {
         let stack = text(&tokens["type"]["families"][role], "font family");
         let first = stack
             .split(',')
@@ -251,7 +259,6 @@ fn typography(tokens: &Value, out: &mut String) {
 
     for group in list(tokens, "type", "groups") {
         let family = match text(&group["family"], "type group family") {
-            "display" => "Display",
             "sans" => "Sans",
             "mono" => "Mono",
             other => panic!("tokens.json: unknown font family role {other}"),
@@ -296,40 +303,81 @@ fn lengths(tokens: &Value, group: &str, out: &mut String) {
     out.push('\n');
 }
 
+/// Splits a CSS list on the commas that are not inside parentheses.
+fn split_top_level(css: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let (mut depth, mut start) = (0usize, 0usize);
+    for (index, character) in css.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(css[start..index].trim());
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(css[start..].trim());
+    parts
+}
+
+/// One layer such as `inset 0 2px 5px rgba(0, 0, 0, 0.6)` or `0 3px 0 #B9B2A4`:
+/// `[inset] x y blur [spread] colour`.
+fn shadow_layer(css: &str) -> String {
+    let (inset, rest) = match css.strip_prefix("inset ") {
+        Some(rest) => (true, rest.trim()),
+        None => (false, css),
+    };
+    let colour_at = rest
+        .find("rgba(")
+        .or_else(|| rest.find('#'))
+        .unwrap_or_else(|| panic!("unsupported shadow {css}"));
+    let (offsets, colour) = rest.split_at(colour_at);
+    let numbers: Vec<f64> = offsets
+        .split_whitespace()
+        .map(|part| if part == "0" { 0.0 } else { px(part) })
+        .collect();
+    assert!(
+        numbers.len() == 3 || numbers.len() == 4,
+        "unsupported shadow {css}"
+    );
+    format!(
+        "ShadowToken {{ x: {:?}, y: {:?}, blur: {:?}, spread: {:?}, color: {:#010x}, inset: {inset} }}",
+        numbers[0],
+        numbers[1],
+        numbers[2],
+        numbers.get(3).copied().unwrap_or(0.0),
+        rgba(colour)
+    )
+}
+
 fn shadows(tokens: &Value, out: &mut String) {
     out.push_str(
-        "/// A drop shadow. Offsets and blur are in pixels; the colour is 0xRRGGBBAA.\n#[derive(Debug, Clone, Copy, PartialEq)]\npub struct ShadowToken {\n    pub x: f32,\n    pub y: f32,\n    pub blur: f32,\n    pub color: u32,\n}\n\n",
+        "/// One layer of a box shadow. Offsets, blur and spread are in pixels; the colour is 0xRRGGBBAA.\n#[derive(Debug, Clone, Copy, PartialEq)]\npub struct ShadowToken {\n    pub x: f32,\n    pub y: f32,\n    pub blur: f32,\n    pub spread: f32,\n    pub color: u32,\n    pub inset: bool,\n}\n\n",
     );
     for token in list(tokens, "shadow", "tokens") {
         let name = text(&token["name"], "shadow name");
-        let parsed = THEMES.map(|theme| {
-            // "0 8px 24px rgba(0, 0, 0, 0.5)"
-            let css = text(&token["value"][theme], "shadow value");
-            let (offsets, color) = css.split_at(
-                css.find("rgba(")
-                    .unwrap_or_else(|| panic!("unsupported shadow {css}")),
-            );
-            let numbers: Vec<f64> = offsets
-                .split_whitespace()
-                .map(|part| if part == "0" { 0.0 } else { px(part) })
-                .collect();
-            assert_eq!(numbers.len(), 3, "unsupported shadow {css}");
-            (numbers, rgba(color))
+        // A string is the same in both themes; otherwise one value per theme.
+        let layers = THEMES.map(|theme| {
+            let css = match &token["value"] {
+                Value::String(css) => css.as_str(),
+                value => text(&value[theme], &format!("shadow {name}.{theme}")),
+            };
+            split_top_level(css)
+                .into_iter()
+                .map(shadow_layer)
+                .collect::<Vec<_>>()
         });
         writeln!(
             out,
-            "/// {} As `[dark, light]`.\npub const {}: [ShadowToken; 2] = [",
+            "/// {} As `[dark, light]`, each a list of layers drawn first to last.\npub const {}: [&[ShadowToken]; 2] = [",
             text(&token["usage"], "usage"),
             ident(name).to_uppercase()
         )
         .unwrap();
-        for (numbers, color) in parsed {
-            writeln!(
-                out,
-                "    ShadowToken {{ x: {:?}, y: {:?}, blur: {:?}, color: {color:#010x} }},",
-                numbers[0], numbers[1], numbers[2]
-            )
-            .unwrap();
+        for theme in layers {
+            writeln!(out, "    &[{}],", theme.join(", ")).unwrap();
         }
         out.push_str("];\n");
     }

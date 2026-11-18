@@ -1,0 +1,14 @@
+<!-- @dsCard group="Inputs" height=330 subtitle="Input, value with keys, error" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Field</title></head>
+<body style="margin:0">
+<div class="hw" style="padding: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 720px;">
+  <div class="hw-field"><label class="hw-label" for="t">Title</label><input id="t" class="hw-input" value="Netflix"></div>
+  <div class="hw-field"><span class="hw-label">Username</span><div class="hw-well-row"><span class="hw-mono" style="flex: 1; font-size: 14px;">juan-dc</span><button class="hw-key hw-key--sm">Copy</button></div></div>
+  <div class="hw-field"><span class="hw-label">Password</span><div class="hw-well-row"><span class="hw-mono" style="flex: 1; font-size: 14px; letter-spacing: 0.1em;">••••••••••••</span><button class="hw-key hw-key--sm">Show</button><button class="hw-key hw-key--sm hw-key--go">Copy</button></div></div>
+  <div class="hw-field"><label class="hw-label" for="w">Website</label><input id="w" class="hw-input hw-input--mono" placeholder="example.com"><span class="hw-hint">Kandado fills this login on matching sites.</span></div>
+  <div class="hw-field" style="grid-column: span 2;"><label class="hw-label" for="c">Confirm master password</label><input id="c" class="hw-input hw-input--mono" type="password" value="lantern river" aria-invalid="true" aria-describedby="ce"><span id="ce" class="hw-error">The two passwords don’t match.</span></div>
+</div>
+</body>
+</html>

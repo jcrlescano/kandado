@@ -1,6 +1,7 @@
-//! The rows of a settings page: an icon, a label with an optional
-//! description, and something at the end (a value, a toggle, a badge or a
-//! button).
+//! The rows of a settings page, as Hardware draws them inside a well: the
+//! setting name with an optional one-line consequence, and something at the
+//! end (a value, a switch, a tag or a key). Rows carry no icons; the icon a
+//! caller passes is not drawn.
 
 use gpui_kit::{
     AnyElement, App, ClickEvent, CursorStyle, ElementId, InteractiveElement as _, IntoElement,
@@ -19,7 +20,6 @@ type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 #[derive(IntoElement)]
 pub struct SettingRow {
     id: ElementId,
-    icon: IconName,
     label: SharedString,
     description: Option<SharedString>,
     value: Option<SharedString>,
@@ -30,10 +30,12 @@ pub struct SettingRow {
 }
 
 impl SettingRow {
-    pub fn new(id: impl Into<ElementId>, icon: IconName, label: impl Into<SharedString>) -> Self {
+    /// `_icon` is what the previous design system drew at the start of the row;
+    /// Hardware rows have none, so it is not drawn. Callers keep naming one until
+    /// the old system is gone.
+    pub fn new(id: impl Into<ElementId>, _icon: IconName, label: impl Into<SharedString>) -> Self {
         Self {
             id: id.into(),
-            icon,
             label: label.into(),
             description: None,
             value: None,
@@ -98,13 +100,8 @@ impl RenderOnce for SettingRow {
                     .child(group_row_hover(cx))
                     .cursor(CursorStyle::PointingHand)
                     .tab_index(0)
-                    .focus_visible(|row| row.shadow(focus_ring(p, p.surface_200)))
+                    .focus_visible(|row| row.shadow(focus_ring(p, p.raised)))
             })
-            .child(
-                Icon::new(self.icon)
-                    .size(px(20.))
-                    .color(color(if self.danger { p.danger } else { p.ink_muted })),
-            )
             .child(
                 div()
                     .flex()
@@ -113,7 +110,11 @@ impl RenderOnce for SettingRow {
                     .min_w_0()
                     .child(
                         div()
-                            .text_token(tokens::BODY)
+                            .text_token(if self.description.is_some() {
+                                tokens::BODY_STRONG
+                            } else {
+                                tokens::BODY
+                            })
                             .text_color(color(ink))
                             .child(self.label),
                     )
@@ -121,7 +122,7 @@ impl RenderOnce for SettingRow {
                         text.child(
                             div()
                                 .text_token(tokens::SMALL)
-                                .text_color(color(p.ink_muted))
+                                .text_color(color(p.ink_2))
                                 .child(description),
                         )
                     }),
@@ -130,7 +131,7 @@ impl RenderOnce for SettingRow {
                 row.child(
                     div()
                         .text_token(tokens::BODY)
-                        .text_color(color(p.ink_muted))
+                        .text_color(color(p.ink_2))
                         .child(value),
                 )
             })
@@ -139,7 +140,7 @@ impl RenderOnce for SettingRow {
                 row.child(
                     Icon::new(IconName::Chevron)
                         .size(px(18.))
-                        .color(color(p.ink_muted)),
+                        .color(color(p.ink_2)),
                 )
             })
             .when_some(self.on_click, |row, handler| {
@@ -148,11 +149,11 @@ impl RenderOnce for SettingRow {
     }
 }
 
-/// A small uppercase heading over a group of rows.
+/// An engraved heading over a group of rows.
 pub fn group_label(text: &'static str, cx: &App) -> impl IntoElement {
     div()
         .mt(px(tokens::SPACE_3))
         .text_token(tokens::LABEL)
-        .text_color(color(cx.palette().ink_muted))
+        .text_color(color(cx.palette().ink_3))
         .child(SharedString::from(text.to_uppercase()))
 }
