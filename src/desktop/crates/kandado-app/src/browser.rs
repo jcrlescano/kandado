@@ -106,6 +106,8 @@ pub enum LinkError {
 
 pub struct BrowserLink {
     app: Arc<KandadoApp>,
+    /// Runs the pipe server, which exists only on Windows.
+    #[cfg_attr(not(windows), allow(dead_code))]
     runtime: Handle,
     path: PathBuf,
     pairings: Mutex<Vec<Pairing>>,
@@ -243,6 +245,7 @@ impl BrowserLink {
     }
 
     /// Tells connected extensions when the app locks or unlocks.
+    #[cfg(windows)]
     fn watch_lock_state(self: &Arc<Self>) {
         let link = Arc::downgrade(self);
         self.runtime.spawn(async move {
