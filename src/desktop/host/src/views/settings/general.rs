@@ -2,14 +2,16 @@
 //! tray, the global shortcut and the list of keyboard shortcuts (D-51).
 //! Changes save as they are made.
 //!
-//! Not here yet: website icons (they need a server proxy), language (one
-//! language for now) and updates (phase 10).
+//! Updates (D-54): the version, Check now, and checking automatically.
+//!
+//! Not here yet: website icons (they need a server proxy) and language (one
+//! language for now).
 
 use gpui_kit::{
     Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, component::v_flex,
     prelude::FluentBuilder as _, px,
 };
-use kandado_app::{platform, settings::ThemeChoice};
+use kandado_app::{platform, settings::ThemeChoice, update::UpdateStatus};
 
 use super::{
     super::{Services, error_line, explain, system::shortcuts_dialog},
@@ -18,7 +20,7 @@ use super::{
 use crate::{
     app::Hotkey,
     assets::IconName,
-    components::{FieldGroup, Segmented, Toggle, kbd, window_layer},
+    components::{Button, ButtonSize, FieldGroup, Segmented, Toggle, kbd, window_layer},
     theme,
 };
 
@@ -80,6 +82,31 @@ impl GeneralPage {
         self.save(|settings| settings.global_shortcut = on, cx);
     }
 
+    /// Check now: asks the updater, then repaints until it has an answer.
+    fn check_for_updates(&mut self, cx: &mut Context<Self>) {
+        self.services.updater.check_soon();
+        cx.spawn(async move |this, cx| {
+            // The check starts on another thread; give it a moment to begin.
+            for _ in 0..240 {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(500))
+                    .await;
+                let busy = this.update(cx, |this, cx| {
+                    cx.notify();
+                    matches!(
+                        this.services.updater.status(),
+                        UpdateStatus::Checking | UpdateStatus::Downloading { .. }
+                    )
+                });
+                match busy {
+                    Ok(true) => {}
+                    _ => break,
+                }
+            }
+        })
+        .detach();
+    }
+
     pub fn open_shortcuts(&mut self, cx: &mut Context<Self>) {
         self.shortcuts_open = true;
         cx.notify();
@@ -137,6 +164,43 @@ impl Render for GeneralPage {
                         ),
                     ),
             )
+            .child(group_label("Updates", cx))
+            .child(
+                FieldGroup::new()
+                    .child(
+                        SettingRow::new(
+                            "row-version",
+                            IconName::Bolt,
+                            format!("Kandado {}", self.services.updater.current_version()),
+                        )
+                        .description(update_line(&self.services.updater.status()))
+                        .trailing(
+                            Button::new("check-updates", "Check now")
+                                .size(ButtonSize::Sm)
+                                .disabled(matches!(
+                                    self.services.updater.status(),
+                                    UpdateStatus::Checking | UpdateStatus::Downloading { .. }
+                                ))
+                                .on_click(cx.listener(|this, _, _, cx| this.check_for_updates(cx))),
+                        ),
+                    )
+                    .child(
+                        SettingRow::new(
+                            "row-check-updates",
+                            IconName::Globe,
+                            "Check for updates automatically",
+                        )
+                        .description("Every 12 hours. Updates install only when you restart.")
+                        .trailing(
+                            Toggle::new("toggle-check-updates")
+                                .checked(settings.check_updates)
+                                .on_change(cx.listener(|this, on: &bool, _, cx| {
+                                    let on = *on;
+                                    this.save(|settings| settings.check_updates = on, cx)
+                                })),
+                        ),
+                    ),
+            )
             .child(group_label("Shortcuts", cx))
             .child(
                 FieldGroup::new()
@@ -181,5 +245,22 @@ impl Render for GeneralPage {
             )
         });
         page.when_some(dialog, |page, dialog| page.child(dialog))
+    }
+}
+
+/// The line under the version: what the last check found.
+fn update_line(status: &UpdateStatus) -> String {
+    match status {
+        UpdateStatus::Idle => "Not checked yet.".into(),
+        UpdateStatus::Checking => "Checking for updates…".into(),
+        UpdateStatus::UpToDate => "You have the latest version.".into(),
+        UpdateStatus::Downloading { version } => format!("Downloading Kandado {version}…"),
+        UpdateStatus::Ready { version } => {
+            format!("Kandado {version} is ready. Restart Kandado to update.")
+        }
+        UpdateStatus::Available { version, .. } => {
+            format!("Kandado {version} is available. Download it from the release page.")
+        }
+        UpdateStatus::Failed(_) => "Couldn't check for updates. Kandado tries again later.".into(),
     }
 }

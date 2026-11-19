@@ -20,8 +20,8 @@ use kandado_model::generator::{self, Options};
 use crate::{
     assets::IconName,
     components::{
-        Banner, Button, ButtonSize, IconButton, Logo, SearchBar, Segmented, StatusLight, Tone,
-        panel,
+        Banner, Button, ButtonSize, ButtonVariant, IconButton, Logo, SearchBar, Segmented,
+        StatusLight, Tone, panel,
     },
     shell::{ShellEvent, VaultShell},
     theme::{self, KandadoTheme, TextStyles as _, color, tokens},
@@ -77,6 +77,10 @@ pub struct AppView {
     requests: Option<mpsc::Receiver<Request>>,
     /// What the sync banner and the sidebar last showed; a change repaints.
     shown_sync: kandado_app::sync::SyncStatus,
+    /// What the update banner last showed; a change repaints.
+    shown_update: kandado_app::update::UpdateStatus,
+    /// The version whose banner the person put off with Later.
+    update_later: Option<String>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -131,6 +135,8 @@ impl AppView {
             system_events: receiver,
             requests: None,
             shown_sync: services.app.sync_status(),
+            shown_update: services.updater.status(),
+            update_later: None,
             _subscriptions: Vec::new(),
         };
 
@@ -196,6 +202,11 @@ impl AppView {
         }
         if status != self.shown_sync {
             self.shown_sync = status;
+            cx.notify();
+        }
+        let update = self.services.updater.status();
+        if update != self.shown_update {
+            self.shown_update = update;
             cx.notify();
         }
     }
@@ -287,6 +298,81 @@ impl AppView {
         }
         self.follow_current(window, cx);
         cx.notify();
+    }
+
+    /// D-54 update: a verified update is ready (Later, Restart), or, for a
+    /// copy that was not installed, a newer version can be downloaded.
+    fn update_banner(&self, cx: &mut Context<Self>) -> Option<gpui_kit::AnyElement> {
+        use kandado_app::update::UpdateStatus;
+        let (version, message, ready, notes) = match &self.shown_update {
+            UpdateStatus::Ready { version } => (
+                version.clone(),
+                format!(
+                    "Kandado {version} is ready. Restart to update. Your vault locks while it restarts."
+                ),
+                true,
+                None,
+            ),
+            UpdateStatus::Available { version, notes_url } => (
+                version.clone(),
+                format!("Kandado {version} is available."),
+                false,
+                Some(notes_url.clone()),
+            ),
+            _ => return None,
+        };
+        if self.update_later.as_deref() == Some(version.as_str()) {
+            return None;
+        }
+        let later = Button::new("update-later", "Later")
+            .size(ButtonSize::Sm)
+            .variant(ButtonVariant::Ghost)
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.update_later = Some(version.clone());
+                cx.notify();
+            }));
+        let go = if ready {
+            Button::new("update-restart", "Restart")
+                .size(ButtonSize::Sm)
+                .variant(ButtonVariant::Primary)
+                .on_click(cx.listener(|this, _, _, cx| this.restart_to_update(cx)))
+        } else {
+            Button::new("update-download", "Download")
+                .size(ButtonSize::Sm)
+                .on_click(move |_, _, _| {
+                    if let Some(url) = &notes
+                        && let Err(error) = kandado_app::platform::open_url(url)
+                    {
+                        tracing::warn!(%error, "could not open the release page");
+                    }
+                })
+        };
+        Some(
+            div()
+                .id("update-banner")
+                .test_support()
+                .child(
+                    Banner::new(Tone::Teal, message)
+                        .icon(IconName::Bolt)
+                        .action(h_flex().gap(px(tokens::SPACE_2)).child(later).child(go)),
+                )
+                .into_any_element(),
+        )
+    }
+
+    /// Restart: lock, start the installer (it waits for Kandado to close, then
+    /// opens it again), and quit.
+    fn restart_to_update(&mut self, cx: &mut Context<Self>) {
+        match self.services.updater.install() {
+            Ok(()) => {
+                self.services.app.lock(LockReason::Manual);
+                cx.quit();
+            }
+            Err(error) => {
+                tracing::warn!(%error, "the update could not start");
+                self.services.updater.check_soon();
+            }
+        }
     }
 
     fn show_locked(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -500,6 +586,11 @@ impl Render for AppView {
         } else {
             None
         };
+        let update = if unlocked {
+            self.update_banner(cx)
+        } else {
+            None
+        };
         let search = match &self.screen {
             Screen::Vault(shell) => Some(shell.read(cx).search_input().clone()),
             _ => None,
@@ -571,6 +662,7 @@ impl Render for AppView {
                     })
                     .when_some(search, |body, search| body.child(self.header(&search, cx)))
                     .when_some(banner, |body, banner| body.child(banner))
+                    .when_some(update, |body, banner| body.child(banner))
                     .child(v_flex().flex_1().min_h_0().child(screen)),
             )
     }

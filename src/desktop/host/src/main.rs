@@ -76,6 +76,14 @@ fn main() {
     }
     // Pulls and pushes in the background, for as long as the app runs.
     services.app.start_sync(&services.tasks);
+    // Looks for updates while "Check for updates automatically" is on. A
+    // development build looks only when pointed at a server with
+    // KANDADO_UPDATE_URL, or when Check now is pressed.
+    let automatic = !cfg!(debug_assertions) || std::env::var_os("KANDADO_UPDATE_URL").is_some();
+    let settings_app = services.app.clone();
+    services.updater.start(&services.tasks.handle(), move || {
+        automatic && settings_app.settings().check_updates
+    });
 
     // Started with Windows: open in the tray, without showing the window.
     let background = std::env::args().any(|arg| arg == kandado_app::platform::BACKGROUND_ARG);
