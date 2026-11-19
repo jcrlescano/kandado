@@ -27,9 +27,12 @@ use std::{
 
 use kandado_bridge::{
     install::AllowedExtensions,
-    protocol::{AppState, Event, Refusal, ResponseBody},
+    protocol::{AppState, Refusal, ResponseBody},
     server::{Bridge, Handler},
 };
+// Only the Windows pipe server sends events (`watch_lock_state`).
+#[cfg(windows)]
+use kandado_bridge::protocol::Event;
 use serde::{Deserialize, Serialize};
 use tokio::{runtime::Handle, sync::oneshot};
 use uuid::Uuid;
