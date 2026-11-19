@@ -1,19 +1,24 @@
+//! Fields (`hw-field`): an engraved label above a value sunk into a well, with
+//! keys set into its end. The two-factor code is shown on the LCD.
+
 use gpui_kit::{
-    AnyElement, App, ClickEvent, ElementId, Entity, Focusable as _, Hsla, InteractiveElement as _,
-    IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window,
-    component::{
-        input::{Input, InputState},
-        progress::ProgressCircle,
-    },
+    AnyElement, App, ClickEvent, ElementId, Entity, Focusable as _, FontWeight,
+    InteractiveElement as _, IntoElement, ParentElement, RenderOnce, SharedString,
+    StatefulInteractiveElement as _, Styled, Window,
+    component::input::{Input, InputState},
     div,
     prelude::FluentBuilder as _,
     px,
 };
 
-use super::{ButtonSize, Icon, IconButton, Tone};
+use super::{
+    Button, ButtonSize, ButtonVariant, Icon,
+    hardware::{lcd, lip, ring, well},
+    kbd,
+};
 use crate::{
     assets::IconName,
-    theme::{KandadoTheme, TextStyles as _, color, tokens},
+    theme::{KandadoTheme, TextStyles as _, color, focus_ring, shadow, tokens},
 };
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
@@ -21,8 +26,22 @@ type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 /// What a concealed value shows: twelve bullets, whatever the real length.
 pub const MASK: &str = "••••••••••••";
 
-fn mono(element: gpui_kit::Div) -> gpui_kit::Div {
-    element.font_family(tokens::FONT_MONO)
+/// The engraved label above a field (`hw-label`), in capitals.
+fn field_label(label: SharedString, cx: &App) -> impl IntoElement {
+    div()
+        .text_token(tokens::LABEL)
+        .text_color(color(cx.palette().ink_3))
+        .child(SharedString::from(label.to_uppercase()))
+}
+
+/// The sunk input of a field: the well's inner shadow, plus a 2 px ring in
+/// `ring_token` when focused or invalid.
+fn well_shadow(ring_token: Option<u32>, cx: &App) -> Vec<gpui_kit::BoxShadow> {
+    let mut shadows = shadow(tokens::SHADOW_WELL, cx.theme_kind());
+    if let Some(token) = ring_token {
+        shadows.push(ring(token));
+    }
+    shadows
 }
 
 /// A labelled single-line input for create and edit forms.
@@ -64,7 +83,8 @@ impl TextField {
         self
     }
 
-    /// What went wrong and how to fix it. Replaces the hint and marks the field.
+    /// What went wrong and how to fix it. Replaces the hint and rings the
+    /// field in the danger colour.
     pub fn error(mut self, error: impl Into<SharedString>) -> Self {
         self.error = Some(error.into());
         self
@@ -75,13 +95,13 @@ impl TextField {
         self
     }
 
-    /// An [`IconButton`] for generate or reveal.
+    /// A small key set into the end of the well, such as Generate or Show.
     pub fn trailing(mut self, trailing: impl IntoElement) -> Self {
         self.trailing = Some(trailing.into_any_element());
         self
     }
 
-    /// For passwords, card numbers and codes.
+    /// For passwords, card numbers, usernames and URLs.
     pub fn mono(mut self, mono: bool) -> Self {
         self.mono = mono;
         self
@@ -92,19 +112,24 @@ impl RenderOnce for TextField {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
         let focused = self.state.focus_handle(cx).is_focused(window);
-        let border = if focused {
-            color(p.focus_ring)
+        let ring_token = if focused {
+            Some(p.focus)
         } else if self.error.is_some() {
-            color(p.danger)
+            Some(p.danger)
         } else {
-            color(p.line_strong)
+            None
         };
 
         let input = div()
             .flex_1()
             .min_w_0()
-            .text_token(tokens::BODY)
-            .when(self.mono, mono)
+            .map(|input| {
+                if self.mono {
+                    input.text_token(tokens::SECRET)
+                } else {
+                    input.text_token(tokens::BODY)
+                }
+            })
             .child(Input::new(&self.state).appearance(false));
 
         div()
@@ -112,29 +137,21 @@ impl RenderOnce for TextField {
             .flex_col()
             .gap(px(6.))
             .when_some(self.label, |field, label| {
-                field.child(
-                    div()
-                        .text_token(tokens::SMALL)
-                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .text_color(color(p.ink_muted))
-                        .child(label),
-                )
+                field.child(field_label(label, cx))
             })
             .child(
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(tokens::SPACE_2))
-                    .h(px(44.))
-                    .pl(px(tokens::SPACE_3))
-                    .pr(px(tokens::SPACE_2))
-                    .rounded(px(tokens::RADIUS_MD))
-                    .bg(color(p.surface_300))
-                    // 1 px normally; the focus ring is the same border drawn 2 px wide.
-                    .border(px(if focused { 2. } else { 1. }))
-                    .border_color(border)
+                    .gap(px(6.))
+                    .h(px(48.))
+                    .pl(px(14.))
+                    .pr(px(6.))
+                    .rounded(px(tokens::RADIUS_KEY))
+                    .bg(color(p.well))
+                    .shadow(well_shadow(ring_token, cx))
                     .when_some(self.icon, |field, icon| {
-                        field.child(Icon::new(icon).size(px(18.)).color(color(p.ink_muted)))
+                        field.child(Icon::new(icon).size(px(18.)).color(color(p.ink_2)))
                     })
                     .child(input)
                     .when_some(self.trailing, |field, trailing| field.child(trailing)),
@@ -142,18 +159,15 @@ impl RenderOnce for TextField {
             .map(|field| match (self.error, self.hint) {
                 (Some(error), _) => field.child(
                     div()
-                        .flex()
-                        .items_center()
-                        .gap(px(tokens::SPACE_1))
                         .text_token(tokens::SMALL)
+                        .font_weight(FontWeight::SEMIBOLD)
                         .text_color(color(p.danger))
-                        .child(Icon::new(IconName::Alert).size(px(14.)))
                         .child(error),
                 ),
                 (None, Some(hint)) => field.child(
                     div()
                         .text_token(tokens::SMALL)
-                        .text_color(color(p.ink_muted))
+                        .text_color(color(p.ink_2))
                         .child(hint),
                 ),
                 (None, None) => field,
@@ -161,8 +175,9 @@ impl RenderOnce for TextField {
     }
 }
 
-/// The pill-shaped search across vaults. The placeholder, set on the
-/// [`InputState`], says the scope: "Search in all vaults".
+/// The search across vaults, as a well row with its shortcut keycap at the
+/// end. The placeholder, set on the [`InputState`], says the scope: "Search
+/// all vaults".
 #[derive(IntoElement)]
 pub struct SearchBar {
     state: Entity<InputState>,
@@ -193,16 +208,15 @@ impl RenderOnce for SearchBar {
             .items_center()
             .gap(px(tokens::SPACE_2))
             .h(px(40.))
-            .pl(px(tokens::SPACE_3))
+            .pl(px(14.))
             .pr(px(tokens::SPACE_2))
-            .rounded(px(tokens::RADIUS_PILL))
-            .bg(color(p.surface_200))
-            .border(px(if focused { 2. } else { 1. }))
-            .border_color(color(if focused { p.focus_ring } else { p.line }))
+            .rounded(px(tokens::RADIUS_KEY))
+            .bg(color(p.well))
+            .shadow(well_shadow(focused.then_some(p.focus), cx))
             .child(
                 Icon::new(IconName::Search)
                     .size(px(18.))
-                    .color(color(p.ink_muted)),
+                    .color(color(p.ink_3)),
             )
             .child(
                 div()
@@ -212,25 +226,13 @@ impl RenderOnce for SearchBar {
                     .child(Input::new(&self.state).appearance(false)),
             )
             .when_some(self.shortcut, |search, shortcut| {
-                search.child(
-                    mono(div())
-                        .flex_none()
-                        .text_size(px(11.))
-                        .line_height(px(16.))
-                        .px(px(6.))
-                        .py(px(2.))
-                        .rounded(px(tokens::RADIUS_SM))
-                        .border_1()
-                        .border_color(color(p.line_strong))
-                        .text_color(color(p.ink_muted))
-                        .child(shortcut),
-                )
+                search.child(kbd(shortcut, cx))
             })
     }
 }
 
-/// The raised container that stacks [`SecretField`]s and a [`TotpCode`], with
-/// hairlines between them.
+/// A well that stacks [`SecretField`]s and a [`TotpCode`], with hairlines
+/// between them.
 #[derive(IntoElement, Default)]
 pub struct FieldGroup {
     children: Vec<AnyElement>,
@@ -267,34 +269,23 @@ pub fn group_row_hover(cx: &App) -> gpui_kit::Div {
         .bottom(px(3.))
         .left(px(4.))
         .right(px(4.))
-        .rounded(px(tokens::RADIUS_MD))
-        .group_hover(GROUP_ROW, move |layer| layer.bg(color(p.surface_300)))
+        .rounded(px(tokens::RADIUS_KEY))
+        .group_hover(GROUP_ROW, move |layer| layer.bg(color(p.raised)))
 }
 
 impl RenderOnce for FieldGroup {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        div()
-            .flex()
-            .flex_col()
-            .rounded(px(tokens::RADIUS_LG))
-            .bg(color(p.surface_200))
-            .overflow_hidden()
-            .children(self.children.into_iter().enumerate().map(|(index, child)| {
+        well(cx).flex().flex_col().overflow_hidden().children(
+            self.children.into_iter().enumerate().map(|(index, child)| {
                 div()
                     .when(index > 0, |row| {
-                        row.border_t_1().border_color(color(p.line))
+                        row.border_t_1().border_color(color(p.edge))
                     })
                     .child(child)
-            }))
+            }),
+        )
     }
-}
-
-fn field_label(label: SharedString, ink_muted: Hsla) -> impl IntoElement {
-    div()
-        .text_token(tokens::LABEL)
-        .text_color(ink_muted)
-        .child(SharedString::from(label.to_uppercase()))
 }
 
 /// How a [`SecretField`] treats its value.
@@ -305,7 +296,8 @@ enum SecretValue {
     Concealed(Option<SharedString>),
 }
 
-/// A read-only labelled value on the item detail, with copy and, for secrets, reveal.
+/// A read-only labelled value on the item detail, with Copy and, for
+/// secrets, Show.
 ///
 /// The field holds no state and never keeps a secret: the view passes the
 /// revealed text only while it is revealed, and re-masks when the window
@@ -320,6 +312,7 @@ pub struct SecretField {
     link: bool,
     copyable: bool,
     copied: bool,
+    stacked: bool,
     on_reveal: Option<ClickHandler>,
     on_copy: Option<ClickHandler>,
 }
@@ -336,12 +329,21 @@ impl SecretField {
             link: false,
             copyable: true,
             copied: false,
+            stacked: false,
             on_reveal: None,
             on_copy: None,
         }
     }
 
-    /// Shows `value` as it is, with no reveal button.
+    /// Draws the field on its own, as `hw-field`: the engraved label above
+    /// and the value sunk into a well row with its keys at the end. Without
+    /// it the field is a row inside a [`FieldGroup`].
+    pub fn stacked(mut self, stacked: bool) -> Self {
+        self.stacked = stacked;
+        self
+    }
+
+    /// Shows `value` as it is, with no Show key.
     pub fn plain(mut self, value: impl Into<SharedString>) -> Self {
         self.value = SecretValue::Plain(value.into());
         self
@@ -358,7 +360,7 @@ impl SecretField {
         self
     }
 
-    /// For card numbers. Revealed secrets are always mono.
+    /// For usernames and card numbers. Secrets and links are always mono.
     pub fn mono(mut self, mono: bool) -> Self {
         self.mono = mono;
         self
@@ -375,13 +377,13 @@ impl SecretField {
         self
     }
 
-    /// Shows the check mark in place of the copy icon, briefly after a copy.
+    /// Shows "Copied" on the copy key, briefly after a copy.
     pub fn copied(mut self, copied: bool) -> Self {
         self.copied = copied;
         self
     }
 
-    /// Called when the person presses reveal or hide.
+    /// Called when the person presses Show or Hide.
     pub fn on_reveal(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -408,73 +410,98 @@ impl RenderOnce for SecretField {
             SecretValue::Concealed(Some(value)) => (value, true),
             SecretValue::Concealed(None) => (SharedString::from(MASK), false),
         };
-        let use_mono = self.mono || (concealed && shown);
-        let label_lower = self.label.to_lowercase();
+        let use_mono = self.mono || concealed || self.link;
         let child_id = |part: &'static str| (ElementId::from(part), self.id.to_string());
+        let stacked = self.stacked;
+        let value = div()
+            .text_token(if use_mono {
+                tokens::SECRET
+            } else {
+                tokens::BODY
+            })
+            .when(self.link, |value| {
+                value
+                    .text_color(color(p.green))
+                    .font_weight(FontWeight::SEMIBOLD)
+            })
+            .child(text);
+        let label_text = self.label.clone();
+        let label = field_label(self.label, cx);
 
-        div()
+        let row = div()
             .flex()
             .items_center()
-            .gap(px(tokens::SPACE_3))
-            .min_h(px(64.))
-            .py(px(10.))
-            .pl(px(tokens::SPACE_4))
-            .pr(px(tokens::SPACE_3))
-            .when_some(self.icon, |field, icon| {
-                field.child(Icon::new(icon).size(px(18.)).color(color(p.ink_muted)))
-            })
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(field_label(self.label, color(p.ink_muted)))
-                    .child(
-                        div()
-                            .mt(px(2.))
-                            .text_token(if use_mono {
-                                tokens::SECRET
-                            } else {
-                                tokens::BODY
-                            })
-                            .when(self.link, |value| value.text_color(color(p.link)))
-                            .child(text),
-                    ),
-            )
-            .when(concealed, |field| {
-                let (icon, label) = if shown {
-                    (IconName::EyeOff, "Hide")
+            .gap(px(6.))
+            .map(|row| {
+                if stacked {
+                    row.min_h(px(48.))
+                        .pl(px(14.))
+                        .pr(px(6.))
+                        .rounded(px(tokens::RADIUS_KEY))
+                        .bg(color(p.well))
+                        .shadow(shadow(tokens::SHADOW_WELL, cx.theme_kind()))
                 } else {
-                    (IconName::Eye, "Reveal")
-                };
+                    row.min_h(px(64.))
+                        .py(px(10.))
+                        .pl(px(14.))
+                        .pr(px(tokens::SPACE_3))
+                }
+            })
+            .when_some(self.icon.filter(|_| !stacked), |field, icon| {
+                field.child(Icon::new(icon).size(px(18.)).color(color(p.ink_2)))
+            })
+            .map(|row| {
+                if stacked {
+                    row.child(div().flex_1().min_w_0().truncate().child(value))
+                } else {
+                    row.child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(label)
+                            .child(div().mt(px(4.)).child(value)),
+                    )
+                }
+            })
+            .when(concealed, |field| {
                 field.child(
-                    IconButton::new(child_id("reveal"), icon, label)
+                    Button::new(child_id("reveal"), if shown { "Hide" } else { "Show" })
                         .size(ButtonSize::Sm)
-                        .when_some(self.on_reveal, |button, handler| button.on_click(handler)),
+                        .when_some(self.on_reveal, |key, handler| key.on_click(handler)),
                 )
             })
             .when(self.copyable, |field| {
-                let (icon, label) = if self.copied {
-                    (IconName::Check, SharedString::from("Copied"))
-                } else {
-                    (
-                        IconName::Copy,
-                        SharedString::from(format!("Copy {label_lower}")),
-                    )
-                };
                 field.child(
-                    IconButton::new(child_id("copy"), icon, label)
-                        .size(ButtonSize::Sm)
-                        .confirmed(self.copied)
-                        .when_some(self.on_copy, |button, handler| button.on_click(handler)),
+                    Button::new(
+                        child_id("copy"),
+                        if self.copied { "Copied" } else { "Copy" },
+                    )
+                    .size(ButtonSize::Sm)
+                    // The password's Copy is the field's main key.
+                    .when(concealed, |key| key.variant(ButtonVariant::Primary))
+                    .when_some(self.on_copy, |key, handler| key.on_click(handler)),
                 )
-            })
+            });
+
+        if stacked {
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(6.))
+                .child(field_label(label_text, cx))
+                .child(row)
+                .into_any_element()
+        } else {
+            row.into_any_element()
+        }
     }
 }
 
-/// A two-factor code with its countdown ring, inside a [`FieldGroup`].
+/// A two-factor code on the LCD, with ten countdown bars and a COPY key set
+/// into the glass (`hw-lcd`).
 ///
 /// The app computes the code and the time left (`kandado_model::totp`); this
-/// only displays them.
+/// only displays them. With a 30 s period the bars step once every 3 s.
 #[derive(IntoElement)]
 pub struct TotpCode {
     id: ElementId,
@@ -530,78 +557,83 @@ impl TotpCode {
             code.to_owned()
         }
     }
+
+    /// How many of the ten bars are lit: the time left, rounded up, so the
+    /// last bar goes out only when the code changes.
+    fn lit_bars(remaining: u32, period: u32) -> u32 {
+        let period = period.max(1);
+        (remaining.min(period) * 10).div_ceil(period)
+    }
 }
 
 impl RenderOnce for TotpCode {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        // The last five seconds turn to the warning colour.
+        // The last five seconds turn the digits to the LCD's warning colour.
         let low = self.remaining <= 5;
-        let tone = if low { Tone::Warning } else { Tone::Teal }.solid(p);
-        let fraction = self.remaining.min(self.period) as f32 / self.period as f32;
+        let lit = Self::lit_bars(self.remaining, self.period);
         let child_id = |part: &'static str| (ElementId::from(part), self.id.to_string());
 
-        div()
+        lcd(cx)
             .flex()
+            .flex_wrap()
             .items_center()
-            .gap(px(tokens::SPACE_3))
-            .min_h(px(64.))
-            .py(px(10.))
-            .pl(px(tokens::SPACE_4))
-            .pr(px(tokens::SPACE_3))
+            .gap(px(20.))
+            .py(px(tokens::SPACE_5))
+            .px(px(20.))
             .child(
                 div()
+                    .flex()
+                    .flex_col()
                     .flex_1()
-                    .min_w_0()
-                    .child(field_label(self.label, color(p.ink_muted)))
+                    .min_w(px(160.))
+                    .gap(px(6.))
                     .child(
                         div()
-                            .mt(px(2.))
-                            .text_token(tokens::TOTP)
-                            .when(low, |code| code.text_color(tone))
+                            .text_token(tokens::LABEL)
+                            .text_color(color(p.lcd_label))
+                            .child(SharedString::from(self.label.to_uppercase())),
+                    )
+                    .child(
+                        div()
+                            .text_token(tokens::LCD_CODE)
+                            .text_color(color(if low { p.lcd_warn } else { p.lcd_ink }))
                             .child(Self::grouped(&self.code)),
                     ),
             )
             .child(
                 div()
-                    .relative()
                     .flex()
-                    .flex_none()
-                    .items_center()
-                    .justify_center()
-                    .size(px(28.))
-                    .child(
-                        ProgressCircle::new(child_id("ring"))
-                            .value(fraction * 100.)
-                            .color(tone)
-                            .size(px(28.)),
-                    )
-                    .child(
-                        mono(div())
-                            .absolute()
-                            .text_size(px(9.))
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .text_color(color(p.ink_muted))
-                            .child(self.remaining.to_string()),
-                    ),
+                    .gap(px(tokens::SPACE_1))
+                    .children((0..10).map(|bar| {
+                        div()
+                            .w(px(8.))
+                            .h(px(26.))
+                            .rounded(px(2.))
+                            .bg(color(if bar < lit { p.lcd_ink } else { p.lcd_dim }))
+                    })),
             )
             .child(
-                IconButton::new(
-                    child_id("copy"),
-                    if self.copied {
-                        IconName::Check
-                    } else {
-                        IconName::Copy
-                    },
-                    if self.copied {
-                        "Copied"
-                    } else {
-                        "Copy two-factor code"
-                    },
-                )
-                .size(ButtonSize::Sm)
-                .confirmed(self.copied)
-                .when_some(self.on_copy, |button, handler| button.on_click(handler)),
+                div()
+                    .id(child_id("copy"))
+                    .relative()
+                    .flex()
+                    .items_center()
+                    .h(px(38.))
+                    .px(px(14.))
+                    .rounded(px(10.))
+                    .bg(color(p.lcd_dim))
+                    .text_color(color(p.lcd_ink))
+                    .font_family(tokens::FONT_MONO)
+                    .text_size(px(12.))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .shadow(vec![lip(p.lcd_edge, 3.)])
+                    .cursor_pointer()
+                    .tab_index(0)
+                    .focus_visible(|key| key.shadow(focus_ring(p, p.lcd)))
+                    .active(|key| key.top(px(2.)).shadow(vec![lip(p.lcd_edge, 1.)]))
+                    .when_some(self.on_copy, |key, handler| key.on_click(handler))
+                    .child(if self.copied { "COPIED" } else { "COPY" }),
             )
     }
 }
@@ -621,5 +653,16 @@ mod tests {
         assert_eq!(TotpCode::grouped("482913"), "482 913");
         assert_eq!(TotpCode::grouped("04829137"), "04829137");
         assert_eq!(TotpCode::grouped(""), "");
+    }
+
+    #[test]
+    fn the_countdown_bars_step_every_tenth_of_the_period() {
+        assert_eq!(TotpCode::lit_bars(30, 30), 10);
+        assert_eq!(TotpCode::lit_bars(18, 30), 6);
+        assert_eq!(TotpCode::lit_bars(28, 30), 10);
+        assert_eq!(TotpCode::lit_bars(27, 30), 9);
+        assert_eq!(TotpCode::lit_bars(1, 30), 1);
+        assert_eq!(TotpCode::lit_bars(0, 30), 0);
+        assert_eq!(TotpCode::lit_bars(45, 30), 10);
     }
 }

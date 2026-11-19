@@ -4,8 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PromptAnswer, PromptView } from "../../background/prompts";
-import { SelectField } from "../../popup/parts";
-import { K } from "../../ui/kandado";
+import { Badge, Key, Select } from "../../ui/hardware";
 import { ask } from "../../ui/messaging";
 
 export function Prompt({ token }: { token: string }) {
@@ -56,57 +55,58 @@ export function Prompt({ token }: { token: string }) {
 
   const title =
     view.mode === "save" ? `Save login for ${view.host}?` : `Update password for ${view.title}?`;
+  const letter = (view.mode === "save" ? view.host : view.title).trim().charAt(0).toUpperCase();
+  const onlyVault = view.mode === "save" && view.vaults.length === 1 ? view.vaults[0] : undefined;
   return (
     <div ref={root}>
-      <div className="kt-prompt" role="dialog" aria-label={title}>
-        <div className="kt-prompt-top">
-          <K.Logo size={22} />
-          <div className="kt-srow-t">
-            <b>{title}</b>
-            {view.username && <span className="kt-srow-d">{view.username}</span>}
+      <div className="kx-prompt" role="dialog" aria-label={title}>
+        <div className="kx-prompt-top">
+          <Badge letter={letter || "K"} />
+          <div className="kx-grow">
+            <span className="kx-prompt-title">{title}</span>
+            {view.username && <span className="hw-sub">{view.username}</span>}
+            {onlyVault && <span className="hw-sub">{` · to ${onlyVault.name}`}</span>}
           </div>
-          <K.IconButton
-            icon="x"
-            size="sm"
-            label="Close"
-            onClick={() => void answer({ answer: "not-now" })}
-          />
+          <Key size="sm" icon aria-label="Close" onClick={() => void answer({ answer: "not-now" })}>
+            ×
+          </Key>
         </div>
         {view.mode === "save" ? (
-          <SelectField
-            label="Vault"
-            icon="vault"
-            value={vault}
-            options={view.vaults.map((v) => ({ value: v.id, label: v.name }))}
-            onChange={setVault}
-          />
+          view.vaults.length > 1 && (
+            <div className="kx-prompt-vault">
+              <span className="hw-label" aria-hidden="true">
+                Vault
+              </span>
+              <Select
+                aria-label="Vault"
+                value={vault}
+                options={view.vaults.map((v) => ({ value: v.id, label: v.name }))}
+                onChange={(event) => setVault(event.target.value)}
+              />
+            </div>
+          )
         ) : (
-          <p className="kt-p kt-small">
+          <p className="hw-sub kx-sub">
             {`The password you just used is different from the one saved in ${view.vault || "Kandado"}. The old one stays in history.`}
           </p>
         )}
-        <div className="kt-prompt-acts">
+        <div className="kx-prompt-keys">
           {view.mode === "save" && (
-            <K.Button
-              variant="ghost"
+            <Key
               size="sm"
+              tone="flat"
               disabled={busy}
               onClick={() => void answer({ answer: "never" })}
             >
               Never for this site
-            </K.Button>
+            </Key>
           )}
-          <K.Button
-            variant="ghost"
-            size="sm"
-            disabled={busy}
-            onClick={() => void answer({ answer: "not-now" })}
-          >
+          <Key size="sm" disabled={busy} onClick={() => void answer({ answer: "not-now" })}>
             Not now
-          </K.Button>
-          <K.Button
-            variant="primary"
+          </Key>
+          <Key
             size="sm"
+            tone="go"
             disabled={busy}
             onClick={() =>
               void answer(
@@ -115,7 +115,7 @@ export function Prompt({ token }: { token: string }) {
             }
           >
             {view.mode === "save" ? "Save" : "Update"}
-          </K.Button>
+          </Key>
         </div>
       </div>
     </div>

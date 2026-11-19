@@ -162,7 +162,7 @@ impl Render for SignInView {
             .child(
                 div()
                     .text_size(px(13.))
-                    .text_color(color(p.ink_faint))
+                    .text_color(color(p.ink_3))
                     .child("New here? The same button creates your account."),
             );
         let _ = ButtonVariant::Ghost;

@@ -157,14 +157,19 @@ impl Render for VaultDialog {
                         .items_center()
                         .justify_center()
                         .size(px(36.))
-                        .rounded(px(tokens::RADIUS_PILL))
+                        .rounded(px(tokens::RADIUS_ROUND))
                         .border_2()
-                        .border_color(color(if on { p.ink } else { p.surface_100 }))
+                        .border_color(color(if on { p.ink } else { p.panel }))
                         .cursor_pointer()
                         .tab_index(0)
-                        .focus_visible(|swatch| swatch.shadow(focus_ring(p, p.surface_100)))
+                        .focus_visible(|swatch| swatch.shadow(focus_ring(p, p.panel)))
                         .on_click(cx.listener(move |this, _, _, cx| this.choose_colour(index, cx)))
-                        .child(div().size(px(24.)).rounded(px(tokens::RADIUS_PILL)).bg(ink))
+                        .child(
+                            div()
+                                .size(px(24.))
+                                .rounded(px(tokens::RADIUS_ROUND))
+                                .bg(ink),
+                        )
                 }));
         let (ink, ground) = hue_of(vault::COLOURS[self.colour]).colors(p);
         let icons = h_flex().flex_wrap().gap(px(tokens::SPACE_2)).children(
@@ -176,23 +181,23 @@ impl Render for VaultDialog {
                     .items_center()
                     .justify_center()
                     .size(px(40.))
-                    .rounded(px(tokens::RADIUS_MD))
+                    .rounded(px(tokens::RADIUS_KEY))
                     .cursor_pointer()
                     .tab_index(0)
-                    .focus_visible(|cell| cell.shadow(focus_ring(p, p.surface_100)))
+                    .focus_visible(|cell| cell.shadow(focus_ring(p, p.panel)))
                     .map(|cell| {
                         if on {
                             cell.bg(ground)
                         } else {
-                            cell.bg(color(p.surface_200))
-                                .hover(|cell| cell.bg(color(p.surface_300)))
+                            cell.bg(color(p.raised))
+                                .hover(|cell| cell.bg(color(p.well)))
                         }
                     })
                     .on_click(cx.listener(move |this, _, _, cx| this.choose_icon(index, cx)))
                     .child(Icon::new(vault_icon(name)).size(px(20.)).color(if on {
                         ink
                     } else {
-                        color(p.ink_muted)
+                        color(p.ink_2)
                     }))
             }),
         );

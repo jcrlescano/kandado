@@ -27,9 +27,12 @@ use std::{
 
 use kandado_bridge::{
     install::AllowedExtensions,
-    protocol::{AppState, Event, Refusal, ResponseBody},
+    protocol::{AppState, Refusal, ResponseBody},
     server::{Bridge, Handler},
 };
+// Only the Windows pipe server sends events (`watch_lock_state`).
+#[cfg(windows)]
+use kandado_bridge::protocol::Event;
 use serde::{Deserialize, Serialize};
 use tokio::{runtime::Handle, sync::oneshot};
 use uuid::Uuid;
@@ -106,6 +109,8 @@ pub enum LinkError {
 
 pub struct BrowserLink {
     app: Arc<KandadoApp>,
+    /// Runs the pipe server, which exists only on Windows.
+    #[cfg_attr(not(windows), allow(dead_code))]
     runtime: Handle,
     path: PathBuf,
     pairings: Mutex<Vec<Pairing>>,
@@ -243,6 +248,7 @@ impl BrowserLink {
     }
 
     /// Tells connected extensions when the app locks or unlocks.
+    #[cfg(windows)]
     fn watch_lock_state(self: &Arc<Self>) {
         let link = Arc::downgrade(self);
         self.runtime.spawn(async move {

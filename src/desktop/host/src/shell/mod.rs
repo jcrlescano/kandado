@@ -23,7 +23,6 @@ use gpui_kit::{
     component::{
         h_flex,
         input::{InputEvent, InputState},
-        v_flex,
     },
     div,
     prelude::FluentBuilder as _,
@@ -35,7 +34,7 @@ use uuid::Uuid;
 
 use crate::{
     assets::IconName,
-    components::{Hue, Toast},
+    components::{Hue, Toast, panel},
     theme::tokens,
     views::{
         Nav, Services, explain,
@@ -50,9 +49,9 @@ use crate::{
 
 /// Below this window width the sidebar becomes a rail (D-17).
 pub const RAIL_BREAKPOINT: Pixels = px(1120.);
-pub const SIDEBAR_WIDTH: Pixels = px(240.);
+pub const SIDEBAR_WIDTH: Pixels = px(232.);
 pub const RAIL_WIDTH: Pixels = px(64.);
-pub const LIST_WIDTH: Pixels = px(340.);
+pub const LIST_WIDTH: Pixels = px(360.);
 /// How long a toast stays.
 const TOAST_TIME: Duration = Duration::from_secs(4);
 
@@ -158,11 +157,12 @@ impl Focusable for VaultShell {
 /// The hue a vault's colour name means.
 pub fn hue_of(colour: &str) -> Hue {
     match colour {
-        "teal" => Hue::Teal,
-        "coral" => Hue::Coral,
+        // Stored names from the previous design system, and Hardware's own.
+        "teal" | "green" => Hue::Teal,
+        "coral" | "orange" => Hue::Coral,
         "sky" => Hue::Sky,
         "plum" => Hue::Plum,
-        "moss" => Hue::Moss,
+        "moss" | "graphite" => Hue::Moss,
         _ => Hue::Brass,
     }
 }
@@ -1267,23 +1267,29 @@ impl Render for VaultShell {
         };
         let overlay = self.overlay_layer(window, cx);
         let search = self.search_layer(cx);
+        // Floating panels on the body ground, 14 px apart (Main board): the
+        // vault panel, the list panel and the detail panel.
         div()
             .id("vault-shell")
             .relative()
             .flex()
             .flex_1()
             .min_h_0()
+            .gap(px(tokens::SPACE_4))
             .track_focus(&self.focus)
             // Before the inputs, which would otherwise take keys like Ctrl S.
             .capture_key_down(cx.listener(Self::on_key))
             .child(self.sidebar(rail, cx))
             .child(self.list_pane(cx))
             .child(
-                v_flex()
+                panel(cx)
+                    .flex()
+                    .flex_col()
                     .relative()
                     .flex_1()
                     .min_w_0()
                     .h_full()
+                    .overflow_hidden()
                     .child(pane)
                     .when_some(self.toast_layer(cx), |pane, toast| pane.child(toast)),
             )

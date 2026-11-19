@@ -1,18 +1,16 @@
-<!-- @dsCard group="Items" height=384 -->
+<!-- @dsCard group="Lists" height=300 subtitle="Selected, plain and with copy" -->
 <!doctype html>
-<html>
-<head><meta charset="utf-8"><title>ItemRow — preview</title></head>
-<body>
-<div id="root"></div>
-<script>
-  var K = window.Kandado, h = React.createElement;
-  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'kd-demo-col', style: { maxWidth: 380, gap: 2, background: 'var(--surface-100)' }, role: 'listbox', 'aria-label': 'Items' },
-      h(K.ItemRow, { kind: 'login', letter: 'G', title: 'GitHub', subtitle: 'juan-dc', selected: true, favorite: true, onCopy: function () {} }),
-      h(K.ItemRow, { kind: 'login', letter: 'S', title: 'Shopee', subtitle: 'juan.delacruz@kandado.me', badge: h(K.Badge, { tone: 'danger' }, 'Breached'), onCopy: function () {} }),
-      h(K.ItemRow, { kind: 'alias', title: 'Newsletter alias', subtitle: 'quiet.lantern42@kandado.me' }),
-      h(K.ItemRow, { kind: 'card', title: 'BPI Visa', subtitle: '•••• 4821' }),
-      h(K.ItemRow, { kind: 'note', title: 'Wi-Fi at home', subtitle: 'Network: Bahay-5G' }),
-      h(K.ItemRow, { kind: 'identity', title: 'Juan Dela Cruz', subtitle: 'Personal identity', dense: true })));
-</script>
+<html lang="en">
+<head><meta charset="utf-8"><title>ItemRow</title></head>
+<body style="margin:0">
+<div class="hw" style="padding: 20px;">
+  <div role="listbox" aria-label="Items" class="hw-well" style="max-width: 360px; padding: 6px; display: flex; flex-direction: column; gap: 4px;">
+    <div role="option" aria-selected="true" class="hw-item hw-item--on"><span style="flex: 1; min-width: 0;"><span class="hw-item-title">GitHub</span><span class="hw-item-sub">juan-dc</span></span><span class="hw-tag">Login</span></div>
+    <div role="option" class="hw-item"><span style="flex: 1; min-width: 0;"><span class="hw-item-title">BPI Visa</span><span class="hw-item-sub">•••• 4821</span></span><span class="hw-tag">Card</span></div>
+    <div role="option" class="hw-item"><span style="flex: 1; min-width: 0;"><span class="hw-item-title">Newsletter alias</span><span class="hw-item-sub">quiet.lantern42@kandado.me</span></span><span class="hw-tag">Alias</span></div>
+    <div role="option" class="hw-item"><span style="flex: 1; min-width: 0;"><span class="hw-item-title">Wi-Fi at home</span><span class="hw-item-sub">Network: Bahay-5G</span></span><span class="hw-tag">Note</span></div>
+    <div role="option" class="hw-item"><span style="flex: 1; min-width: 0;"><span class="hw-item-title">Shopee</span><span class="hw-item-sub">juan.delacruz@kandado.me</span></span><button class="hw-key hw-key--sm" aria-label="Copy password for Shopee">Copy</button></div>
+  </div>
+</div>
 </body>
 </html>

@@ -60,7 +60,7 @@ fn render<V: Render + 'static>(
     let (window, view) = cx.update(|cx| {
         gpui_kit::init(cx);
         theme::fonts::register(cx).expect("bundled fonts load");
-        theme::apply(ThemeKind::Vault, None, cx);
+        theme::apply(ThemeKind::Graphite, None, cx);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds {
                 origin: Point::default(),
@@ -71,7 +71,7 @@ fn render<V: Render + 'static>(
         gpui_kit::open_window(options, cx, |window, cx| cx.new(|cx| build(window, cx)))
             .expect("open test window")
     });
-    for kind in [ThemeKind::Vault, ThemeKind::Paper, ThemeKind::Vault] {
+    for kind in [ThemeKind::Graphite, ThemeKind::Enamel, ThemeKind::Graphite] {
         cx.update_window(window, |_, window, cx| {
             theme::apply(kind, Some(window), cx);
             window.render_frame(cx);

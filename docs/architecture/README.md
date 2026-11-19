@@ -9,6 +9,7 @@ Kandado is a zero-knowledge password manager: clients encrypt everything before 
 | Browser extension | Manifest V3, TypeScript + React 18 UI, Rust core compiled to WebAssembly | [extensions.md](extensions.md) |
 | Mobile | Deferred. Will reuse the shared Rust crates | — |
 | Keys and auth | Google sign-in for identity, master password for encryption | [security.md](security.md) |
+| Data | PostgreSQL on the server, SQLite on the desktop, IndexedDB in the extension; ciphertext everywhere | [database.md](database.md) |
 
 ## System diagram
 

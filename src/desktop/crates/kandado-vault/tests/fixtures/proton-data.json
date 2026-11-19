@@ -9,13 +9,29 @@
       "display": { "color": 0, "icon": 0 },
       "items": [
         {
-          "itemId": "i1", "shareId": "vault-personal", "state": 1, "pinned": true, "aliasEmail": null,
+          "itemId": "i1",
+          "shareId": "vault-personal",
+          "state": 1,
+          "pinned": true,
+          "aliasEmail": null,
           "data": {
             "metadata": { "name": "GitHub", "note": "Work account", "itemUuid": "u1" },
             "extraFields": [
-              { "fieldName": "Recovery email", "type": "text", "data": { "content": "r@example.test" } },
-              { "fieldName": "Security answer", "type": "hidden", "data": { "content": "bahay kubo" } },
-              { "fieldName": "Backup 2FA", "type": "totp", "data": { "totpUri": "otpauth://totp/x?secret=GEZDGNBVGY3TQOJQ" } }
+              {
+                "fieldName": "Recovery email",
+                "type": "text",
+                "data": { "content": "r@example.test" }
+              },
+              {
+                "fieldName": "Security answer",
+                "type": "hidden",
+                "data": { "content": "bahay kubo" }
+              },
+              {
+                "fieldName": "Backup 2FA",
+                "type": "totp",
+                "data": { "totpUri": "otpauth://totp/x?secret=GEZDGNBVGY3TQOJQ" }
+              }
             ],
             "type": "login",
             "content": {
@@ -24,62 +40,156 @@
               "password": "gh-pass-1",
               "urls": ["https://github.com", "https://gist.github.com"],
               "totpUri": "otpauth://totp/GitHub:juan?secret=JBSWY3DPEHPK3PXP&issuer=GitHub",
-              "passkeys": [ { "keyId": "abc", "domain": "github.com", "rpId": "github.com", "rpName": "GitHub", "userName": "juan", "userDisplayName": "Juan", "content": "AAAA", "createTime": 1 } ]
+              "passkeys": [
+                {
+                  "keyId": "abc",
+                  "domain": "github.com",
+                  "rpId": "github.com",
+                  "rpName": "GitHub",
+                  "userName": "juan",
+                  "userDisplayName": "Juan",
+                  "content": "AAAA",
+                  "createTime": 1
+                }
+              ]
             }
           }
         },
         {
-          "itemId": "i2", "shareId": "vault-personal", "state": 2, "pinned": false, "aliasEmail": null,
+          "itemId": "i2",
+          "shareId": "vault-personal",
+          "state": 2,
+          "pinned": false,
+          "aliasEmail": null,
           "data": {
             "metadata": { "name": "Old site", "note": "", "itemUuid": "u2" },
-            "extraFields": [], "type": "login",
-            "content": { "itemEmail": "", "itemUsername": "old-user", "password": "old-pass", "urls": ["https://old.example.test"], "totpUri": "", "passkeys": [] }
-          }
-        },
-        {
-          "itemId": "i3", "shareId": "vault-personal", "state": 1, "pinned": false, "aliasEmail": null,
-          "data": {
-            "metadata": { "name": "Wi-Fi at home", "note": "Network: Bahay-5G\nPassword: mangga-tide-42", "itemUuid": "u3" },
-            "extraFields": [], "type": "note", "content": {}
-          }
-        },
-        {
-          "itemId": "i4", "shareId": "vault-personal", "state": 1, "pinned": false, "aliasEmail": "quiet.lantern42@passmail.net",
-          "data": {
-            "metadata": { "name": "Newsletter alias", "note": "for newsletters", "itemUuid": "u4" },
-            "extraFields": [], "type": "alias", "content": {}
-          }
-        },
-        {
-          "itemId": "i5", "shareId": "vault-personal", "state": 1, "pinned": false, "aliasEmail": null,
-          "data": {
-            "metadata": { "name": "BPI Visa", "note": "limit 120k", "itemUuid": "u5" },
-            "extraFields": [], "type": "creditCard",
-            "content": { "cardholderName": "JUAN DELA CRUZ", "cardType": "Visa", "number": "4111111111111111", "verificationNumber": "214", "expirationDate": "2029-08", "pin": "0912" }
-          }
-        },
-        {
-          "itemId": "i6", "shareId": "vault-personal", "state": 1, "pinned": false, "aliasEmail": null,
-          "data": {
-            "metadata": { "name": "Me", "note": "", "itemUuid": "u6" },
-            "extraFields": [], "type": "identity",
+            "extraFields": [],
+            "type": "login",
             "content": {
-              "fullName": "", "firstName": "Juan", "middleName": "", "lastName": "Dela Cruz",
-              "email": "juan@example.test", "phoneNumber": "+63 917 555 0142", "birthdate": "1994-02-14", "gender": "male",
-              "organization": "Acme Studio", "streetAddress": "12 Mabini St.", "zipOrPostalCode": "1109", "city": "Quezon City",
-              "stateOrProvince": "NCR", "countryOrRegion": "Philippines", "floor": "3F", "county": "", "extraAddressDetails": "",
-              "socialSecurityNumber": "123-45-6789", "passportNumber": "P1234567A", "licenseNumber": "",
-              "website": "https://juan.example.test", "xHandle": "@juan", "secondPhoneNumber": "", "linkedin": "", "extraPersonalDetails": [],
-              "extraSections": [ { "sectionName": "Emergency", "sectionFields": [ { "fieldName": "Contact", "type": "text", "data": { "content": "Maria" } } ] } ]
+              "itemEmail": "",
+              "itemUsername": "old-user",
+              "password": "old-pass",
+              "urls": ["https://old.example.test"],
+              "totpUri": "",
+              "passkeys": []
             }
           }
         },
         {
-          "itemId": "i7", "shareId": "vault-personal", "state": 1, "pinned": false, "aliasEmail": null,
+          "itemId": "i3",
+          "shareId": "vault-personal",
+          "state": 1,
+          "pinned": false,
+          "aliasEmail": null,
+          "data": {
+            "metadata": {
+              "name": "Wi-Fi at home",
+              "note": "Network: Bahay-5G\nPassword: mangga-tide-42",
+              "itemUuid": "u3"
+            },
+            "extraFields": [],
+            "type": "note",
+            "content": {}
+          }
+        },
+        {
+          "itemId": "i4",
+          "shareId": "vault-personal",
+          "state": 1,
+          "pinned": false,
+          "aliasEmail": "quiet.lantern42@passmail.net",
+          "data": {
+            "metadata": { "name": "Newsletter alias", "note": "for newsletters", "itemUuid": "u4" },
+            "extraFields": [],
+            "type": "alias",
+            "content": {}
+          }
+        },
+        {
+          "itemId": "i5",
+          "shareId": "vault-personal",
+          "state": 1,
+          "pinned": false,
+          "aliasEmail": null,
+          "data": {
+            "metadata": { "name": "BPI Visa", "note": "limit 120k", "itemUuid": "u5" },
+            "extraFields": [],
+            "type": "creditCard",
+            "content": {
+              "cardholderName": "JUAN DELA CRUZ",
+              "cardType": "Visa",
+              "number": "4111111111111111",
+              "verificationNumber": "214",
+              "expirationDate": "2029-08",
+              "pin": "0912"
+            }
+          }
+        },
+        {
+          "itemId": "i6",
+          "shareId": "vault-personal",
+          "state": 1,
+          "pinned": false,
+          "aliasEmail": null,
+          "data": {
+            "metadata": { "name": "Me", "note": "", "itemUuid": "u6" },
+            "extraFields": [],
+            "type": "identity",
+            "content": {
+              "fullName": "",
+              "firstName": "Juan",
+              "middleName": "",
+              "lastName": "Dela Cruz",
+              "email": "juan@example.test",
+              "phoneNumber": "+63 917 555 0142",
+              "birthdate": "1994-02-14",
+              "gender": "male",
+              "organization": "Acme Studio",
+              "streetAddress": "12 Mabini St.",
+              "zipOrPostalCode": "1109",
+              "city": "Quezon City",
+              "stateOrProvince": "NCR",
+              "countryOrRegion": "Philippines",
+              "floor": "3F",
+              "county": "",
+              "extraAddressDetails": "",
+              "socialSecurityNumber": "123-45-6789",
+              "passportNumber": "P1234567A",
+              "licenseNumber": "",
+              "website": "https://juan.example.test",
+              "xHandle": "@juan",
+              "secondPhoneNumber": "",
+              "linkedin": "",
+              "extraPersonalDetails": [],
+              "extraSections": [
+                {
+                  "sectionName": "Emergency",
+                  "sectionFields": [
+                    { "fieldName": "Contact", "type": "text", "data": { "content": "Maria" } }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "itemId": "i7",
+          "shareId": "vault-personal",
+          "state": 1,
+          "pinned": false,
+          "aliasEmail": null,
           "data": {
             "metadata": { "name": "Bare", "note": "", "itemUuid": "u7" },
-            "extraFields": [], "type": "login",
-            "content": { "itemEmail": "", "itemUsername": "", "password": "", "urls": [], "totpUri": "", "passkeys": [] }
+            "extraFields": [],
+            "type": "login",
+            "content": {
+              "itemEmail": "",
+              "itemUsername": "",
+              "password": "",
+              "urls": [],
+              "totpUri": "",
+              "passkeys": []
+            }
           }
         }
       ]
@@ -90,19 +200,39 @@
       "display": { "color": 1, "icon": 1 },
       "items": [
         {
-          "itemId": "i8", "shareId": "vault-work", "state": 1, "pinned": false, "aliasEmail": null,
+          "itemId": "i8",
+          "shareId": "vault-work",
+          "state": 1,
+          "pinned": false,
+          "aliasEmail": null,
           "data": {
             "metadata": { "name": "Jira", "note": "", "itemUuid": "u8" },
-            "extraFields": [], "type": "login",
-            "content": { "itemEmail": "juan@acme.test", "itemUsername": "", "password": "jira-pass", "urls": ["https://acme.atlassian.net"], "totpUri": "", "passkeys": [] }
+            "extraFields": [],
+            "type": "login",
+            "content": {
+              "itemEmail": "juan@acme.test",
+              "itemUsername": "",
+              "password": "jira-pass",
+              "urls": ["https://acme.atlassian.net"],
+              "totpUri": "",
+              "passkeys": []
+            }
           }
         },
         {
-          "itemId": "i9", "shareId": "vault-work", "state": 1, "pinned": false, "aliasEmail": null,
+          "itemId": "i9",
+          "shareId": "vault-work",
+          "state": 1,
+          "pinned": false,
+          "aliasEmail": null,
           "data": {
             "metadata": { "name": "Deploy key", "note": "for CI", "itemUuid": "u9" },
-            "extraFields": [], "type": "sshKey",
-            "content": { "privateKey": "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----", "publicKey": "ssh-ed25519 AAAAC3Nza deploy@acme" }
+            "extraFields": [],
+            "type": "sshKey",
+            "content": {
+              "privateKey": "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----",
+              "publicKey": "ssh-ed25519 AAAAC3Nza deploy@acme"
+            }
           }
         }
       ]

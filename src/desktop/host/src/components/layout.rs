@@ -12,38 +12,41 @@ use gpui_kit::{
     px,
 };
 
-use super::{Hue, Icon};
+use super::{
+    Hue, Icon,
+    hardware::{lip, raised, ring, well},
+};
 use crate::{
     assets::IconName,
-    theme::{DISPLAY_FACE, KandadoTheme, TextStyles as _, color, focus_ring, tokens},
+    theme::{KandadoTheme, TextStyles as _, color, focus_ring, shadow, tokens},
 };
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 type SelectHandler = Box<dyn Fn(usize, &mut Window, &mut App) + 'static>;
 
-/// A small uppercase heading over a group of fields or rows.
+/// An engraved heading over a group of fields or rows (hw-label).
 pub fn section_label(text: impl Into<SharedString>, cx: &App) -> Div {
     let text: SharedString = text.into();
     div()
         .text_token(tokens::LABEL)
-        .text_color(color(cx.palette().ink_muted))
+        .text_color(color(cx.palette().ink_3))
         .child(SharedString::from(text.to_uppercase()))
 }
 
-/// A key or key combination, such as "Ctrl F".
+/// A small raised keycap for a key or key combination, such as "Ctrl F" (hw-kbd).
 pub fn kbd(text: impl Into<SharedString>, cx: &App) -> Div {
     let p = cx.palette();
     div()
         .flex_none()
         .font_family(tokens::FONT_MONO)
         .text_size(px(11.))
-        .line_height(px(16.))
-        .px(px(6.))
-        .py(px(2.))
-        .rounded(px(tokens::RADIUS_SM))
-        .border_1()
-        .border_color(color(p.line_strong))
-        .text_color(color(p.ink_muted))
+        .line_height(px(14.))
+        .px(px(8.))
+        .py(px(4.))
+        .rounded(px(7.))
+        .bg(color(p.raised))
+        .shadow(vec![lip(p.edge_key, 2.)])
+        .text_color(color(p.ink))
         .child(text.into())
 }
 
@@ -56,16 +59,18 @@ pub fn check(on: bool, cx: &App) -> Div {
         .items_center()
         .justify_center()
         .size(px(20.))
-        .rounded(px(tokens::RADIUS_SM))
+        .rounded(px(tokens::RADIUS_KEY_SM))
         .map(|check| {
             if on {
-                check.bg(color(p.brass)).child(
+                check.bg(color(p.green)).child(
                     Icon::new(IconName::Check)
                         .size(px(14.))
-                        .color(color(p.surface_000)),
+                        .color(color(p.on_green)),
                 )
             } else {
-                check.border_1().border_color(color(p.line_strong))
+                check
+                    .bg(color(p.well))
+                    .shadow(shadow(tokens::SHADOW_WELL, cx.theme_kind()))
             }
         })
 }
@@ -79,20 +84,22 @@ pub fn radio(on: bool, cx: &App) -> Div {
         .items_center()
         .justify_center()
         .size(px(20.))
-        .rounded(px(tokens::RADIUS_PILL))
-        .border(px(if on { 2. } else { 1. }))
-        .border_color(color(if on { p.brass } else { p.line_strong }))
+        .rounded(px(tokens::RADIUS_ROUND))
+        .bg(color(p.well))
+        .shadow(shadow(tokens::SHADOW_WELL, cx.theme_kind()))
         .when(on, |radio| {
             radio.child(
                 div()
                     .size(px(10.))
-                    .rounded(px(tokens::RADIUS_PILL))
-                    .bg(color(p.brass)),
+                    .rounded(px(tokens::RADIUS_ROUND))
+                    .bg(color(p.green)),
             )
         })
 }
 
-/// One of a few choices, shown side by side: the theme, how to add a code.
+/// Two to five exclusive options sunk into a well, where the chosen one rises
+/// as a key face (hw-seg): lock timers, kind filters, the theme. Option text
+/// is engraved: mono capitals, short ("5 MIN", "LOGIN").
 #[derive(IntoElement)]
 pub struct Segmented {
     id: SharedString,
@@ -125,11 +132,11 @@ impl RenderOnce for Segmented {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
         let handler = self.on_select.map(std::rc::Rc::new);
-        div()
+        well(cx)
             .flex()
-            .p(px(3.))
-            .rounded(px(tokens::RADIUS_MD))
-            .bg(color(p.surface_300))
+            .gap(px(tokens::SPACE_1))
+            .p(px(tokens::SPACE_1))
+            .rounded(px(tokens::RADIUS_KEY))
             .children(self.options.into_iter().enumerate().map(|(index, label)| {
                 let on = index == self.selected;
                 let handler = handler.clone();
@@ -140,33 +147,34 @@ impl RenderOnce for Segmented {
                     .items_center()
                     .justify_center()
                     .h(px(34.))
-                    .px(px(tokens::SPACE_3))
-                    .rounded(px(8.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_size(px(14.))
+                    .px(px(14.))
+                    .rounded(px(tokens::RADIUS_KEY_SM))
+                    .text_token(tokens::SEGMENT)
+                    .whitespace_nowrap()
                     .cursor_pointer()
                     .tab_index(0)
-                    .focus_visible(|segment| segment.shadow(focus_ring(p, p.surface_300)))
+                    .focus_visible(|segment| segment.shadow(focus_ring(p, p.well)))
                     .map(|segment| {
                         if on {
                             segment
-                                .bg(color(p.surface_100))
+                                .bg(color(p.raised))
                                 .text_color(color(p.ink))
-                                .border_1()
-                                .border_color(color(p.line_strong))
+                                .shadow(vec![lip(p.edge_key, 2.)])
                         } else {
-                            segment.text_color(color(p.ink_muted))
+                            segment
+                                .font_weight(FontWeight::NORMAL)
+                                .text_color(color(p.ink_2))
                         }
                     })
                     .when_some(handler, |segment, handler| {
                         segment.on_click(move |_, window, cx| handler(index, window, cx))
                     })
-                    .child(label)
+                    .child(SharedString::from(label.to_uppercase()))
             }))
     }
 }
 
-/// A pill that filters a list: All, Logins, Cards.
+/// A small key that filters a list: All, Logins, Cards. Ringed in green while on.
 #[derive(IntoElement)]
 pub struct FilterChip {
     id: ElementId,
@@ -209,26 +217,25 @@ impl RenderOnce for FilterChip {
             .items_center()
             .h(px(28.))
             .px(px(10.))
-            .rounded(px(tokens::RADIUS_PILL))
-            .border_1()
-            .text_token(tokens::SMALL)
-            .font_weight(FontWeight::SEMIBOLD)
+            .rounded(px(tokens::RADIUS_KEY_SM))
+            .bg(color(p.raised))
+            .text_token(tokens::SEGMENT)
             .cursor_pointer()
             .tab_index(0)
-            .focus_visible(|chip| chip.shadow(focus_ring(p, p.surface_100)))
+            .focus_visible(|chip| chip.shadow(focus_ring(p, p.panel)))
             .map(|chip| {
                 if self.on {
-                    chip.bg(color(p.surface_300))
-                        .text_color(color(p.ink))
-                        .border_color(color(p.line_strong))
+                    chip.text_color(color(p.ink))
+                        .shadow(vec![lip(p.edge_key, 2.), ring(p.green)])
                 } else {
-                    chip.text_color(color(p.ink_muted))
-                        .border_color(color(p.line))
+                    chip.text_color(color(p.ink_2))
+                        .font_weight(FontWeight::NORMAL)
+                        .shadow(vec![lip(p.edge_key, 2.)])
                         .hover(|chip| chip.text_color(color(p.ink)))
                 }
             })
             .when_some(self.on_click, |chip, handler| chip.on_click(handler))
-            .child(self.label)
+            .child(SharedString::from(self.label.to_uppercase()))
     }
 }
 
@@ -274,7 +281,7 @@ impl ParentElement for EmptyState {
 impl RenderOnce for EmptyState {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        let (ink, ground) = self.hue.colors(p);
+        let (ink, _) = self.hue.colors(p);
         div()
             .flex()
             .flex_col()
@@ -284,22 +291,18 @@ impl RenderOnce for EmptyState {
             .gap(px(tokens::SPACE_2))
             .p(px(tokens::SPACE_5))
             .child(
-                div()
+                raised(cx)
                     .flex()
                     .items_center()
                     .justify_center()
                     .size(px(56.))
                     .mb(px(tokens::SPACE_2))
-                    .rounded(px(tokens::RADIUS_LG))
-                    .bg(ground)
+                    .rounded(px(tokens::RADIUS_WELL))
                     .child(Icon::new(self.icon).size(px(28.)).color(ink)),
             )
             .child(
                 div()
-                    .font_family(DISPLAY_FACE)
-                    .text_size(px(18.))
-                    .line_height(px(24.))
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_token(tokens::HEADING)
                     .text_color(color(p.ink))
                     .child(self.title),
             )
@@ -310,7 +313,7 @@ impl RenderOnce for EmptyState {
                         .text_center()
                         .text_size(px(14.))
                         .line_height(px(20.))
-                        .text_color(color(p.ink_muted))
+                        .text_color(color(p.ink_2))
                         .child(body),
                 )
             })
@@ -350,20 +353,24 @@ impl RenderOnce for TextArea {
             .when_some(self.label, |field, label| {
                 field.child(
                     div()
-                        .text_token(tokens::SMALL)
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(color(p.ink_muted))
-                        .child(label),
+                        .text_token(tokens::LABEL)
+                        .text_color(color(p.ink_3))
+                        .child(SharedString::from(label.to_uppercase())),
                 )
             })
             .child(
                 div()
-                    .px(px(tokens::SPACE_2))
-                    .py(px(tokens::SPACE_1))
-                    .rounded(px(tokens::RADIUS_MD))
-                    .bg(color(p.surface_300))
-                    .border(px(if focused { 2. } else { 1. }))
-                    .border_color(color(if focused { p.focus_ring } else { p.line_strong }))
+                    .px(px(tokens::SPACE_3))
+                    .py(px(tokens::SPACE_2))
+                    .rounded(px(tokens::RADIUS_KEY))
+                    .bg(color(p.well))
+                    .shadow({
+                        let mut shadows = shadow(tokens::SHADOW_WELL, cx.theme_kind());
+                        if focused {
+                            shadows.push(ring(p.focus));
+                        }
+                        shadows
+                    })
                     .text_token(tokens::BODY)
                     .child(Textarea::new(&self.state).appearance(false)),
             )
@@ -401,18 +408,17 @@ impl ProgressBar {
 impl RenderOnce for ProgressBar {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        div()
-            .h(px(8.))
+        well(cx)
+            .h(px(10.))
             .w_full()
-            .rounded(px(tokens::RADIUS_PILL))
-            .bg(color(p.surface_300))
+            .rounded(px(tokens::RADIUS_ROUND))
             .overflow_hidden()
             .child(
                 div()
                     .h_full()
                     .w(gpui_kit::relative(self.fraction))
-                    .rounded(px(tokens::RADIUS_PILL))
-                    .bg(color(p.brass)),
+                    .rounded(px(tokens::RADIUS_ROUND))
+                    .bg(color(p.green)),
             )
     }
 }
@@ -434,12 +440,11 @@ pub fn drop_zone(
         .items_center()
         .justify_center()
         .gap(px(tokens::SPACE_1))
-        .p(px(tokens::SPACE_5))
-        .rounded(px(tokens::RADIUS_LG))
-        .border_1()
-        .border_color(color(p.line_strong))
-        .bg(color(p.surface_200))
-        .child(Icon::new(icon).size(px(28.)).color(color(p.ink_muted)))
+        .p(px(tokens::SPACE_6))
+        .rounded(px(tokens::RADIUS_WELL))
+        .bg(color(p.well))
+        .shadow(shadow(tokens::SHADOW_WELL, cx.theme_kind()))
+        .child(Icon::new(icon).size(px(28.)).color(color(p.ink_2)))
         .child(
             div()
                 .text_token(tokens::BODY_STRONG)
@@ -449,7 +454,7 @@ pub fn drop_zone(
         .child(
             div()
                 .text_token(tokens::SMALL)
-                .text_color(color(p.ink_muted))
+                .text_color(color(p.ink_2))
                 .child(detail.into()),
         )
 }

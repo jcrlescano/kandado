@@ -1,0 +1,28 @@
+<!-- @dsCard group="Display" height=300 subtitle="Two-factor code, status strip, password" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Lcd</title></head>
+<body style="margin:0">
+<div class="hw" style="padding: 20px; display: flex; flex-direction: column; gap: 12px; max-width: 620px;">
+  <div class="hw-lcd" style="display: flex; align-items: center; gap: 20px; padding: 16px 20px; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+      <span class="hw-lcd-label">Two-factor code</span>
+      <span class="hw-lcd-digits" style="font-size: 46px; line-height: 1;">482 913</span>
+    </div>
+    <div aria-label="18 seconds left" style="display: flex; gap: 4px;">
+      <span class="hw-lcd-bar"></span><span class="hw-lcd-bar"></span><span class="hw-lcd-bar"></span><span class="hw-lcd-bar"></span><span class="hw-lcd-bar"></span><span class="hw-lcd-bar"></span><span class="hw-lcd-bar hw-lcd-bar--off"></span><span class="hw-lcd-bar hw-lcd-bar--off"></span><span class="hw-lcd-bar hw-lcd-bar--off"></span><span class="hw-lcd-bar hw-lcd-bar--off"></span>
+    </div>
+    <button class="hw-lcd-key">COPY</button>
+  </div>
+  <div class="hw-lcd" style="padding: 12px 16px; display: flex; align-items: center; gap: 12px;">
+    <span class="hw-led hw-led--warn"></span>
+    <span class="hw-lcd-digits" style="flex: 1; font-size: 15px;">LOCKED · 09:42</span>
+    <span class="hw-lcd-label">E2E</span>
+  </div>
+  <div class="hw-lcd" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+    <span class="hw-lcd-digits" style="font-size: 17px; word-break: break-all;">mV7x-Tq2#Lp9-wR4k!Nz8</span>
+    <span style="display: flex; align-items: center; gap: 8px;"><span class="hw-led"></span><span class="hw-lcd-label">Strong · 118 bits</span></span>
+  </div>
+</div>
+</body>
+</html>

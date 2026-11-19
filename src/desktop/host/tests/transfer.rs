@@ -80,14 +80,14 @@ fn start(cx: &mut TestAppContext) {
     cx.update(|cx| {
         gpui_kit::init(cx);
         theme::fonts::register(cx).expect("bundled fonts load");
-        theme::apply(ThemeKind::Vault, None, cx);
+        theme::apply(ThemeKind::Graphite, None, cx);
     });
 }
 
 /// Draws the window in both themes.
 fn draw(cx: &mut TestAppContext, window: gpui_kit::AnyWindowHandle) {
     cx.run_until_parked();
-    for kind in [ThemeKind::Paper, ThemeKind::Vault] {
+    for kind in [ThemeKind::Enamel, ThemeKind::Graphite] {
         cx.update_window(window, |_, window, cx| {
             theme::apply(kind, Some(window), cx);
             window.render_frame(cx);

@@ -3,10 +3,10 @@ use gpui_kit::{
     prelude::FluentBuilder as _, px,
 };
 
-use super::{Badge, Tone};
+use super::{Badge, Tone, hardware::well};
 use crate::theme::{KandadoTheme, TextStyles as _, color, tokens};
 
-/// A four-segment strength bar with its word.
+/// A four-segment strength bar sunk into a well, with its word.
 ///
 /// The score comes from `kandado_model::strength`; this only draws it. The
 /// word always shows, so strength never rests on colour alone.
@@ -52,20 +52,22 @@ impl RenderOnce for StrengthMeter {
             .items_center()
             .gap(px(tokens::SPACE_3))
             .child(
-                div()
+                well(cx)
                     .flex()
                     .flex_1()
                     .max_w(px(200.))
-                    .gap(px(4.))
+                    .gap(px(tokens::SPACE_1))
+                    .p(px(3.))
+                    .rounded(px(tokens::RADIUS_ROUND))
                     .children((1..=4u8).map(|segment| {
                         div()
                             .flex_1()
                             .h(px(6.))
-                            .rounded(px(tokens::RADIUS_PILL))
+                            .rounded(px(tokens::RADIUS_ROUND))
                             .bg(if segment <= lit {
                                 tone.solid(p)
                             } else {
-                                color(p.surface_300)
+                                color(p.edge)
                             })
                     })),
             )
@@ -74,7 +76,7 @@ impl RenderOnce for StrengthMeter {
                 meter.child(
                     div()
                         .text_token(tokens::SMALL)
-                        .text_color(color(p.ink_muted))
+                        .text_color(color(p.ink_2))
                         .child(detail),
                 )
             })

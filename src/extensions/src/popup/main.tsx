@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import "../ui/kandado";
+import "../ui/hardware";
 import { loadTheme } from "../ui/theme";
 import { App } from "./App";
 

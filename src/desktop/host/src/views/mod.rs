@@ -24,7 +24,7 @@ use kandado_app::{
 
 use crate::{
     assets::IconName,
-    components::{Icon, Logo},
+    components::{Icon, LcdStatus, LightState, Logo, StatusLight, panel, section_label, well},
     theme::{KandadoTheme, TextStyles as _, color, family, tokens},
 };
 
@@ -136,13 +136,14 @@ pub fn explain_unlock(error: &UnlockError) -> SharedString {
     }
 }
 
-/// The page heading used by forms: 28 px display type.
+/// The page heading of the start screens and forms: the display style, at
+/// 36 px as on the Unlock board.
 pub fn heading(text: impl Into<SharedString>, cx: &App) -> Div {
     div()
-        .font_family(family(tokens::Family::Display))
-        .text_size(px(28.))
-        .line_height(px(34.))
-        .font_weight(gpui_kit::FontWeight::BOLD)
+        .font_family(family(tokens::DISPLAY.family))
+        .text_size(px(36.))
+        .line_height(px(38.))
+        .font_weight(gpui_kit::FontWeight(f32::from(tokens::DISPLAY.weight)))
         .text_color(color(cx.palette().ink))
         .child(text.into())
 }
@@ -151,14 +152,14 @@ pub fn heading(text: impl Into<SharedString>, cx: &App) -> Div {
 pub fn paragraph(text: impl Into<SharedString>, cx: &App) -> Div {
     div()
         .text_token(tokens::BODY)
-        .text_color(color(cx.palette().ink_muted))
+        .text_color(color(cx.palette().ink_2))
         .child(text.into())
 }
 
 pub fn small(text: impl Into<SharedString>, cx: &App) -> Div {
     div()
         .text_token(tokens::SMALL)
-        .text_color(color(cx.palette().ink_muted))
+        .text_color(color(cx.palette().ink_2))
         .child(text.into())
 }
 
@@ -177,69 +178,83 @@ pub fn error_line(text: impl Into<SharedString>, cx: &App) -> Div {
         .child(div().flex_1().child(text.into()))
 }
 
-fn promise(icon: IconName, text: &'static str, cx: &App) -> impl IntoElement {
+fn promise(text: &'static str, cx: &App) -> impl IntoElement {
     let p = cx.palette();
     h_flex()
-        .items_start()
-        .gap(px(tokens::SPACE_3))
-        .text_token(tokens::BODY)
-        .text_color(color(p.ink))
-        .child(Icon::new(icon).size(px(20.)).color(color(p.teal)))
+        .items_center()
+        .gap(px(tokens::SPACE_2))
+        .text_token(tokens::SMALL)
+        .text_color(color(p.ink_2))
+        .child(StatusLight::new(LightState::Ok).size(8.))
         .child(div().flex_1().child(text))
 }
 
-/// The split window of the start screens: brand panel on the left, the form
-/// on the right (D-01 to D-04).
+/// The start screens' frame (D-01 to D-04, Unlock board): one panel in the
+/// middle of the window, with the padlock and an LCD status sunk into a well
+/// on the left and the form on the right.
 pub fn auth_shell(form: impl IntoElement, cx: &App) -> AnyElement {
-    let p = cx.palette();
-    h_flex()
+    auth_frame(form, LightState::Ok, "End-to-end encrypted", cx)
+}
+
+/// [`auth_shell`] with the LCD saying something about this screen, such as
+/// "Locked".
+pub fn auth_frame(
+    form: impl IntoElement,
+    light: LightState,
+    status: impl Into<SharedString>,
+    cx: &App,
+) -> AnyElement {
+    v_flex()
         .flex_1()
         .min_h_0()
+        .items_center()
+        .justify_center()
+        .p(px(tokens::SPACE_5))
         .child(
-            v_flex()
-                .flex_1()
-                .min_w_0()
-                .justify_between()
+            panel(cx)
+                .flex()
+                .flex_wrap()
+                .w_full()
+                .max_w(px(900.))
                 .gap(px(tokens::SPACE_5))
-                .p(px(48.))
-                .bg(color(p.surface_100))
-                .border_r_1()
-                .border_color(color(p.line))
-                .child(Logo::new().size(px(40.)).wordmark())
+                .p(px(tokens::SPACE_5))
                 .child(
-                    v_flex()
-                        .gap(px(tokens::SPACE_4))
+                    well(cx)
+                        .flex()
+                        .flex_col()
+                        .flex_grow(1.)
+                        .flex_basis(px(340.))
+                        .min_h(px(480.))
+                        .items_center()
+                        .justify_center()
+                        .gap(px(tokens::SPACE_6))
+                        .p(px(tokens::SPACE_7))
+                        .child(Logo::new().size(px(180.)))
                         .child(
                             div()
-                                .font_family(family(tokens::DISPLAY_LG.family))
-                                .text_size(px(40.))
-                                .line_height(px(44.))
-                                .font_weight(gpui_kit::FontWeight::BOLD)
-                                .text_color(color(p.ink))
-                                .child("Your vault, your keys."),
+                                .w_full()
+                                .max_w(px(280.))
+                                .child(LcdStatus::new(status).light(light)),
                         )
-                        .child(promise(
-                            IconName::Lock,
-                            "End-to-end encrypted on this computer before it syncs.",
-                            cx,
-                        ))
-                        .child(promise(
-                            IconName::Shield,
-                            "Your master password never leaves this computer.",
-                            cx,
-                        )),
+                        .child(
+                            v_flex()
+                                .gap(px(6.))
+                                .child(promise("Encrypted on this computer before it syncs.", cx))
+                                .child(promise("Your master password never leaves it.", cx)),
+                        ),
                 )
-                .child(small(concat!("Kandado ", env!("CARGO_PKG_VERSION")), cx)),
-        )
-        .child(
-            v_flex()
-                .flex_1()
-                .min_w_0()
-                .items_center()
-                .justify_center()
-                .px(px(72.))
-                .py(px(40.))
-                .child(v_flex().w_full().max_w(px(400.)).gap(px(14.)).child(form)),
+                .child(
+                    v_flex()
+                        .flex_grow(1.)
+                        .flex_basis(px(340.))
+                        .justify_center()
+                        .gap(px(20.))
+                        .px(px(tokens::SPACE_5))
+                        .py(px(tokens::SPACE_6))
+                        .child(Logo::new().size(px(26.)).wordmark())
+                        .child(form)
+                        .child(small(concat!("Kandado ", env!("CARGO_PKG_VERSION")), cx)),
+                ),
         )
         .into_any_element()
 }
@@ -253,35 +268,24 @@ pub fn read_only_field(
     cx: &App,
 ) -> Div {
     let p = cx.palette();
-    v_flex()
-        .gap(px(6.))
-        .child(
-            div()
-                .text_token(tokens::SMALL)
-                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                .text_color(color(p.ink_muted))
-                .child(label),
-        )
-        .child(
-            h_flex()
-                .items_center()
-                .gap(px(tokens::SPACE_2))
-                .h(px(44.))
-                .px(px(tokens::SPACE_3))
-                .rounded(px(tokens::RADIUS_MD))
-                .bg(color(p.surface_200))
-                .border_1()
-                .border_color(color(p.line))
-                .child(Icon::new(icon).size(px(18.)).color(color(p.ink_muted)))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .text_token(tokens::BODY)
-                        .text_color(color(p.ink))
-                        .child(value.into()),
-                ),
-        )
+    v_flex().gap(px(6.)).child(section_label(label, cx)).child(
+        well(cx)
+            .flex()
+            .items_center()
+            .gap(px(tokens::SPACE_2))
+            .h(px(48.))
+            .px(px(14.))
+            .rounded(px(tokens::RADIUS_KEY))
+            .child(Icon::new(icon).size(px(18.)).color(color(p.ink_2)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .text_token(tokens::BODY)
+                    .text_color(color(p.ink))
+                    .child(value.into()),
+            ),
+    )
 }
 
 /// Puts `overlay` (a [`crate::components::Dialog`]) over `content`. The
@@ -338,6 +342,19 @@ pub fn sync_text(status: &kandado_app::sync::SyncStatus, now: i64) -> String {
     }
 }
 
+/// The header's status light and its word: lit green once synced, orange
+/// while syncing or in trouble, unlit before the first sync.
+pub fn sync_light(status: &kandado_app::sync::SyncStatus) -> (LightState, &'static str) {
+    use kandado_app::sync::SyncState;
+    match (&status.state, status.last_synced) {
+        (SyncState::Syncing, _) => (LightState::Warn, "SYNCING"),
+        (SyncState::Offline, _) => (LightState::Warn, "OFFLINE"),
+        (SyncState::Failed(_), _) => (LightState::Warn, "NOT SYNCED"),
+        (SyncState::Idle, None) => (LightState::Off, "NOT SYNCED"),
+        (SyncState::Idle, Some(_)) => (LightState::Ok, "SYNCED"),
+    }
+}
+
 /// The banner under the title bar when sync cannot reach the server (D-54):
 /// its words, and whether "Retry" is offered. `None` when there is nothing
 /// to say. The offline banner clears itself with the next sync that works.
@@ -361,7 +378,8 @@ pub fn sync_banner(status: &kandado_app::sync::SyncStatus) -> Option<(&'static s
 mod sync_text_tests {
     use kandado_app::sync::{SyncFailure, SyncState, SyncStatus};
 
-    use super::{sync_banner, sync_text};
+    use super::{sync_banner, sync_light, sync_text};
+    use crate::components::LightState;
 
     fn status(state: SyncState, last: Option<i64>) -> SyncStatus {
         SyncStatus {
@@ -390,6 +408,25 @@ mod sync_text_tests {
         assert_eq!(
             sync_text(&status(SyncState::Failed(SyncFailure::Other), None), now),
             "Couldn\u{2019}t sync"
+        );
+    }
+
+    #[test]
+    fn the_header_light_never_says_synced_before_the_first_sync() {
+        let light = |state, last| sync_light(&status(state, last));
+        assert_eq!(light(SyncState::Idle, Some(1)), (LightState::Ok, "SYNCED"));
+        assert_eq!(
+            light(SyncState::Idle, None),
+            (LightState::Off, "NOT SYNCED")
+        );
+        assert_eq!(light(SyncState::Syncing, Some(1)).0, LightState::Warn);
+        assert_eq!(
+            light(SyncState::Offline, Some(1)),
+            (LightState::Warn, "OFFLINE")
+        );
+        assert_eq!(
+            light(SyncState::Failed(SyncFailure::Other), Some(1)).0,
+            LightState::Warn
         );
     }
 

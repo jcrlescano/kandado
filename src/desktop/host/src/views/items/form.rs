@@ -46,7 +46,7 @@ use crate::{
         Button, ButtonSize, ButtonVariant, GeneratorEvent, IconButton, ItemIcon, PasswordGenerator,
         StrengthMeter, TextArea, TextField, Toggle, section_label,
     },
-    theme::{DISPLAY_FACE, KandadoTheme, TextStyles as _, color, shadow, tokens},
+    theme::{KandadoTheme, TextStyles as _, color, shadow, tokens},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -695,10 +695,10 @@ impl FormView {
                         .w(px(380.))
                         .max_w_full()
                         .p(px(tokens::SPACE_4))
-                        .rounded(px(tokens::RADIUS_LG))
+                        .rounded(px(tokens::RADIUS_PANEL))
                         .border_1()
-                        .border_color(color(p.line))
-                        .bg(color(p.surface_100))
+                        .border_color(color(p.edge))
+                        .bg(color(p.panel))
                         .shadow(shadow(tokens::SHADOW_POP, cx.theme_kind()))
                         .occlude()
                         .on_mouse_down_out(cx.listener(|this, _, _, cx| {
@@ -710,7 +710,7 @@ impl FormView {
                                 .gap(px(tokens::SPACE_3))
                                 .child(
                                     div()
-                                        .text_token(tokens::TITLE_MD)
+                                        .text_token(tokens::SUBHEADING)
                                         .text_color(color(p.ink))
                                         .child("Generate password"),
                                 )
@@ -842,12 +842,12 @@ impl FormView {
                         .gap(px(tokens::SPACE_3))
                         .h(px(44.))
                         .px(px(tokens::SPACE_3))
-                        .rounded(px(tokens::RADIUS_MD))
-                        .bg(color(cx.palette().surface_200))
+                        .rounded(px(tokens::RADIUS_KEY))
+                        .bg(color(cx.palette().raised))
                         .child(
                             crate::components::Icon::new(IconName::Clock)
                                 .size(px(18.))
-                                .color(color(cx.palette().teal)),
+                                .color(color(cx.palette().led_ok)),
                         )
                         .child(div().flex_1().child("Two-factor code added"))
                         .child(
@@ -968,7 +968,7 @@ impl FormView {
                 div()
                     .text_token(tokens::SMALL)
                     .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                    .text_color(color(p.ink_muted))
+                    .text_color(color(p.ink_2))
                     .child("Vault"),
             )
             .child(
@@ -1008,7 +1008,7 @@ impl Render for FormView {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .font_family(DISPLAY_FACE)
+                    .font_family(tokens::FONT_SANS)
                     .text_size(px(24.))
                     .line_height(px(30.))
                     .font_weight(gpui_kit::FontWeight::SEMIBOLD)

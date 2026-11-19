@@ -1,4 +1,4 @@
-// E-28 to E-31, the settings tab (popup ⋯ › Settings, or the browser's extension
+// E-28 to E-31, the settings tab (popup Menu › Settings, or the browser's extension
 // options). The page is chosen by the address hash, so each one can be linked.
 
 import { useCallback, useEffect, useState } from "react";
@@ -10,7 +10,18 @@ import {
   type ThemeChoice,
 } from "../../shared/settings";
 import { hasSiteAccess, removeSiteAccess, requestSiteAccess } from "../../ui/access";
-import { K } from "../../ui/kandado";
+import {
+  grouped,
+  Kbd,
+  Key,
+  Raised,
+  Segmented,
+  StatusLight,
+  Switch,
+  Tag,
+  TextField,
+  Well,
+} from "../../ui/hardware";
 import { AskError, ask } from "../../ui/messaging";
 import { OptPage, PAGES, PinSetup, Row, Rows, type SettingsPage } from "../parts";
 
@@ -19,8 +30,9 @@ function pageFromHash(): SettingsPage {
   return PAGES.some((page) => page.id === id) ? (id as SettingsPage) : "general";
 }
 
+/** "5 min", "1 hour": short, for the Lock after keys. */
 function minutesLabel(minutes: number): string {
-  if (minutes < 60) return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+  if (minutes < 60) return `${minutes} min`;
   const hours = minutes / 60;
   return hours === 1 ? "1 hour" : `${hours} hours`;
 }
@@ -76,50 +88,45 @@ function General({ settings, change }: PageProps) {
       )
       .catch(() => {});
   }, []);
-  const themes: { id: ThemeChoice; label: string }[] = [
-    { id: "system", label: "System" },
-    { id: "dark", label: "Dark" },
-    { id: "light", label: "Light" },
+  const themes: { value: ThemeChoice; label: string }[] = [
+    { value: "system", label: "System" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
   ];
   return (
-    <>
-      {/* Pressed / not pressed buttons: the design draws a segmented control. */}
-      <div className="kt-label" aria-hidden="true">
-        <span>Theme</span>
-      </div>
-      <fieldset className="kx-fieldset">
-        <legend className="kx-hidden-input">
-          <span>Theme</span>
-        </legend>
-        <div className="kd-seg">
-          {themes.map((theme) => (
-            <button
-              key={theme.id}
-              type="button"
-              aria-pressed={settings.theme === theme.id}
-              className={`kd-seg-btn${settings.theme === theme.id ? " kd-seg-on" : ""}`}
-              onClick={() => void change({ theme: theme.id })}
-            >
-              {theme.label}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-      <Rows>
-        <Row
-          icon="bolt"
+    <Rows>
+      <Row label="Theme" strong>
+        <Segmented
+          label="Theme"
+          onPanel
+          value={settings.theme}
+          options={themes}
+          onChange={(theme) => void change({ theme })}
+        />
+      </Row>
+      <Row label="Open popup shortcut">
+        <span className="kx-kbds">
+          {shortcut ? (
+            shortcut.split("+").map((key) => <Kbd key={key}>{key}</Kbd>)
+          ) : (
+            <Tag>Not set</Tag>
+          )}
+        </span>
+        <Key
+          size="sm"
+          onClick={() => void chrome.tabs.create({ url: "chrome://extensions/shortcuts" })}
+        >
+          Change
+        </Key>
+      </Row>
+      <Row label="Show item count on the toolbar icon">
+        <Switch
           label="Show item count on the toolbar icon"
-          toggle={settings.toolbarCount}
-          onToggle={(on) => void change({ toolbarCount: on })}
+          checked={settings.toolbarCount}
+          onChange={(on) => void change({ toolbarCount: on })}
         />
-        <Row
-          icon="key"
-          label="Open popup shortcut"
-          value={shortcut ? shortcut.replace(/\+/g, " ") : "Not set"}
-          onOpen={() => void chrome.tabs.create({ url: "chrome://extensions/shortcuts" })}
-        />
-      </Rows>
-    </>
+      </Row>
+    </Rows>
   );
 }
 
@@ -131,44 +138,49 @@ function Autofill({ settings, change }: PageProps) {
     void hasSiteAccess().then(setAccess);
   }, []);
   return (
-    <>
-      <Rows>
-        <Row
-          icon="globe"
+    <Rows>
+      <Row
+        label="Fill on websites"
+        description={
+          access
+            ? "Kandado can read the pages you open, to find forms."
+            : "Kandado needs access to the pages you open to show logins in their forms."
+        }
+      >
+        <Switch
           label="Fill on websites"
-          description={
-            access
-              ? "Kandado can read the pages you open, to find forms."
-              : "Kandado needs access to the pages you open to show logins in their forms."
-          }
-          toggle={access === true}
-          onToggle={(on) =>
+          checked={access === true}
+          onChange={(on) =>
             void (on ? requestSiteAccess() : removeSiteAccess().then(() => false)).then(setAccess)
           }
         />
-      </Rows>
-      <Rows>
-        <Row
-          icon="key"
+      </Row>
+      <Row label="Show Kandado in form fields">
+        <Switch
           label="Show Kandado in form fields"
-          toggle={settings.showInFields}
-          onToggle={(on) => void change({ showInFields: on })}
+          checked={settings.showInFields}
+          onChange={(on) => void change({ showInFields: on })}
         />
-        <Row
-          icon="refresh"
-          label="Suggest passwords in new-password fields"
-          toggle={settings.suggestPasswords}
-          disabled={!settings.showInFields}
-          onToggle={(on) => void change({ suggestPasswords: on })}
-        />
-        <Row
-          icon="plus"
+      </Row>
+      <Row label="Offer to save and update logins">
+        <Switch
           label="Offer to save and update logins"
-          toggle={settings.offerToSave}
-          onToggle={(on) => void change({ offerToSave: on })}
+          checked={settings.offerToSave}
+          onChange={(on) => void change({ offerToSave: on })}
         />
-      </Rows>
-    </>
+      </Row>
+      <Row
+        label="Suggest passwords in new-password fields"
+        description={settings.showInFields ? undefined : "Needs Kandado in form fields."}
+      >
+        <Switch
+          label="Suggest passwords in new-password fields"
+          checked={settings.suggestPasswords}
+          disabled={!settings.showInFields}
+          onChange={(on) => void change({ suggestPasswords: on })}
+        />
+      </Row>
+    </Rows>
   );
 }
 
@@ -190,60 +202,54 @@ function Excluded({ settings, change }: PageProps) {
     setError(null);
   };
   return (
-    <>
+    <Well className="kx-sites">
+      {settings.excludedSites.length === 0 ? (
+        <p className="hw-sub kx-sites-empty">
+          No excluded sites. Sites you add here, or answer “Never for this site”, get no dropdown
+          and no save prompt.
+        </p>
+      ) : (
+        settings.excludedSites.map((host) => (
+          <Raised key={host} className="kx-site">
+            <StatusLight tone="off" />
+            <span className="hw-mono kx-site-host">{host}</span>
+            <span className="hw-label">Never fill · never save</span>
+            <Key
+              size="sm"
+              icon
+              tone="flat"
+              aria-label={`Remove ${host}`}
+              onClick={() =>
+                void change({
+                  excludedSites: settings.excludedSites.filter((entry) => entry !== host),
+                })
+              }
+            >
+              ×
+            </Key>
+          </Raised>
+        ))
+      )}
       <form
+        className="kx-add-site"
         onSubmit={(event) => {
           event.preventDefault();
           void add();
         }}
       >
-        <K.TextField
+        <TextField
           label="Add a site"
-          icon="globe"
           placeholder="example.com"
           value={site}
-          error={error ?? undefined}
+          error={error}
           onChange={(event) => {
             setSite(event.target.value);
             setError(null);
           }}
-          trailing={
-            <K.Button size="sm" type="submit">
-              Add
-            </K.Button>
-          }
         />
+        <Key type="submit">Add</Key>
       </form>
-      {settings.excludedSites.length === 0 ? (
-        <p className="kt-p">
-          No excluded sites. Sites you add here, or answer “Never for this site”, get no dropdown
-          and no save prompt.
-        </p>
-      ) : (
-        <Rows>
-          {settings.excludedSites.map((host) => (
-            <Row
-              key={host}
-              icon="globe"
-              label={host}
-              description="Never fill · never save"
-              action={
-                <K.IconButton
-                  icon="x"
-                  size="sm"
-                  label={`Remove ${host}`}
-                  onClick={() =>
-                    void change({
-                      excludedSites: settings.excludedSites.filter((entry) => entry !== host),
-                    })
-                  }
-                />
-              }
-            />
-          ))}
-        </Rows>
-      )}
-    </>
+    </Well>
   );
 }
 
@@ -261,7 +267,7 @@ function Security({
 
   if (settingPin) {
     return (
-      <div className="kx-panel">
+      <Well>
         <PinSetup
           onCancel={() => setSettingPin(false)}
           onDone={async (pin) => {
@@ -270,70 +276,60 @@ function Security({
             setSettingPin(false);
           }}
         />
-      </div>
+      </Well>
     );
   }
   return (
-    <>
+    <Rows>
       <DesktopLinkRow />
-      <Rows>
-        <Row
-          icon="key"
-          label="Extension PIN"
-          description={
-            pinOn
-              ? "Unlocks Kandado until the browser closes."
-              : unlocked
-                ? "Six digits to unlock, after the master password once per browser session."
-                : "Unlock Kandado to set a PIN."
-          }
-          value={pinOn ? "On" : "Off"}
-          disabled={!unlocked && !pinOn}
-          onOpen={pinOn ? undefined : unlocked ? () => setSettingPin(true) : undefined}
-          action={
-            pinOn ? (
-              <K.Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  void ask({ type: "clear-pin" }).then(async (next) => {
-                    onStatus(next);
-                    await change({ pinWanted: false });
-                  })
-                }
-              >
-                Turn off
-              </K.Button>
-            ) : undefined
-          }
-        />
-        <Row
-          icon="clock"
+      <Row
+        label="Extension PIN"
+        description={
+          pinOn
+            ? "Unlocks Kandado until the browser closes."
+            : unlocked
+              ? "Six digits to unlock, after the master password once per browser session."
+              : "Unlock Kandado to set a PIN."
+        }
+      >
+        {pinOn ? <Tag tone="go">On</Tag> : <Tag>Not set</Tag>}
+        {pinOn ? (
+          <Key
+            size="sm"
+            onClick={() =>
+              void ask({ type: "clear-pin" }).then(async (next) => {
+                onStatus(next);
+                await change({ pinWanted: false });
+              })
+            }
+          >
+            Turn off
+          </Key>
+        ) : (
+          <Key size="sm" disabled={!unlocked} onClick={() => setSettingPin(true)}>
+            Set PIN
+          </Key>
+        )}
+      </Row>
+      <Row label="Lock after">
+        <Segmented
           label="Lock after"
-          action={
-            <select
-              className="kx-inline-select"
-              aria-label="Lock after"
-              value={String(settings.autoLockMinutes)}
-              onChange={(event) => void change({ autoLockMinutes: Number(event.target.value) })}
-            >
-              {AUTO_LOCK_CHOICES.map((minutes) => (
-                <option key={minutes} value={String(minutes)}>
-                  {minutesLabel(minutes)}
-                </option>
-              ))}
-            </select>
-          }
+          onPanel
+          value={String(settings.autoLockMinutes)}
+          options={AUTO_LOCK_CHOICES.map((minutes) => ({
+            value: String(minutes),
+            label: minutesLabel(minutes),
+          }))}
+          onChange={(minutes) => void change({ autoLockMinutes: Number(minutes) })}
         />
-        <Row
-          icon="lock"
-          label="Lock when the browser closes"
-          description="Always on: the keys are kept only in memory."
-          toggle
-          disabled
-        />
-      </Rows>
-    </>
+      </Row>
+      <Row
+        label="Lock when the browser closes"
+        description="Always on: the keys are kept only in memory."
+      >
+        <Switch label="Lock when the browser closes" checked disabled />
+      </Row>
+    </Rows>
   );
 }
 
@@ -382,7 +378,7 @@ function DesktopLinkRow() {
             : code === "desktop_locked"
               ? "Unlock the Kandado desktop app first."
               : code === "desktop_off"
-                ? "In the desktop app, turn on Settings \u203a Autofill and browser \u203a Unlock the browser extension with this app."
+                ? "In the desktop app, turn on Settings › Autofill and browser › Unlock the browser extension with this app."
                 : code === "locked"
                   ? "Unlock Kandado here first."
                   : "Pairing did not start. Try again.",
@@ -393,29 +389,39 @@ function DesktopLinkRow() {
   const description = !status
     ? "Looking for the Kandado desktop app…"
     : status.pairingCode
-      ? `Check that Kandado on this computer shows ${status.pairingCode.slice(0, 3)} ${status.pairingCode.slice(3)}, and accept there.`
+      ? "Check that Kandado on this computer shows the same code, and accept there."
       : status.paired
         ? "This browser unlocks and locks with the desktop app."
         : status.available
           ? "Unlock this extension when the desktop app unlocks, without your master password."
           : "Needs the Kandado desktop app on this computer.";
   return (
-    <>
-      <Rows>
-        <Row
-          icon="grid"
-          label="Lock and unlock with the desktop app"
-          description={description}
-          toggle={status?.paired === true || status?.pairingCode != null}
-          disabled={!status || (!status.available && !status.paired)}
-          onToggle={(on) => void toggle(on)}
-        />
-      </Rows>
-      {failure && (
-        <p className="kx-error" role="alert">
-          {failure}
-        </p>
-      )}
-    </>
+    <Row
+      label="Lock and unlock with the desktop app"
+      description={
+        <>
+          {description}
+          {status?.pairingCode && (
+            <span className="hw-lcd kx-lcd-strip kx-pairing">
+              <StatusLight tone="warn" />
+              <span className="hw-lcd-label">Pairing code</span>
+              <span className="hw-lcd-digits kx-lcd-text">{grouped(status.pairingCode)}</span>
+            </span>
+          )}
+          {failure && (
+            <span className="hw-error" role="alert" style={{ display: "block" }}>
+              {failure}
+            </span>
+          )}
+        </>
+      }
+    >
+      <Switch
+        label="Lock and unlock with the desktop app"
+        checked={status?.paired === true || status?.pairingCode != null}
+        disabled={!status || (!status.available && !status.paired)}
+        onChange={(on) => void toggle(on)}
+      />
+    </Row>
   );
 }

@@ -5,12 +5,13 @@ use gpui_kit::{
 };
 use kandado_model::ItemKind;
 
-use super::{ButtonSize, Icon, IconButton};
+use super::{
+    Button, ButtonSize, Icon,
+    hardware::{Tag, lip, ring},
+};
 use crate::{
     assets::IconName,
-    theme::{
-        DISPLAY_FACE, KandadoTheme, TextStyles as _, color, focus_ring, tokens, tokens::Palette,
-    },
+    theme::{KandadoTheme, TextStyles as _, color, focus_ring, tokens, tokens::Palette},
 };
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
@@ -31,14 +32,42 @@ impl Hue {
     /// `(colour, soft ground)` for this hue.
     pub fn colors(self, p: &Palette) -> (Hsla, Hsla) {
         let (hue, soft) = match self {
-            Self::Brass => (p.brass, p.brass_soft),
-            Self::Teal => (p.teal, p.teal_soft),
-            Self::Coral => (p.coral, p.coral_soft),
-            Self::Sky => (p.sky, p.sky_soft),
-            Self::Plum => (p.plum, p.plum_soft),
-            Self::Moss => (p.moss, p.moss_soft),
+            Self::Brass => (p.green, p.raised),
+            Self::Teal => (p.led_ok, p.raised),
+            Self::Coral => (p.ink_2, p.raised),
+            Self::Sky => (p.ink_2, p.raised),
+            Self::Plum => (p.ink_2, p.raised),
+            Self::Moss => (p.ink_2, p.raised),
         };
         (color(hue), color(soft))
+    }
+
+    /// The colour of a vault's light: Hardware's `vault-*` tokens, mapped
+    /// from the names vaults are stored under as the design system's README
+    /// says (teal to green, coral to orange, brass to amber, moss to graphite).
+    pub fn light(self, p: &Palette) -> u32 {
+        match self {
+            Self::Teal => p.vault_green,
+            Self::Coral => p.vault_orange,
+            Self::Sky => p.vault_sky,
+            Self::Plum => p.vault_plum,
+            Self::Brass => p.vault_amber,
+            Self::Moss => p.vault_graphite,
+        }
+    }
+
+    /// The engraved word that names an item kind on its tag. Kinds are told
+    /// apart by the word, not by colour.
+    pub fn kind_label(kind: ItemKind) -> &'static str {
+        match kind {
+            ItemKind::Login => "Login",
+            ItemKind::Alias => "Alias",
+            ItemKind::Card => "Card",
+            ItemKind::Note => "Note",
+            ItemKind::Identity => "ID",
+            ItemKind::Password => "Password",
+            ItemKind::Passkey => "Passkey",
+        }
     }
 
     /// The hue and icon that mean an item kind.
@@ -55,9 +84,10 @@ impl Hue {
     }
 }
 
-/// The coloured tile that tells an item's kind at a glance.
+/// The contrast badge on the item detail header (`hw-badge-ico`): a dark key
+/// with the site's initial, or the kind's glyph.
 ///
-/// 40 px in lists (the default), 32 px dense, 56 px on the item detail header.
+/// 40 px by default, 52 px on the item detail header, 36 px small.
 #[derive(IntoElement)]
 pub struct ItemIcon {
     kind: ItemKind,
@@ -89,12 +119,12 @@ impl ItemIcon {
 
 impl RenderOnce for ItemIcon {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let (hue, icon) = Hue::of_kind(self.kind);
-        let (text, ground) = hue.colors(cx.palette());
-        let radius = if self.size >= px(36.) {
-            tokens::RADIUS_MD
+        let p = cx.palette();
+        let (_, icon) = Hue::of_kind(self.kind);
+        let radius = if self.size >= px(44.) {
+            tokens::RADIUS_WELL
         } else {
-            tokens::RADIUS_SM
+            10.
         };
         div()
             .flex()
@@ -103,13 +133,14 @@ impl RenderOnce for ItemIcon {
             .justify_center()
             .size(self.size)
             .rounded(px(radius))
-            .bg(ground)
-            .text_color(text)
+            .bg(color(p.dark_key))
+            .text_color(color(p.on_dark_key))
+            .shadow(vec![lip(p.dark_key_edge, 3.)])
             .map(|tile| match self.letter {
                 Some(letter) => {
                     let size = (self.size * 0.42).round();
-                    tile.font_family(DISPLAY_FACE)
-                        .font_weight(FontWeight::BOLD)
+                    tile.font_family(tokens::FONT_SANS)
+                        .font_weight(FontWeight::EXTRA_BOLD)
                         .text_size(size)
                         .line_height(size)
                         .child(letter)
@@ -119,10 +150,12 @@ impl RenderOnce for ItemIcon {
     }
 }
 
-/// One item in a list: icon, title, subtitle, optional badge and copy button.
+/// One item in a list (`hw-item`): title, subtitle and the kind's engraved
+/// tag, with an optional badge and a Copy key. Put rows in a well.
 ///
 /// The subtitle is the most useful secondary fact: the username for a login,
-/// the last four digits for a card, the first line for a note.
+/// the last four digits for a card, the first line for a note. The open item
+/// rises to a key face with a 2 px green ring.
 #[derive(IntoElement)]
 pub struct ItemRow {
     id: ElementId,
@@ -165,13 +198,13 @@ impl ItemRow {
         self
     }
 
-    /// Marks the item open in the detail pane and adds the brass leading bar.
+    /// Marks the item open in the detail pane: a key face with a green ring.
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
     }
 
-    /// Adds the brass star.
+    /// Adds the green star.
     pub fn favorite(mut self, favorite: bool) -> Self {
         self.favorite = favorite;
         self
@@ -188,7 +221,7 @@ impl ItemRow {
         self
     }
 
-    /// Shows a copy button on hover and selection.
+    /// Shows a Copy key on hover and selection.
     pub fn on_copy(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -211,10 +244,7 @@ impl RenderOnce for ItemRow {
         let p = cx.palette();
         let group: SharedString = format!("item-row-{:?}", self.id).into();
         let selected = self.selected;
-        let mut icon = ItemIcon::new(self.kind).size(px(if self.dense { 32. } else { 40. }));
-        if let Some(letter) = self.letter {
-            icon = icon.letter(letter);
-        }
+        let kind = Hue::kind_label(self.kind);
 
         div()
             .id(self.id.clone())
@@ -222,36 +252,23 @@ impl RenderOnce for ItemRow {
             .relative()
             .flex()
             .items_center()
-            .gap(px(tokens::SPACE_3))
+            .gap(px(10.))
             .w_full()
             .map(|row| {
                 if self.dense {
-                    row.min_h(px(48.)).py(px(6.)).px(px(tokens::SPACE_2))
+                    row.min_h(px(44.)).py(px(6.)).px(px(tokens::SPACE_2))
                 } else {
-                    row.min_h(px(56.)).py(px(8.)).px(px(tokens::SPACE_3))
+                    row.min_h(px(52.)).py(px(9.)).px(px(10.))
                 }
             })
-            .rounded(px(tokens::RADIUS_MD))
+            .rounded(px(10.))
             .cursor_pointer()
             .tab_index(0)
-            .focus_visible(|row| row.shadow(focus_ring(p, p.surface_100)))
-            .map(|row| {
-                if selected {
-                    row.bg(color(p.surface_300)).child(
-                        div()
-                            .absolute()
-                            .left_0()
-                            .top(px(10.))
-                            .bottom(px(10.))
-                            .w(px(3.))
-                            .rounded(px(tokens::RADIUS_PILL))
-                            .bg(color(p.brass)),
-                    )
-                } else {
-                    row.hover(|row| row.bg(color(p.surface_200)))
-                }
+            .focus_visible(|row| row.shadow(focus_ring(p, p.well)))
+            .when(selected, |row| {
+                row.bg(color(p.raised))
+                    .shadow(vec![lip(p.edge_key, 2.), ring(p.green)])
             })
-            .child(icon)
             .child(
                 div()
                     .flex()
@@ -263,13 +280,18 @@ impl RenderOnce for ItemRow {
                             .flex()
                             .items_center()
                             .gap(px(6.))
-                            .text_token(tokens::BODY_STRONG)
+                            .text_token(tokens::BODY)
+                            .font_weight(if selected {
+                                FontWeight::BOLD
+                            } else {
+                                FontWeight::SEMIBOLD
+                            })
                             .child(div().truncate().child(self.title))
                             .when(self.favorite, |title| {
                                 title.child(
                                     Icon::new(IconName::Star)
                                         .size(px(14.))
-                                        .color(color(p.brass)),
+                                        .color(color(p.green)),
                                 )
                             }),
                     )
@@ -278,7 +300,7 @@ impl RenderOnce for ItemRow {
                             div()
                                 .truncate()
                                 .text_token(tokens::SMALL)
-                                .text_color(color(p.ink_muted))
+                                .text_color(color(p.ink_2))
                                 .child(subtitle),
                         )
                     }),
@@ -291,20 +313,17 @@ impl RenderOnce for ItemRow {
                             copy.invisible().group_hover(group, |copy| copy.visible())
                         })
                         .child(
-                            IconButton::new(
-                                (ElementId::from("copy"), self.id.to_string()),
-                                IconName::Copy,
-                                "Copy password",
-                            )
-                            .size(ButtonSize::Sm)
-                            .on_click(move |event, window, cx| {
-                                // The row itself must not also react to this click.
-                                cx.stop_propagation();
-                                handler(event, window, cx);
-                            }),
+                            Button::new((ElementId::from("copy"), self.id.to_string()), "Copy")
+                                .size(ButtonSize::Sm)
+                                .on_click(move |event, window, cx| {
+                                    // The row itself must not also react to this click.
+                                    cx.stop_propagation();
+                                    handler(event, window, cx);
+                                }),
                         ),
                 )
             })
+            .child(Tag::new(kind))
             .when_some(self.on_click, |row, handler| row.on_click(handler))
     }
 }

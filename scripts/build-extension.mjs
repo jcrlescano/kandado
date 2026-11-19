@@ -43,6 +43,9 @@ const server =
   (dev ? "http://127.0.0.1:8080" : "https://api.kandado.app");
 const version = JSON.parse(readFileSync(resolve(extension, "package.json"), "utf8")).version;
 
+/** The font files the extension pages load (src/extensions/src/ui/fonts.css). */
+const FONTS = ["SchibstedGrotesk", "MartianMono"];
+
 function merge(base, override) {
   const out = { ...base };
   for (const [key, value] of Object.entries(override)) {
@@ -142,9 +145,13 @@ for (const browser of browsers) {
     resolve(outDir, "manifest.json"),
     `${JSON.stringify(manifest(browser), null, 2)}\n`,
   );
-  // The same font files as the desktop app (SIL OFL, licences included).
-  cpSync(resolve(root, "src/desktop/resources/fonts"), resolve(outDir, "fonts"), {
-    recursive: true,
-  });
+  // Kandado Hardware's two families, the same files as the desktop app (SIL OFL,
+  // licences included).
+  mkdirSync(resolve(outDir, "fonts"), { recursive: true });
+  for (const family of FONTS) {
+    for (const file of [`${family}.ttf`, `${family}-OFL.txt`]) {
+      cpSync(resolve(root, "src/desktop/resources/fonts", file), resolve(outDir, "fonts", file));
+    }
+  }
   console.log(`built ${browser} -> ${outDir}`);
 }

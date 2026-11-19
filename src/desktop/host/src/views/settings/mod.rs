@@ -15,9 +15,7 @@ mod security;
 use gpui_kit::AppContext as _;
 use gpui_kit::{
     Context, Entity, EventEmitter, IntoElement, ParentElement, Render, SharedString, Styled,
-    Window,
-    component::{h_flex, v_flex},
-    div, px,
+    Window, component::h_flex, div, px,
 };
 
 use self::{
@@ -28,7 +26,7 @@ pub use self::{export::ExportPage, import::ImportPage};
 use super::{Nav, Services, system::sign_out_dialog, with_overlay};
 use crate::{
     assets::IconName,
-    components::{ButtonSize, IconButton, NavItem},
+    components::{Button, ButtonSize, ButtonVariant, NavItem, panel},
     theme::{KandadoTheme, TextStyles as _, color, tokens},
 };
 
@@ -177,32 +175,31 @@ impl SettingsView {
 impl Render for SettingsView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = cx.palette();
-        let nav = v_flex()
-            .w(px(280.))
+        // The settings menu (Settings-Nav board): a panel with the way back,
+        // the pages, and Sign out at the bottom.
+        let nav = panel(cx)
+            .flex()
+            .flex_col()
+            .w(px(260.))
             .flex_none()
             .h_full()
-            .gap(px(tokens::SPACE_1))
-            .p(px(tokens::SPACE_3))
-            .bg(color(p.surface_100))
-            .border_r_1()
-            .border_color(color(p.line))
+            .gap(px(tokens::SPACE_2))
+            .p(px(tokens::SPACE_4))
             .child(
-                h_flex()
-                    .items_center()
-                    .gap(px(tokens::SPACE_2))
-                    .pb(px(tokens::SPACE_2))
-                    .child(
-                        IconButton::new("back-to-vault", IconName::Chevron, "Back to vault")
-                            .size(ButtonSize::Sm)
-                            .flipped()
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(Nav::Home))),
-                    )
-                    .child(
-                        div()
-                            .text_token(tokens::TITLE_MD)
-                            .text_color(color(p.ink))
-                            .child("Settings"),
-                    ),
+                h_flex().child(
+                    Button::new("back-to-vault", "← Back to vault")
+                        .size(ButtonSize::Sm)
+                        .on_click(cx.listener(|_, _, _, cx| cx.emit(Nav::Home))),
+                ),
+            )
+            .child(
+                div()
+                    .pt(px(10.))
+                    .pb(px(6.))
+                    .px(px(4.))
+                    .text_token(tokens::HEADING)
+                    .text_color(color(p.ink))
+                    .child("Settings"),
             )
             .children(Page::ALL.into_iter().map(|page| {
                 NavItem::new(("settings-nav", page as u64), page.icon(), page.title())
@@ -211,8 +208,9 @@ impl Render for SettingsView {
             }))
             .child(div().flex_1())
             .child(
-                NavItem::new("settings-sign-out", IconName::Logout, "Sign out")
-                    .danger()
+                Button::new("settings-sign-out", "Sign out")
+                    .variant(ButtonVariant::DangerQuiet)
+                    .block()
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.signing_out = Some(SigningOut {
                             busy: false,
@@ -231,23 +229,22 @@ impl Render for SettingsView {
             Page::Devices => self.devices.clone().into_any_element(),
             Page::Account => self.account.clone().into_any_element(),
         };
-        let main = v_flex()
+        let main = panel(cx)
+            .flex()
+            .flex_col()
             .flex_1()
             .min_w_0()
             .h_full()
-            .gap(px(tokens::SPACE_4))
-            .px(px(tokens::SPACE_6))
-            .py(px(tokens::SPACE_5))
+            .gap(px(26.))
+            .px(px(tokens::SPACE_7))
+            .py(px(28.))
             .child(
                 div()
-                    .font_family(crate::theme::family(tokens::Family::Display))
-                    .text_size(px(28.))
-                    .line_height(px(34.))
-                    .font_weight(gpui_kit::FontWeight::BOLD)
+                    .text_token(tokens::TITLE)
                     .text_color(color(p.ink))
                     .child(self.page.title()),
             )
-            .child(div().w_full().max_w(px(640.)).child(page));
+            .child(div().w_full().max_w(px(720.)).child(page));
 
         let dialog = self.signing_out.as_ref().map(|state| {
             sign_out_dialog(
@@ -265,6 +262,7 @@ impl Render for SettingsView {
         with_overlay(
             h_flex()
                 .size_full()
+                .gap(px(tokens::SPACE_4))
                 .child(nav)
                 .child(main)
                 .into_any_element(),

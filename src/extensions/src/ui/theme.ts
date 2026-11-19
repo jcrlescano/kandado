@@ -1,5 +1,5 @@
-// Theme: System (default), Dark or Light, chosen in E-28. Dark (Vault) is the
-// fallback; tokens.css follows the system unless data-theme is set.
+// Theme: System (default), Light or Dark, chosen in E-28. Enamel (light) is the
+// fallback; Hardware's tokens.css follows the system unless data-theme is set.
 import { readSettings, type ThemeChoice } from "../shared/settings";
 
 export type { ThemeChoice };

@@ -20,7 +20,7 @@ A layer may call only the layers below it. Only `host` knows GPUI. Only `kandado
 
 | Module | Does |
 | --- | --- |
-| `store` | SQLite (`rusqlite`, bundled). Tables mirror the server's `vaults`, `items`, `item_revisions`, plus `outbox` and `sync_state`. Content stays encrypted at rest |
+| `store` | SQLite (`rusqlite`, bundled). Tables mirror the server's `vaults`, `items`, `item_revisions`, plus `tombstones` and `sync_state`; unsent changes are marked `dirty`. Content stays encrypted at rest. Schema in [database.md](database.md#sqlite-desktop) |
 | `session` | Holds the unlocked user key and decrypted vault keys in memory; `lock()` drops them |
 | `vaults`, `items` | Create, edit, move, trash, restore, delete, favourite, duplicate; writes go to the store and the outbox |
 | `index` | In-memory search index over decrypted titles, usernames, URLs and notes; rebuilt on unlock |
@@ -61,7 +61,7 @@ src/desktop/host/src/
 ├─ main.rs, lib.rs
 ├─ instance.rs          # single instance; second launch focuses the window
 ├─ shell/               # window, custom title bar, three-pane layout, rail collapse
-├─ theme/               # generated tokens, Vault and Paper themes, fonts
+├─ theme/               # generated tokens, Enamel and Graphite themes, fonts
 ├─ components/          # the design system parts, in GPUI
 ├─ views/
 │  ├─ start/            # D-01 … D-05
@@ -89,13 +89,17 @@ src/desktop/host/src/
 
 ## Design tokens
 
-- `scripts/sync-tokens.mjs` copies `docs/design-system/project/tokens.json` to `src/desktop/resources/tokens.json` and to the extension. `pnpm check:generated` fails CI if the copies drift.
-- `host/build.rs` turns the copied file into Rust constants (colours for both themes, type styles, spacing, radii, shadows). No view hard-codes a colour or a size.
-- Fonts (Bricolage Grotesque, Figtree, JetBrains Mono) are bundled in `resources/fonts/`.
+- `scripts/sync-tokens.mjs` copies `docs/design-system/project/tokens.json` (Kandado Hardware) to `src/desktop/resources/tokens.json`; the extension gets its copy from `scripts/sync-ui.mjs`. `pnpm check:generated` fails CI if the copies drift.
+- `host/build.rs` turns the copied file into Rust constants: colours for both themes (Enamel, light, is the default; Graphite is dark; the LCD colours are the same in both), type styles, spacing, radii and shadows. Shadows keep every layer, including inner ones (wells, the LCD, the lit top edge of panels), which GPUI draws with `BoxShadow.inset`. No view hard-codes a colour or a size.
+- Fonts (Schibsted Grotesk, Martian Mono, SIL OFL) are bundled in `resources/fonts/`; the extension ships the same files.
+- `scripts/sync-icons.mjs` writes the 56 Hardware icons from `assets/Icons/icons.json` to `resources/icons/`, one SVG each, and `build.rs` turns the file names into the `IconName` enum.
+- The Hardware logo marks are synced to `resources/hardware/logos/` and embedded by `host/src/assets.rs`. The mark has three colours per theme, so `Logo` draws it as an image, one file per theme, not as a one-colour icon mask.
 
 ## Components
 
-Each design system component gets a GPUI counterpart with the same name and props, built once in `host/src/components/` before any screen: `Button`, `IconButton`, `TextField`, `Toggle`, `Badge`, `SearchBar`, `VaultChip`, `ItemIcon`, `ItemRow`, `SecretField`, `StrengthMeter`, `PasswordGenerator`, `TotpCode`, `Toast`, `Logo`, `Icon`. Plus the layout pieces the desktop screens need: dialog, popover, dropdown menu, banner, settings navigation, table (D-33). A `host/examples/gallery.rs` window shows them all in both themes for comparison with the design system previews.
+Every component in `host/src/components/` is drawn as Kandado Hardware (`docs/design-system/project/components`). The shared primitives are in `components/hardware.rs`: `panel`, `well`, `raised` and `lcd` surfaces, the key lip and the selection ring, `StatusLight`, `Tag` and `LcdStatus`. The other components kept the names and props they had under the previous design system: `Button` and `IconButton` are keys (go, raised, flat, dark, danger); `Toggle` is the switch; `Segmented`, `TextField`, `SearchBar`, `FieldGroup` and `SecretField` sit in wells; `TotpCode` and the generated password show on the LCD; `ItemRow` ends with the kind's tag; `ItemIcon` is the dark initial badge; `NavItem` and `VaultChip` show a vault's colour as a light; `Badge` is an engraved tag. Plus the layout pieces the desktop screens need: dialog, popover, dropdown menu, banner, settings navigation, table (D-33). A `host/examples/gallery.rs` window shows them all in both themes (`--dark` starts in Graphite) for comparison with the Hardware previews.
+
+A vault's colour is drawn with Hardware's `vault-*` tokens. Vaults are still stored under the previous names (teal, coral, sky, plum, brass, moss); `hue_of` reads those and Hardware's names, and `Hue::light` maps them as the design system's README says.
 
 ## Windows integration
 

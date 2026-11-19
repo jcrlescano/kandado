@@ -1,4 +1,5 @@
-//! Kandado's two themes, Vault (dark) and Paper (light), from the design tokens.
+//! Kandado's two themes, Enamel (light, the default) and Graphite (dark), from
+//! the Kandado Hardware design tokens.
 //!
 //! Every colour and size in the app comes from [`tokens`], which `build.rs`
 //! generates from the synced `resources/tokens.json`. Views read the current
@@ -24,33 +25,33 @@ use tokens::Palette;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ThemeKind {
-    /// Dark.
+    /// Light, and the fallback when the system's preference is unknown.
     #[default]
-    Vault,
-    /// Light.
-    Paper,
+    Enamel,
+    /// Dark.
+    Graphite,
 }
 
 impl ThemeKind {
     pub fn palette(self) -> &'static Palette {
         match self {
-            Self::Vault => &tokens::DARK,
-            Self::Paper => &tokens::LIGHT,
+            Self::Graphite => &tokens::DARK,
+            Self::Enamel => &tokens::LIGHT,
         }
     }
 
     pub fn other(self) -> Self {
         match self {
-            Self::Vault => Self::Paper,
-            Self::Paper => Self::Vault,
+            Self::Enamel => Self::Graphite,
+            Self::Graphite => Self::Enamel,
         }
     }
 
     /// Index into the `[dark, light]` pairs in [`tokens`], such as shadows.
     pub fn index(self) -> usize {
         match self {
-            Self::Vault => 0,
-            Self::Paper => 1,
+            Self::Graphite => 0,
+            Self::Enamel => 1,
         }
     }
 }
@@ -64,15 +65,10 @@ pub fn color(token: u32) -> Hsla {
     rgba(token).into()
 }
 
-/// The name Windows knows the bundled display font by. The file is a variable
-/// font with an optical-size axis, and DirectWrite lists it under its default
-/// optical size rather than the plain `tokens::FONT_DISPLAY` name.
-pub const DISPLAY_FACE: &str = "Bricolage Grotesque 14pt";
-
-/// The font family a text token names.
+/// The font family a text token names. Windows lists both bundled variable
+/// fonts under the family names the tokens use, so no alias is needed.
 pub fn family(family: tokens::Family) -> &'static str {
     match family {
-        tokens::Family::Display => DISPLAY_FACE,
         tokens::Family::Sans => tokens::FONT_SANS,
         tokens::Family::Mono => tokens::FONT_MONO,
     }
@@ -81,7 +77,8 @@ pub fn family(family: tokens::Family) -> &'static str {
 /// Sets text in one of the design system's type styles: `.text_token(tokens::BODY)`.
 ///
 /// Letter spacing is not applied: GPUI has no letter-spacing property. It
-/// affects four styles (display-lg, title-lg, label, totp) by at most 0.08 em.
+/// matters most for the engraved styles (label, segment, tag), which are spaced
+/// 0.06 to 0.14 em.
 pub trait TextStyles: Styled + Sized {
     fn text_token(self, token: tokens::TextToken) -> Self {
         self.font_family(family(token.family))
@@ -93,7 +90,7 @@ pub trait TextStyles: Styled + Sized {
 
 impl<T: Styled> TextStyles for T {}
 
-/// The keyboard focus ring: 2 px of `focus-ring`, 2 px away from the control.
+/// The keyboard focus ring: 2 px of `focus`, 2 px away from the control.
 ///
 /// GPUI has no outline, so this is two hard-edged shadows: the ring, and
 /// under it a 2 px band in `gap`, the colour of the surface the control sits on.
@@ -105,19 +102,22 @@ pub fn focus_ring(palette: &Palette, gap: u32) -> Vec<BoxShadow> {
         spread_radius: px(spread),
         inset: false,
     };
-    vec![band(palette.focus_ring, 4.), band(gap, 2.)]
+    vec![band(palette.focus, 4.), band(gap, 2.)]
 }
 
-/// A token shadow for the current theme, such as `tokens::SHADOW_POP`.
-pub fn shadow(token: [tokens::ShadowToken; 2], kind: ThemeKind) -> Vec<BoxShadow> {
-    let shadow = token[kind.index()];
-    vec![BoxShadow {
-        color: color(shadow.color),
-        offset: point(px(shadow.x), px(shadow.y)),
-        blur_radius: px(shadow.blur),
-        spread_radius: px(0.),
-        inset: false,
-    }]
+/// A token shadow for the current theme, such as `tokens::SHADOW_POP`, with
+/// every layer it has (a lit edge, a lip, an inner shadow).
+pub fn shadow(token: [&[tokens::ShadowToken]; 2], kind: ThemeKind) -> Vec<BoxShadow> {
+    token[kind.index()]
+        .iter()
+        .map(|layer| BoxShadow {
+            color: color(layer.color),
+            offset: point(px(layer.x), px(layer.y)),
+            blur_radius: px(layer.blur),
+            spread_radius: px(layer.spread),
+            inset: layer.inset,
+        })
+        .collect()
 }
 
 /// Read access to the current Kandado theme.
@@ -141,13 +141,13 @@ impl KandadoTheme for App {
 pub fn kind_for(choice: kandado_app::settings::ThemeChoice, cx: &App) -> ThemeKind {
     use kandado_app::settings::ThemeChoice;
     match choice {
-        ThemeChoice::Dark => ThemeKind::Vault,
-        ThemeChoice::Light => ThemeKind::Paper,
+        ThemeChoice::Dark => ThemeKind::Graphite,
+        ThemeChoice::Light => ThemeKind::Enamel,
         ThemeChoice::System => match cx.window_appearance() {
-            gpui_kit::WindowAppearance::Light | gpui_kit::WindowAppearance::VibrantLight => {
-                ThemeKind::Paper
+            gpui_kit::WindowAppearance::Dark | gpui_kit::WindowAppearance::VibrantDark => {
+                ThemeKind::Graphite
             }
-            _ => ThemeKind::Vault,
+            _ => ThemeKind::Enamel,
         },
     }
 }
@@ -157,76 +157,77 @@ pub fn kind_for(choice: kandado_app::settings::ThemeChoice, cx: &App) -> ThemeKi
 pub fn apply(kind: ThemeKind, window: Option<&mut Window>, cx: &mut App) {
     cx.set_global(ActiveTheme(kind));
     let mode = match kind {
-        ThemeKind::Vault => ThemeMode::Dark,
-        ThemeKind::Paper => ThemeMode::Light,
+        ThemeKind::Graphite => ThemeMode::Dark,
+        ThemeKind::Enamel => ThemeMode::Light,
     };
     // Resets the component theme to its defaults for the mode; ours go on top.
     Theme::change(mode, window, cx);
 
     let p = kind.palette();
     let theme = Theme::global_mut(cx);
-    theme.radius = px(tokens::RADIUS_MD);
-    theme.radius_lg = px(tokens::RADIUS_LG);
+    theme.radius = px(tokens::RADIUS_KEY);
+    theme.radius_lg = px(tokens::RADIUS_PANEL);
     theme.font_size = px(tokens::BODY.size);
     theme.font_family = tokens::FONT_SANS.into();
     theme.mono_font_family = tokens::FONT_MONO.into();
 
     let c = &mut theme.colors;
-    c.background = color(p.surface_000);
+    c.background = color(p.body);
     c.foreground = color(p.ink);
-    c.border = color(p.line);
-    c.input = color(p.line_strong);
-    c.ring = color(p.focus_ring);
+    c.border = color(p.edge);
+    c.input = color(p.edge_key);
+    c.ring = color(p.focus);
     c.caret = color(p.ink);
-    c.selection = color(p.brass_soft);
-    c.link = color(p.link);
-    c.link_hover = color(p.link);
-    c.link_active = color(p.link);
+    c.selection = color(p.raised);
+    c.link = color(p.green);
+    c.link_hover = color(p.ink);
+    c.link_active = color(p.ink);
     c.overlay = color(p.scrim);
 
-    c.muted = color(p.surface_200);
-    c.muted_foreground = color(p.ink_muted);
-    c.accent = color(p.surface_300);
+    c.muted = color(p.well);
+    c.muted_foreground = color(p.ink_2);
+    c.accent = color(p.raised);
     c.accent_foreground = color(p.ink);
 
-    c.primary = color(p.brass);
-    c.primary_hover = color(p.brass_strong);
-    c.primary_active = color(p.brass_strong);
-    c.primary_foreground = color(p.on_brass);
-    c.button_primary = color(p.brass);
-    c.button_primary_hover = color(p.brass_strong);
-    c.button_primary_active = color(p.brass_strong);
-    c.button_primary_foreground = color(p.on_brass);
+    // The go key. Hardware keys do not change colour on hover; pressing moves them.
+    c.primary = color(p.green);
+    c.primary_hover = color(p.green);
+    c.primary_active = color(p.green);
+    c.primary_foreground = color(p.on_green);
+    c.button_primary = color(p.green);
+    c.button_primary_hover = color(p.green);
+    c.button_primary_active = color(p.green);
+    c.button_primary_foreground = color(p.on_green);
 
-    c.secondary = color(p.surface_200);
-    c.secondary_hover = color(p.surface_300);
-    c.secondary_active = color(p.surface_300);
+    c.secondary = color(p.raised);
+    c.secondary_hover = color(p.raised);
+    c.secondary_active = color(p.raised);
     c.secondary_foreground = color(p.ink);
 
     c.danger = color(p.danger);
     c.danger_hover = color(p.danger);
     c.danger_active = color(p.danger);
     c.danger_foreground = color(p.on_danger);
-    c.success = color(p.teal);
-    c.success_foreground = color(p.on_teal);
-    c.warning = color(p.warning);
+    c.success = color(p.led_ok);
+    c.success_foreground = color(p.ink);
+    c.warning = color(p.led_warn);
 
-    c.popover = color(p.surface_100);
+    c.popover = color(p.panel);
     c.popover_foreground = color(p.ink);
-    c.sidebar = color(p.surface_100);
+    c.sidebar = color(p.panel);
     c.sidebar_foreground = color(p.ink);
-    c.sidebar_border = color(p.line);
-    c.title_bar = color(p.surface_000);
-    c.title_bar_border = color(p.line);
-    c.list = color(p.surface_100);
-    c.list_hover = color(p.surface_200);
-    c.list_active = color(p.surface_300);
-    c.switch = color(p.line_strong);
-    c.slider_bar = color(p.brass);
-    c.slider_thumb = color(p.on_brass);
-    c.progress_bar = color(p.teal);
-    c.scrollbar_thumb = color(p.line_strong);
-    c.scrollbar_thumb_hover = color(p.ink_faint);
+    c.sidebar_border = color(p.edge);
+    c.title_bar = color(p.body);
+    c.title_bar_border = color(p.edge);
+    c.list = color(p.well);
+    c.list_hover = color(p.well);
+    c.list_active = color(p.raised);
+    c.switch = color(p.well);
+    c.slider_bar = color(p.green);
+    c.slider_thumb = color(p.raised);
+    c.progress_bar = color(p.led_ok);
+    c.scrollbar_thumb = color(p.tag);
+    c.scrollbar_thumb_hover = color(p.ink_2);
 
     Theme::sync_base(cx);
     cx.refresh_windows();
@@ -238,81 +239,106 @@ mod tests {
 
     #[test]
     fn colours_come_out_of_the_tokens_file_unchanged() {
-        assert_eq!(DARK.surface_000, 0x0d1214ff);
-        assert_eq!(LIGHT.surface_000, 0xf5f3eeff);
-        assert_eq!(DARK.brass, 0xe7b85aff);
-        assert_eq!(LIGHT.on_brass, 0xffffffff);
+        assert_eq!(LIGHT.body, 0xe4e0d8ff);
+        assert_eq!(DARK.body, 0x121517ff);
+        assert_eq!(LIGHT.green, 0x1f5a4aff);
+        assert_eq!(DARK.on_green, 0x07150fff);
     }
 
     #[test]
     fn aliases_resolve_per_theme() {
-        assert_eq!(DARK.focus_ring, DARK.teal);
-        assert_eq!(LIGHT.focus_ring, LIGHT.teal);
-        assert_eq!(DARK.kind_card, DARK.coral);
-        assert_eq!(LIGHT.kind_password, LIGHT.brass);
+        assert_eq!(DARK.focus, DARK.green);
+        assert_eq!(LIGHT.focus, LIGHT.green);
+    }
+
+    #[test]
+    fn the_lcd_is_dark_in_both_themes() {
+        assert_eq!(LIGHT.lcd_ink, DARK.lcd_ink);
+        assert_eq!(LIGHT.lcd_label, DARK.lcd_label);
+        assert_eq!((LIGHT.lcd, DARK.lcd), (0x16201cff, 0x070b09ff));
     }
 
     #[test]
     fn translucent_colours_keep_their_alpha() {
-        // rgba(3, 6, 7, 0.72) and rgba(19, 32, 30, 0.45)
-        assert_eq!(DARK.scrim, 0x030607b8);
-        assert_eq!(LIGHT.scrim, 0x13201e73);
+        // rgba(20, 22, 24, 0.45) and rgba(0, 0, 0, 0.62)
+        assert_eq!(LIGHT.scrim, 0x14161873);
+        assert_eq!(DARK.scrim, 0x0000009e);
     }
 
     #[test]
-    fn type_spacing_radius_and_shadow_tokens() {
+    fn type_spacing_and_radius_tokens() {
         assert_eq!(
-            (FONT_DISPLAY, FONT_SANS, FONT_MONO),
-            ("Bricolage Grotesque", "Figtree", "JetBrains Mono")
+            (FONT_SANS, FONT_MONO),
+            ("Schibsted Grotesk", "Martian Mono")
         );
         assert_eq!(
-            DISPLAY_LG,
+            DISPLAY,
             TextToken {
-                family: Family::Display,
-                size: 40.0,
+                family: Family::Sans,
+                size: 44.0,
                 line_height: 44.0,
-                weight: 700,
+                weight: 800,
                 letter_spacing: -0.02
             }
         );
         assert_eq!(
-            BODY,
+            LABEL,
             TextToken {
-                family: Family::Sans,
-                size: 15.0,
-                line_height: 22.0,
-                weight: 400,
-                letter_spacing: 0.0
+                family: Family::Mono,
+                size: 10.0,
+                line_height: 14.0,
+                weight: 500,
+                letter_spacing: 0.14
             }
         );
-        assert_eq!(TOTP.family, Family::Mono);
-        assert_eq!((SPACE_1, SPACE_4, SPACE_7), (4.0, 16.0, 48.0));
-        assert_eq!((RADIUS_SM, RADIUS_MD, RADIUS_PILL), (6.0, 10.0, 999.0));
+        assert_eq!(LCD_CODE.family, Family::Mono);
         assert_eq!(
-            SHADOW_POP[0],
-            ShadowToken {
-                x: 0.0,
-                y: 8.0,
-                blur: 24.0,
-                color: 0x00000080
-            }
+            (SPACE_1, SPACE_4, SPACE_5, SPACE_7),
+            (4.0, 14.0, 16.0, 32.0)
         );
         assert_eq!(
-            SHADOW_SHEET[1],
-            ShadowToken {
-                x: 0.0,
-                y: -8.0,
-                blur: 32.0,
-                color: 0x13201e29
-            }
+            (RADIUS_TAG, RADIUS_KEY, RADIUS_PANEL, RADIUS_ROUND),
+            (5.0, 12.0, 18.0, 999.0)
         );
     }
 
     #[test]
+    fn shadows_keep_every_layer_and_inner_shadows() {
+        // "inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 #CFC9BD"
+        assert_eq!(
+            SHADOW_PANEL[ThemeKind::Enamel.index()],
+            &[
+                ShadowToken {
+                    x: 0.0,
+                    y: 1.0,
+                    blur: 0.0,
+                    spread: 0.0,
+                    color: 0xffffffe6,
+                    inset: true
+                },
+                ShadowToken {
+                    x: 0.0,
+                    y: 2.0,
+                    blur: 0.0,
+                    spread: 0.0,
+                    color: 0xcfc9bdff,
+                    inset: false
+                },
+            ]
+        );
+        // One value for both themes.
+        assert_eq!(SHADOW_LCD[0], SHADOW_LCD[1]);
+        assert!(SHADOW_LCD[0][0].inset);
+        assert_eq!(SHADOW_POP[ThemeKind::Graphite.index()].len(), 2);
+        assert_eq!(shadow(SHADOW_KEY, ThemeKind::Enamel).len(), 1);
+    }
+
+    #[test]
     fn the_two_themes_are_each_others_opposite() {
-        assert_eq!(ThemeKind::Vault.other(), ThemeKind::Paper);
-        assert_eq!(ThemeKind::Paper.other(), ThemeKind::Vault);
-        assert_eq!(ThemeKind::Vault.palette(), &DARK);
-        assert_eq!(ThemeKind::Paper.palette(), &LIGHT);
+        assert_eq!(ThemeKind::default(), ThemeKind::Enamel);
+        assert_eq!(ThemeKind::Graphite.other(), ThemeKind::Enamel);
+        assert_eq!(ThemeKind::Enamel.other(), ThemeKind::Graphite);
+        assert_eq!(ThemeKind::Graphite.palette(), &DARK);
+        assert_eq!(ThemeKind::Enamel.palette(), &LIGHT);
     }
 }

@@ -13,20 +13,41 @@ mod generated {
 
 pub use generated::{IconName, LOGO_PATH};
 
+/// The Kandado Hardware mark for light grounds (Enamel). Unlike the icons it
+/// has three colours, so it is drawn as an image, not as a one-colour mask.
+pub const MARK_LIGHT_PATH: &str = "kandado/hardware/logo-light.svg";
+/// The Kandado Hardware mark for dark grounds (Graphite).
+pub const MARK_DARK_PATH: &str = "kandado/hardware/logo-dark.svg";
+
+/// Files from `resources/hardware`, synced by `scripts/sync-icons.mjs`.
+const HARDWARE_FILES: &[(&str, &[u8])] = &[
+    (
+        MARK_LIGHT_PATH,
+        include_bytes!("../../resources/hardware/logos/logo-light.svg"),
+    ),
+    (
+        MARK_DARK_PATH,
+        include_bytes!("../../resources/hardware/logos/logo-dark.svg"),
+    ),
+];
+
+fn embedded() -> impl Iterator<Item = &'static (&'static str, &'static [u8])> {
+    generated::FILES.iter().chain(HARDWARE_FILES)
+}
+
 /// Pass to `Application::with_assets` at startup.
 pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
-        match generated::FILES.iter().find(|(name, _)| *name == path) {
+        match embedded().find(|(name, _)| *name == path) {
             Some((_, bytes)) => Ok(Some(Cow::Borrowed(bytes))),
             None => gpui_kit::assets::Assets.load(path),
         }
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
-        let mut entries: Vec<SharedString> = generated::FILES
-            .iter()
+        let mut entries: Vec<SharedString> = embedded()
             .filter(|(name, _)| name.starts_with(path))
             .map(|(name, _)| (*name).into())
             .collect();
@@ -41,8 +62,8 @@ mod tests {
 
     #[test]
     fn every_icon_of_the_design_system_is_embedded() {
-        // The 36 names in the design system's `IconName` type.
-        assert_eq!(IconName::ALL.len(), 36);
+        // The 56 icons of the Hardware set (assets/Icons/icons.json).
+        assert_eq!(IconName::ALL.len(), 56);
         for icon in IconName::ALL {
             let bytes = Assets.load(icon.path()).unwrap().expect("embedded");
             assert!(bytes.starts_with(b"<svg"), "{}", icon.name());

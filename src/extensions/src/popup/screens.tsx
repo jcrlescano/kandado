@@ -1,33 +1,51 @@
 // The popup screens, E-01 to E-14 (E-08, E-12 and E-15 arrive with their phases).
-// What each contains is defined in docs/design-system/project/screens.md.
+// What each contains is defined in docs/design-system/project/screens.md; how
+// they look follows the Kandado Hardware extension boards.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ItemContentJson, Summary, VaultInfo } from "../background/keyring";
 import type { Suggestion } from "../background/matcher";
 import type { ErrorCode, Generated, GeneratorOptions, Status } from "../shared/messages";
-import { K } from "../ui/kandado";
-import { AskError, ask } from "../ui/messaging";
-import type { IconName } from "../ui/vendor/kandado";
+import type { ItemKind } from "../shared/types";
+import { copySecret } from "../ui/clipboard";
 import {
-  BackHead,
-  Body,
-  ColumnFoot,
-  Empty,
-  Foot,
-  Group,
-  Head,
-  hostOf,
-  List,
-  letterOf,
-  Menu,
-  type MenuEntry,
-  PinDots,
-  Pop,
-  Section,
-  SelectField,
-} from "./parts";
+  Badge,
+  Field,
+  Icon,
+  ItemRow,
+  Key,
+  Label,
+  Lcd,
+  LcdKey,
+  LcdStrip,
+  LockMark,
+  Logo,
+  Panel,
+  PinDisplay,
+  SecretValue,
+  Segmented,
+  Select,
+  StatusLight,
+  Switch,
+  Tag,
+  TextField,
+  TotpCode,
+  Well,
+} from "../ui/hardware";
+import { AskError, ask } from "../ui/messaging";
+import { BackHead, Body, Empty, Foot, hostOf, letterOf, Menu, type MenuEntry, Pop } from "./parts";
 
 const codeOf = (error: unknown): ErrorCode => (error instanceof AskError ? error.code : "failed");
+
+const KIND_TAGS: Record<ItemKind, string> = {
+  login: "Login",
+  alias: "Alias",
+  card: "Card",
+  note: "Note",
+  identity: "ID",
+  passkey: "Passkey",
+  password: "Password",
+};
 
 // ---- E-01 ---------------------------------------------------------------------
 
@@ -55,23 +73,25 @@ export function SignedOut({ onStatus }: { onStatus: (status: Status) => void }) 
   };
   return (
     <Pop>
-      <Body center>
-        <K.Logo size={64} />
-        <h1 className="kt-display" style={{ fontSize: 26, lineHeight: "32px" }}>
-          Kandado
-        </h1>
-        <p className="kt-p">Sign in to fill passwords and save logins as you browse.</p>
+      <Well as="section" className="kx-hero kx-hero-grow">
+        <LockMark open label="Kandado, open" />
+        <LcdStrip light="off" text="Signed out" />
+      </Well>
+      <Panel className="kx-sign-in">
+        <h1 className="hw-h2">Your logins, one click away</h1>
+        <p className="hw-sub kx-sub">Sign in to fill and save logins on the sites you visit.</p>
         {error && (
-          <p className="kx-error" role="alert">
+          <p className="hw-error kx-sub" role="alert">
             {SIGN_IN_ERRORS[error] ?? "Something went wrong. Try again."}
           </p>
         )}
-      </Body>
-      <ColumnFoot>
-        <K.Button variant="primary" size="lg" block disabled={busy} onClick={signIn}>
+        <Key tone="go" size="lg" block disabled={busy} onClick={signIn}>
           {busy ? "Signing in…" : "Continue with Google"}
-        </K.Button>
-      </ColumnFoot>
+        </Key>
+        <p className="hw-sub kx-sub">
+          New to Kandado? Set it up in the desktop app first, then sign in here.
+        </p>
+      </Panel>
     </Pop>
   );
 }
@@ -88,11 +108,20 @@ export function Locked({
   const [mode, setMode] = useState<"pin" | "password">(status.pin ? "pin" : "password");
   const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
+  const [shown, setShown] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement | null>(null);
 
-  // "Unlock with desktop app": shown when this extension is paired (E-31, D-45).
+  // The master password is masked again when the popup loses focus.
+  useEffect(() => {
+    if (!shown) return;
+    const hide = () => setShown(false);
+    window.addEventListener("blur", hide);
+    return () => window.removeEventListener("blur", hide);
+  }, [shown]);
+
+  // "Unlock with the desktop app": shown when this extension is paired (E-31, D-45).
   const unlockWithDesktop = async () => {
     setBusy(true);
     setError(null);
@@ -113,17 +142,6 @@ export function Locked({
       setBusy(false);
     }
   };
-  const desktopButton = status.desktop ? (
-    <K.Button
-      variant="primary"
-      block
-      icon="grid"
-      disabled={busy}
-      onClick={() => void unlockWithDesktop()}
-    >
-      Unlock with desktop app
-    </K.Button>
-  ) : null;
 
   // Focus the PIN or password field whenever the mode changes.
   // biome-ignore lint/correctness/useExhaustiveDependencies: mode is the trigger, not a value read
@@ -169,17 +187,24 @@ export function Locked({
     }
   };
 
+  const signOut = () => void ask({ type: "sign-out" }).then(onStatus, () => {});
+
+  const hero = (
+    <Well as="section" className="kx-hero">
+      <LockMark label="Kandado is locked" />
+      <LcdStrip light="warn" text="Locked" label={status.email} />
+    </Well>
+  );
+
   if (mode === "pin") {
     return (
       <Pop>
-        <Body center>
-          <K.Logo size={48} />
-          <h1 className="kt-display" style={{ fontSize: 24, lineHeight: "30px" }}>
-            Enter your PIN
-          </h1>
-          <label style={{ cursor: "text", display: "flex", flexDirection: "column", gap: 12 }}>
+        {hero}
+        <Panel className="kx-unlock">
+          <h1 className="hw-h3">Enter your PIN</h1>
+          <label className="kx-pin-label">
             <span className="kx-hidden-input">PIN</span>
-            <PinDots filled={pin.length} error={error !== null && pin.length === 0} />
+            <PinDisplay filled={pin.length} error={error !== null && pin.length === 0} />
             <input
               ref={input}
               className="kx-hidden-input"
@@ -198,93 +223,79 @@ export function Locked({
             />
           </label>
           {error ? (
-            <p className="kx-error" role="alert">
+            <p className="hw-error kx-sub" role="alert">
               {error}
             </p>
           ) : (
-            <p className="kt-p">{status.email}</p>
+            <p className="hw-sub kx-sub">Six digits, set for this browser session.</p>
           )}
-        </Body>
-        <ColumnFoot>
-          {desktopButton}
-          <K.Button variant="ghost" block onClick={() => setMode("password")}>
+          {status.desktop && (
+            <Key tone="go" size="lg" block disabled={busy} onClick={() => void unlockWithDesktop()}>
+              Unlock with the desktop app
+            </Key>
+          )}
+          <Key block onClick={() => setMode("password")}>
             Use master password
-          </K.Button>
-        </ColumnFoot>
+          </Key>
+          <button type="button" className="kx-link" onClick={signOut}>
+            Sign out
+          </button>
+        </Panel>
       </Pop>
     );
   }
   return (
     <Pop>
-      <Body center>
-        <K.Logo size={48} />
-        <h1 className="kt-display" style={{ fontSize: 24, lineHeight: "30px" }}>
-          Unlock Kandado
-        </h1>
-        <p className="kt-p">{status.email}</p>
-        <form
-          style={{ width: "100%", textAlign: "left" }}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void tryPassword();
+      {hero}
+      <Panel
+        as="form"
+        className="kx-unlock"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void tryPassword();
+        }}
+      >
+        <TextField
+          ref={input}
+          label="Master password"
+          type={shown ? "text" : "password"}
+          mono
+          autoComplete="current-password"
+          spellCheck={false}
+          value={password}
+          error={error}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            setError(null);
           }}
-        >
-          <K.TextField
-            label="Master password"
-            type="password"
-            icon="lock"
-            autoComplete="current-password"
-            value={password}
-            autoFocus
-            error={error ?? undefined}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              setError(null);
-            }}
-          />
-        </form>
-      </Body>
-      <ColumnFoot>
-        <K.Button variant="primary" block disabled={busy || !password} onClick={tryPassword}>
+          trailing={
+            <Key size="sm" aria-pressed={shown} onClick={() => setShown(!shown)}>
+              {shown ? "Hide" : "Show"}
+            </Key>
+          }
+        />
+        <Key type="submit" tone="go" size="lg" block disabled={busy || !password}>
           {busy ? "Unlocking…" : "Unlock"}
-        </K.Button>
+        </Key>
         {status.pin && (
-          <K.Button variant="ghost" block onClick={() => setMode("pin")}>
+          <Key block onClick={() => setMode("pin")}>
             Use PIN
-          </K.Button>
+          </Key>
         )}
-        {desktopButton && (
-          <K.Button
-            variant="ghost"
-            block
-            icon="grid"
-            disabled={busy}
-            onClick={() => void unlockWithDesktop()}
-          >
-            Unlock with desktop app
-          </K.Button>
+        {status.desktop && (
+          <Key block disabled={busy} onClick={() => void unlockWithDesktop()}>
+            Unlock with the desktop app
+          </Key>
         )}
-      </ColumnFoot>
+        <button type="button" className="kx-link" onClick={signOut}>
+          Sign out
+        </button>
+      </Panel>
     </Pop>
   );
 }
 
-// ---- E-03, E-04, E-05, E-09, E-13, E-14 ------------------------------------------
-
-const VAULT_ICONS: ReadonlySet<string> = new Set([
-  "vault",
-  "user",
-  "bolt",
-  "card",
-  "star",
-  "shield",
-  "globe",
-  "key",
-]);
-
-function vaultIcon(vault: VaultInfo): IconName {
-  return (VAULT_ICONS.has(vault.icon) ? vault.icon : "vault") as IconName;
-}
+// ---- E-03, E-04, E-05, E-13, E-14 ------------------------------------------------
 
 function matches(item: Summary, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -299,6 +310,8 @@ function matches(item: Summary, query: string): boolean {
 function byTitle(a: Summary, b: Summary): number {
   return Number(b.favourite) - Number(a.favourite) || a.title.localeCompare(b.title);
 }
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 export interface HomeProps {
   tabUrl: string | undefined;
@@ -320,7 +333,7 @@ export function Home(props: HomeProps) {
   const [vaults, setVaults] = useState<VaultInfo[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [query, setQuery] = useState("");
-  const [overlay, setOverlay] = useState<null | "create" | "menu" | "vaults">(null);
+  const [overlay, setOverlay] = useState<null | "menu" | "vaults">(null);
   const [loaded, setLoaded] = useState(false);
   const host = hostOf(props.tabUrl);
 
@@ -362,65 +375,66 @@ export function Home(props: HomeProps) {
   const copyPassword = async (item: Summary) => {
     try {
       const content = await ask({ type: "item", id: item.id });
-      const password = String(content.data.password ?? "");
-      await navigator.clipboard.writeText(password);
-      props.onToast("Password copied");
+      const copied = await copySecret(String(content.data.password ?? ""));
+      props.onToast(
+        copied ? "Password copied. Clears in 60 s." : "Could not copy",
+        copied ? "neutral" : "danger",
+      );
     } catch {
       props.onToast("Could not copy", "danger");
     }
   };
 
   // A suggestion for the site fills the page; any other row opens the item.
-  const row = (item: Summary, dense: boolean, insecure = false, fills = false) => {
-    const activate = () => (fills && !insecure ? props.onFill(item) : props.onOpen(item));
-    return (
-      <K.ItemRow
-        key={item.id}
-        kind={item.kind}
-        title={item.title}
-        subtitle={item.subtitle || undefined}
-        letter={item.kind === "login" ? letterOf(item.title) : undefined}
-        favorite={item.favourite}
-        dense={dense}
-        badge={insecure ? <K.Badge tone="warning">Not secure</K.Badge> : undefined}
-        onCopy={item.kind === "login" ? () => void copyPassword(item) : undefined}
-        onClick={activate}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            activate();
-          }
+  const row = (item: Summary, { insecure = false, fills = false } = {}) => {
+    const end = insecure ? (
+      <Tag tone="warn">Not secure</Tag>
+    ) : item.kind === "login" ? (
+      <Key
+        size="sm"
+        tone={fills ? undefined : "flat"}
+        aria-label={`Copy password for ${item.title}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          void copyPassword(item);
         }}
+      >
+        Copy
+      </Key>
+    ) : (
+      <Tag>{KIND_TAGS[item.kind] ?? item.kind}</Tag>
+    );
+    return (
+      <ItemRow
+        key={item.id}
+        title={item.favourite ? `${item.title} ★` : item.title}
+        subtitle={item.subtitle || undefined}
+        end={end}
+        onClick={() => (fills && !insecure ? props.onFill(item) : props.onOpen(item))}
       />
     );
   };
 
-  const menus: Record<"create" | "menu" | "vaults", () => React.ReactNode> = {
-    create: () => (
-      <Menu
-        label="Create"
-        onClose={() => setOverlay(null)}
-        style={{ left: 12, bottom: 64, width: 240 }}
-        entries={[{ key: "login", kind: "login", label: "Login", onSelect: props.onCreateLogin }]}
-      />
-    ),
+  const menus: Record<"menu" | "vaults", () => React.ReactNode> = {
     menu: () => (
       <Menu
         label="Menu"
         onClose={() => setOverlay(null)}
-        style={{ right: 12, top: 52, width: 260 }}
+        style={{ right: 10, top: 56, width: 260 }}
+        header={
+          <div className="kx-menu-account">
+            <span className="hw-label">Signed in as</span>
+            <span className="hw-sub">{props.email}</span>
+          </div>
+        }
         entries={[
-          { key: "account", icon: "user", label: props.email, inert: true },
-          "-",
           {
             key: "settings",
-            icon: "settings",
             label: "Settings",
             onSelect: () => void chrome.runtime.openOptionsPage(),
           },
           {
             key: "sync",
-            icon: "refresh",
             label: "Sync now",
             onSelect: () =>
               void ask({ type: "sync" })
@@ -429,14 +443,8 @@ export function Home(props: HomeProps) {
                 .catch(() => props.onToast("Couldn't sync. Check your connection.", "danger")),
           },
           "-",
-          { key: "lock", icon: "lock", label: "Lock", onSelect: props.onLock },
-          {
-            key: "sign-out",
-            icon: "logout",
-            label: "Sign out",
-            danger: true,
-            onSelect: props.onSignOut,
-          },
+          { key: "lock", label: "Lock", onSelect: props.onLock },
+          { key: "sign-out", label: "Sign out", danger: true, onSelect: props.onSignOut },
         ]}
       />
     ),
@@ -444,11 +452,10 @@ export function Home(props: HomeProps) {
       <Menu
         label="Vaults"
         onClose={() => setOverlay(null)}
-        style={{ left: 50, top: 52, width: 220 }}
+        style={{ left: 44, top: 56, width: 240 }}
         entries={[
           {
             key: "all",
-            icon: "grid",
             label: "All vaults",
             checked: props.vaultFilter === null,
             onSelect: () => props.onVaultFilter(null),
@@ -456,8 +463,8 @@ export function Home(props: HomeProps) {
           ...vaults.map(
             (vault): MenuEntry => ({
               key: vault.id,
-              icon: vaultIcon(vault),
               label: vault.name,
+              light: true,
               checked: props.vaultFilter === vault.id,
               onSelect: () => props.onVaultFilter(vault.id),
             }),
@@ -468,96 +475,111 @@ export function Home(props: HomeProps) {
   };
 
   const searching = query.trim() !== "";
+  const vaultName = activeVault?.name ?? "All vaults";
+  const lcd = host
+    ? {
+        light: suggested.length > 0 ? ("ok" as const) : ("off" as const),
+        text: `${host} · ${plural(suggested.length, "login", "logins")}`,
+        label: suggested.length > 0 ? "Click to fill" : undefined,
+      }
+    : {
+        light: "ok" as const,
+        text: `${vaultName} · ${plural(results.length, "item", "items")}`,
+        label: undefined,
+      };
   return (
     <Pop overlay={overlay ? menus[overlay]() : undefined}>
-      <Head>
-        <K.Logo size={26} />
-        <K.VaultChip
-          name={activeVault?.name ?? "All vaults"}
-          icon={activeVault ? vaultIcon(activeVault) : "grid"}
-          tone={(activeVault?.colour as "brass") ?? undefined}
-          dropdown
-          aria-haspopup="menu"
-          aria-expanded={overlay === "vaults"}
-          onClick={() => setOverlay("vaults")}
-        />
-        <div className="kt-grow" />
-        <K.IconButton icon="lock" label="Lock now" size="sm" onClick={props.onLock} />
-        <K.IconButton
-          icon="more"
-          label="Menu"
-          size="sm"
-          aria-haspopup="menu"
-          aria-expanded={overlay === "menu"}
-          onClick={() => setOverlay("menu")}
-        />
-      </Head>
-      <Body>
-        <K.SearchBar
-          placeholder={activeVault ? `Search in ${activeVault.name}` : "Search in all vaults"}
-          value={query}
-          autoFocus
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <div className="kx-scroll">
-          {searching ? (
-            <>
-              <Section>{`Results · ${results.length}`}</Section>
-              {results.length > 0 ? (
-                <List label="Results">
-                  {/* This site's items stay on top. */}
-                  {[
-                    ...results.filter((item) => suggestedIds.has(item.id)),
-                    ...results.filter((item) => !suggestedIds.has(item.id)),
-                  ].map((item) => row(item, false))}
-                </List>
-              ) : (
-                <Empty icon="search" title={`Nothing matches “${query.trim()}”`} />
-              )}
-            </>
-          ) : (
-            <>
-              {host && <Section icon="globe">{`Suggestions for ${host}`}</Section>}
-              {host &&
-                loaded &&
-                (suggested.length > 0 ? (
-                  <List label={`Suggestions for ${host}`}>
-                    {suggested.map((hit) => row(hit.item, false, hit.insecure, true))}
-                  </List>
-                ) : (
-                  <Empty icon="key" title={`No logins for ${host}`}>
-                    <K.Button variant="primary" icon="plus" size="sm" onClick={props.onCreateLogin}>
-                      {`Create login for ${host}`}
-                    </K.Button>
-                  </Empty>
-                ))}
-              <Section>All items</Section>
-              {loaded && results.length === 0 ? (
-                <Empty
-                  icon="vault"
-                  title="Nothing here yet"
-                  body="Logins you save in Kandado on any device show up here."
-                />
-              ) : (
-                <List label="All items">{results.map((item) => row(item, true))}</List>
-              )}
-            </>
-          )}
+      <Panel as="header" className="kx-phead">
+        <div className="kx-phead-row">
+          <Logo size={26} />
+          <Key
+            size="sm"
+            className="kx-vault-key"
+            aria-haspopup="menu"
+            aria-expanded={overlay === "vaults"}
+            onClick={() => setOverlay("vaults")}
+          >
+            {`${vaultName} ▾`}
+          </Key>
+          <Key
+            size="sm"
+            aria-haspopup="menu"
+            aria-expanded={overlay === "menu"}
+            onClick={() => setOverlay("menu")}
+          >
+            Menu
+          </Key>
+          <Key size="sm" icon tone="dark" aria-label="Lock now" onClick={props.onLock}>
+            <Icon name="lock" />
+          </Key>
         </div>
-      </Body>
+        <label className="hw-well-row kx-search">
+          <Icon name="search" />
+          <input
+            type="search"
+            placeholder={activeVault ? `Search in ${activeVault.name}` : "Search in all vaults"}
+            aria-label={activeVault ? `Search in ${activeVault.name}` : "Search in all vaults"}
+            value={query}
+            // biome-ignore lint/a11y/noAutofocus: the popup opens to search, as the design asks
+            autoFocus
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      </Panel>
+
+      <LcdStrip {...lcd} />
+
+      <Well className="kx-list">
+        {searching ? (
+          <>
+            <Label className="kx-list-label">{`Results · ${results.length}`}</Label>
+            {results.length > 0 ? (
+              <div className="kx-listbox" role="listbox" aria-label="Results">
+                {/* This site's items stay on top. */}
+                {[
+                  ...results.filter((item) => suggestedIds.has(item.id)),
+                  ...results.filter((item) => !suggestedIds.has(item.id)),
+                ].map((item) => row(item))}
+              </div>
+            ) : (
+              <Empty title={`Nothing matches “${query.trim()}”`} />
+            )}
+          </>
+        ) : (
+          <>
+            {host &&
+              loaded &&
+              (suggested.length > 0 ? (
+                <div className="kx-listbox" role="listbox" aria-label={`Suggestions for ${host}`}>
+                  {suggested.map((hit) => row(hit.item, { insecure: hit.insecure, fills: true }))}
+                </div>
+              ) : (
+                <Empty title={`No logins for ${host}`}>
+                  <Key size="sm" tone="go" onClick={props.onCreateLogin}>
+                    {`Create login for ${host}`}
+                  </Key>
+                </Empty>
+              ))}
+            <Label className="kx-list-label">All items</Label>
+            {loaded && results.length === 0 ? (
+              <Empty
+                title="Nothing here yet"
+                body="Logins you save in Kandado on any device show up here."
+              />
+            ) : (
+              <div className="kx-listbox" role="listbox" aria-label="All items">
+                {results.map((item) => row(item))}
+              </div>
+            )}
+          </>
+        )}
+      </Well>
+
       <Foot>
-        <K.Button
-          variant="primary"
-          icon="plus"
-          block
-          aria-haspopup="menu"
-          onClick={() => setOverlay("create")}
-        >
-          Create
-        </K.Button>
-        <K.Button icon="key" block onClick={props.onGenerate}>
-          Generate
-        </K.Button>
+        <Key onClick={props.onGenerate}>Generate</Key>
+        <Key tone="go" onClick={props.onCreateLogin}>
+          + Create login
+        </Key>
       </Foot>
     </Pop>
   );
@@ -585,7 +607,7 @@ function Totp({ id }: { id: string }) {
       window.clearInterval(steady);
     };
   }, [id]);
-  return code ? <K.TotpCode code={code} /> : null;
+  return code ? <TotpCode code={code} /> : null;
 }
 
 const text = (value: unknown) => (typeof value === "string" ? value : "");
@@ -599,12 +621,11 @@ function expiry(value: unknown): string {
 function Notes({ notes }: { notes: string }) {
   if (!notes) return null;
   return (
-    <Group>
-      <div className="kt-notebox">
-        <div className="kd-secret-label">Note</div>
-        <p>{notes}</p>
-      </div>
-    </Group>
+    <Field label="Note">
+      <Well>
+        <p className="kx-note">{notes}</p>
+      </Well>
+    </Field>
   );
 }
 
@@ -612,58 +633,41 @@ function CustomFields({ content }: { content: ItemContentJson }) {
   if (content.custom_fields.length === 0) return null;
   return (
     <>
-      <div className="kt-label">
-        <span>Custom fields</span>
-      </div>
-      <Group>
-        {content.custom_fields.map((field, index) => (
-          <K.SecretField
-            // biome-ignore lint/suspicious/noArrayIndexKey: the list is fixed while the screen is open; labels can repeat
-            key={`${field.label}-${index}`}
-            label={field.label || "Field"}
-            value={field.value}
-            concealed={field.hidden}
-          />
-        ))}
-      </Group>
+      {content.custom_fields.map((field, index) => (
+        <SecretValue
+          // biome-ignore lint/suspicious/noArrayIndexKey: the list is fixed while the screen is open; labels can repeat
+          key={`${field.label}-${index}`}
+          label={field.label || "Field"}
+          value={field.value}
+          concealed={field.hidden}
+          mono={field.hidden}
+        />
+      ))}
     </>
   );
 }
 
-function DetailBody({ item, content }: { item: Summary; content: ItemContentJson }) {
+function DetailBody({ content }: { content: ItemContentJson }) {
   const d = content.data;
   switch (content.kind) {
     case "login": {
       const websites = Array.isArray(d.websites) ? (d.websites as { url: string }[]) : [];
       return (
         <>
-          <Group>
-            {text(d.username) && (
-              <K.SecretField
-                label="Username"
-                value={text(d.username)}
-                icon="user"
-                concealed={false}
-              />
-            )}
-            <K.SecretField label="Password" value={text(d.password)} icon="key" />
-            {item.has_totp && <Totp id={item.id} />}
-          </Group>
-          {websites.length > 0 && (
-            <Group>
-              {websites.map((site, index) => (
-                <K.SecretField
-                  // biome-ignore lint/suspicious/noArrayIndexKey: the list is fixed while the screen is open; addresses can repeat
-                  key={`${site.url}-${index}`}
-                  label="Website"
-                  value={site.url}
-                  icon="globe"
-                  concealed={false}
-                  valueColor="var(--link)"
-                />
-              ))}
-            </Group>
+          {text(d.username) && (
+            <SecretValue label="Username" value={text(d.username)} concealed={false} />
           )}
+          <SecretValue label="Password" value={text(d.password)} />
+          {websites.map((site, index) => (
+            <SecretValue
+              // biome-ignore lint/suspicious/noArrayIndexKey: the list is fixed while the screen is open; addresses can repeat
+              key={`${site.url}-${index}`}
+              label="Website"
+              value={site.url}
+              concealed={false}
+              link
+            />
+          ))}
           <Notes notes={content.notes} />
           <CustomFields content={content} />
         </>
@@ -672,17 +676,20 @@ function DetailBody({ item, content }: { item: Summary; content: ItemContentJson
     case "card":
       return (
         <>
-          <Group>
-            {text(d.cardholder) && (
-              <K.SecretField label="Cardholder" value={text(d.cardholder)} concealed={false} />
-            )}
-            <K.SecretField label="Card number" value={text(d.number)} mono />
-            {expiry(d.expiry) && (
-              <K.SecretField label="Expires" value={expiry(d.expiry)} concealed={false} />
-            )}
-            {text(d.cvv) && <K.SecretField label="Security code" value={text(d.cvv)} />}
-            {text(d.pin) && <K.SecretField label="PIN" value={text(d.pin)} />}
-          </Group>
+          {text(d.cardholder) && (
+            <SecretValue
+              label="Cardholder"
+              value={text(d.cardholder)}
+              concealed={false}
+              mono={false}
+            />
+          )}
+          <SecretValue label="Card number" value={text(d.number)} />
+          {expiry(d.expiry) && (
+            <SecretValue label="Expires" value={expiry(d.expiry)} concealed={false} />
+          )}
+          {text(d.cvv) && <SecretValue label="Security code" value={text(d.cvv)} />}
+          {text(d.pin) && <SecretValue label="PIN" value={text(d.pin)} />}
           <Notes notes={content.notes} />
           <CustomFields content={content} />
         </>
@@ -710,13 +717,17 @@ function DetailBody({ item, content }: { item: Summary; content: ItemContentJson
       ];
       return (
         <>
-          <Group>
-            {rows
-              .filter(([, value]) => value)
-              .map(([label, value]) => (
-                <K.SecretField key={label} label={label} value={value} concealed={false} />
-              ))}
-          </Group>
+          {rows
+            .filter(([, value]) => value)
+            .map(([label, value]) => (
+              <SecretValue
+                key={label}
+                label={label}
+                value={value}
+                concealed={false}
+                mono={label === "Email" || label === "Phone"}
+              />
+            ))}
           <Notes notes={content.notes} />
           <CustomFields content={content} />
         </>
@@ -725,24 +736,18 @@ function DetailBody({ item, content }: { item: Summary; content: ItemContentJson
     case "password":
       return (
         <>
-          <Group>
-            <K.SecretField label="Password" value={text(d.password)} icon="key" mono />
-          </Group>
+          <SecretValue label="Password" value={text(d.password)} />
           <Notes notes={content.notes} />
         </>
       );
     case "alias":
-      return (
-        <Group>
-          <K.SecretField label="Alias" value={text(d.address)} icon="mail" concealed={false} />
-        </Group>
-      );
+      return <SecretValue label="Alias" value={text(d.address)} concealed={false} />;
     case "passkey":
       return (
-        <Group>
-          <K.SecretField label="Website" value={text(d.rp_id)} icon="globe" concealed={false} />
-          <K.SecretField label="Username" value={text(d.user_name)} icon="user" concealed={false} />
-        </Group>
+        <>
+          <SecretValue label="Website" value={text(d.rp_id)} concealed={false} />
+          <SecretValue label="Username" value={text(d.user_name)} concealed={false} />
+        </>
       );
     default:
       return (
@@ -768,6 +773,7 @@ export function Detail({
 }) {
   // The decrypted item lives only while this screen is open.
   const [content, setContent] = useState<ItemContentJson | null>(null);
+  const [vault, setVault] = useState("");
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let current = true;
@@ -776,34 +782,47 @@ export function Detail({
         if (current) setContent(value);
       })
       .catch(() => setFailed(true));
+    void ask({ type: "vaults" })
+      .then((list) => {
+        if (current) setVault(list.find((v) => v.id === item.vault_id)?.name ?? "");
+      })
+      .catch(() => {});
     return () => {
       current = false;
       setContent(null);
     };
-  }, [item.id]);
+  }, [item.id, item.vault_id]);
+  const fills =
+    onFill && (item.kind === "login" || item.kind === "card" || item.kind === "identity");
   return (
     <Pop>
       <BackHead
-        title={item.title}
         onBack={onBack}
-        right={
-          item.kind === "login" && content ? (
-            <K.IconButton icon="note" size="sm" label="Edit" onClick={() => onEdit(content)} />
-          ) : undefined
+        title={
+          <>
+            <Badge letter={letterOf(item.title)} />
+            <span className="kx-grow">
+              <h1 className="kx-detail-title hw-h3">{item.title}</h1>
+              {vault && <span className="hw-label">{vault}</span>}
+            </span>
+          </>
         }
-      />
+      >
+        {item.kind === "login" && content && (
+          <Key size="sm" onClick={() => onEdit(content)}>
+            Edit
+          </Key>
+        )}
+      </BackHead>
+      {item.has_totp && <Totp id={item.id} />}
       <Body>
-        <div className="kx-scroll">
-          {failed && <p className="kx-error">This item could not be opened.</p>}
-          {content && <DetailBody item={item} content={content} />}
-        </div>
+        {failed && <p className="hw-error kx-sub">This item could not be opened.</p>}
+        {content && <DetailBody content={content} />}
       </Body>
-      {onFill && (item.kind === "login" || item.kind === "card" || item.kind === "identity") && (
-        <Foot>
-          <K.Button variant="primary" icon="bolt" block onClick={onFill}>
-            {item.kind === "card" ? "Fill card" : "Fill on this page"}
-          </K.Button>
-        </Foot>
+      {fills && (
+        <Key tone="go" size="lg" block onClick={onFill}>
+          {item.kind === "card" ? "Fill card" : "Fill on this page"}
+        </Key>
       )}
     </Pop>
   );
@@ -811,14 +830,30 @@ export function Detail({
 
 // ---- E-10 (and editing a login from E-06) ----------------------------------------
 
+const STRENGTH = ["Weak", "Weak", "Fair", "Good", "Strong"] as const;
+
+function Strength({ score, bits, onLcd }: { score: number; bits?: number; onLcd?: boolean }) {
+  const clamped = Math.max(0, Math.min(4, score));
+  const words = `${STRENGTH[clamped]}${bits ? ` · ${Math.round(bits)} bits` : ""}`;
+  return (
+    <span className="kx-strength">
+      <StatusLight tone={clamped >= 3 ? "ok" : "warn"} />
+      <span className={onLcd ? "hw-lcd-label kx-grow" : "hw-sub"}>{words}</span>
+    </span>
+  );
+}
+
 export function LoginForm({
   tabUrl,
   editing,
+  password: given,
   onDone,
   onCancel,
 }: {
   tabUrl: string | undefined;
   editing?: { item: Summary; content: ItemContentJson };
+  /** A password made in the generator ("Save as login"). */
+  password?: string;
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
@@ -829,7 +864,7 @@ export function LoginForm({
     : "";
   const [title, setTitle] = useState(editing?.content.title ?? titleFor(host));
   const [username, setUsername] = useState(text(start?.username));
-  const [password, setPassword] = useState(text(start?.password));
+  const [password, setPassword] = useState(given ?? text(start?.password));
   const [website, setWebsite] = useState(
     editing ? firstSite : host && tabUrl ? new URL(tabUrl).origin : "",
   );
@@ -845,18 +880,19 @@ export function LoginForm({
     setStrength({ score: result.score, bits: result.bits });
   }, []);
 
+  const typed = useCallback(async (value: string) => {
+    setPassword(value);
+    setStrength(value ? { score: await ask({ type: "strength", password: value }) } : null);
+  }, []);
+
   useEffect(() => {
     void ask({ type: "vaults" }).then((list) => {
       setVaults(list);
       setVault((current) => current || list[0]?.id || "");
     });
-    if (!editing) void generate();
-  }, [editing, generate]);
-
-  const typed = async (value: string) => {
-    setPassword(value);
-    setStrength(value ? { score: await ask({ type: "strength", password: value }) } : null);
-  };
+    if (given) void typed(given);
+    else if (!editing) void generate();
+  }, [editing, generate, given, typed]);
 
   const save = async () => {
     setBusy(true);
@@ -874,78 +910,68 @@ export function LoginForm({
 
   return (
     <Pop>
-      <BackHead title={editing ? "Edit login" : "New login"} onBack={onCancel} />
-      <Body>
-        <form
-          className="kx-scroll"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
+      <BackHead title={editing ? "Edit login" : "New login"} onBack={onCancel}>
+        {vaults.length > 1 && !editing && (
+          <Select
+            aria-label="Vault"
+            value={vault}
+            options={vaults.map((v) => ({ value: v.id, label: v.name }))}
+            onChange={(event) => setVault(event.target.value)}
+          />
+        )}
+      </BackHead>
+      <Body
+        as="form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <TextField label="Name" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <TextField
+          label="Email or username"
+          placeholder="name@example.com"
+          autoComplete="off"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <Field
+          label="Password"
+          htmlFor="login-password"
+          hint={strength && <Strength {...strength} />}
         >
-          <K.TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <K.TextField
-            label="Username or email"
-            icon="user"
-            placeholder="name@example.com"
-            autoComplete="off"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <K.TextField
-            label="Password"
-            icon="key"
-            mono
-            autoComplete="off"
-            spellCheck={false}
-            value={password}
-            onChange={(e) => void typed(e.target.value)}
-            trailing={
-              <K.IconButton
-                icon="refresh"
-                size="sm"
-                label="Generate"
-                onClick={() => void generate()}
-              />
-            }
-          />
-          {strength && (
-            <K.StrengthMeter
-              score={Math.max(0, Math.min(4, strength.score)) as 0 | 1 | 2 | 3 | 4}
-              detail={strength.bits ? `${Math.round(strength.bits)} bits` : undefined}
+          <Lcd className="kx-lcd-input">
+            <input
+              id="login-password"
+              autoComplete="off"
+              spellCheck={false}
+              value={password}
+              onChange={(e) => void typed(e.target.value)}
             />
-          )}
-          <K.TextField
-            label="Website"
-            icon="globe"
-            placeholder="https://"
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-          />
-          {vaults.length > 1 && !editing && (
-            <SelectField
-              label="Vault"
-              icon="vault"
-              value={vault}
-              options={vaults.map((v) => ({ value: v.id, label: v.name }))}
-              onChange={setVault}
-            />
-          )}
-          {error && (
-            <p className="kx-error" role="alert">
-              {error}
-            </p>
-          )}
-          <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
-        </form>
+            <LcdKey aria-label="Generate a new password" onClick={() => void generate()}>
+              New
+            </LcdKey>
+          </Lcd>
+        </Field>
+        <TextField
+          label="Website"
+          mono
+          placeholder="https://"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
+        {error && (
+          <p className="hw-error kx-sub" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
       </Body>
       <Foot>
-        <K.Button block onClick={onCancel}>
-          Cancel
-        </K.Button>
-        <K.Button variant="primary" block disabled={busy || !password} onClick={() => void save()}>
-          Save
-        </K.Button>
+        <Key onClick={onCancel}>Cancel</Key>
+        <Key tone="go" className="kx-wide" disabled={busy || !password} onClick={() => void save()}>
+          {editing ? "Save" : "Create login"}
+        </Key>
       </Foot>
     </Pop>
   );
@@ -967,30 +993,18 @@ const DEFAULT_GENERATOR: GeneratorOptions = {
   symbols: true,
 };
 
-function colourise(value: string) {
-  return Array.from(value).map((ch, index) => {
-    const cls = /[0-9]/.test(ch) ? "kd-ch-num" : /[A-Za-z ]/.test(ch) ? null : "kd-ch-sym";
-    return cls ? (
-      // biome-ignore lint/suspicious/noArrayIndexKey: characters repeat; position is the identity
-      <span key={index} className={cls}>
-        {ch}
-      </span>
-    ) : (
-      ch
-    );
-  });
-}
-
 /**
- * The design system's PasswordGenerator layout (`kd-gen`), with the password
- * made by the shared Rust generator, so every client generates the same way.
+ * The generator, with the password made by the shared Rust generator, so every
+ * client generates the same way. The password shows on the LCD.
  */
 export function Generator({
   onBack,
   onToast,
+  onSaveAsLogin,
 }: {
   onBack: () => void;
-  onToast: (text: string) => void;
+  onToast: (text: string, tone?: "neutral" | "danger") => void;
+  onSaveAsLogin: (password: string) => void;
 }) {
   const [options, setOptions] = useState<GeneratorOptions>(DEFAULT_GENERATOR);
   const [result, setResult] = useState<Generated | null>(null);
@@ -1030,84 +1044,86 @@ export function Generator({
 
   const copy = async () => {
     if (!result) return;
-    await navigator.clipboard.writeText(result.password);
-    onToast("Password copied");
+    const copied = await copySecret(result.password);
+    onToast(
+      copied ? "Password copied. Clears in 60 s." : "Could not copy",
+      copied ? "neutral" : "danger",
+    );
   };
+
+  const toggles: { key: "uppercase" | "numbers" | "symbols"; label: string }[] = [
+    { key: "uppercase", label: memorable ? "Capitalise" : "Capitals" },
+    { key: "numbers", label: "Numbers" },
+    { key: "symbols", label: memorable ? "Hyphens between words" : "Symbols" },
+  ];
 
   return (
     <Pop>
       <BackHead title="Generate password" onBack={onBack} />
+      <Lcd className="kx-gen-out">
+        <span className="hw-lcd-digits kx-gen-value" aria-live="polite">
+          {result?.password ?? ""}
+        </span>
+        <span className="kx-gen-meta">
+          {result && <Strength score={result.score} bits={result.bits} onLcd />}
+          <LcdKey aria-label="Generate again" onClick={() => void run(options)}>
+            New
+          </LcdKey>
+        </span>
+      </Lcd>
       <Body>
-        <div className="kd-gen">
-          <div className="kd-gen-out">
-            <div className="kd-gen-value kd-mono" aria-live="polite">
-              {result ? colourise(result.password) : ""}
-            </div>
-            <div className="kd-gen-actions">
-              <K.IconButton
-                icon="refresh"
-                label="Generate again"
-                onClick={() => void run(options)}
+        <Segmented
+          label="Kind"
+          block
+          value={options.mode}
+          options={[
+            { value: "random", label: "Random" },
+            { value: "memorable", label: "Memorable" },
+          ]}
+          onChange={setMode}
+        />
+        <Field
+          label={memorable ? "Words" : "Characters"}
+          htmlFor="generator-size"
+          end={<span className="hw-mono kx-range-value">{size}</span>}
+        >
+          <input
+            id="generator-size"
+            className="kx-range"
+            type="range"
+            min={memorable ? 3 : 8}
+            max={memorable ? 8 : 64}
+            value={size}
+            onChange={(event) =>
+              set(
+                memorable
+                  ? { words: Number(event.target.value) }
+                  : { length: Number(event.target.value) },
+              )
+            }
+          />
+        </Field>
+        <Well className="kx-toggles">
+          {toggles.map((toggle) => (
+            <div key={toggle.key} className="kx-row">
+              <span className="kx-row-text">{toggle.label}</span>
+              <Switch
+                label={toggle.label}
+                checked={options[toggle.key]}
+                onChange={(value) => set({ [toggle.key]: value })}
               />
-              <K.IconButton icon="copy" label="Copy password" onClick={() => void copy()} />
             </div>
-          </div>
-          {result && (
-            <K.StrengthMeter
-              score={Math.max(0, Math.min(4, result.score)) as 0 | 1 | 2 | 3 | 4}
-              detail={`${Math.round(result.bits)} bits`}
-            />
-          )}
-          <div className="kd-seg" role="tablist">
-            {(["random", "memorable"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                role="tab"
-                aria-selected={options.mode === mode}
-                className={`kd-seg-btn${options.mode === mode ? " kd-seg-on" : ""}`}
-                onClick={() => setMode(mode)}
-              >
-                {mode === "random" ? "Random" : "Memorable"}
-              </button>
-            ))}
-          </div>
-          <label className="kd-range">
-            <span className="kd-range-top">
-              <span>{memorable ? "Words" : "Characters"}</span>
-              <span className="kd-range-val">{size}</span>
-            </span>
-            <input
-              type="range"
-              min={memorable ? 3 : 8}
-              max={memorable ? 8 : 64}
-              value={size}
-              onChange={(event) =>
-                set(
-                  memorable
-                    ? { words: Number(event.target.value) }
-                    : { length: Number(event.target.value) },
-                )
-              }
-            />
-          </label>
-          <K.Toggle
-            label={memorable ? "Capitalise" : "Uppercase letters"}
-            checked={options.uppercase}
-            onChange={(value) => set({ uppercase: value })}
-          />
-          <K.Toggle
-            label="Numbers"
-            checked={options.numbers}
-            onChange={(value) => set({ numbers: value })}
-          />
-          <K.Toggle
-            label={memorable ? "Hyphens between words" : "Symbols"}
-            checked={options.symbols}
-            onChange={(value) => set({ symbols: value })}
-          />
-        </div>
+          ))}
+        </Well>
       </Body>
+      <Foot>
+        <Key disabled={!result} onClick={() => result && onSaveAsLogin(result.password)}>
+          Save as login
+        </Key>
+        <Key tone="go" disabled={!result} onClick={() => void copy()}>
+          Copy password
+        </Key>
+      </Foot>
     </Pop>
   );
 }

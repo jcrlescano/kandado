@@ -54,7 +54,7 @@ test("E-27: the welcome tab opens after install, signs in and asks for site acce
     .toBe(true);
   const page = await context.newPage();
   await page.goto(url("src/pages/welcome/index.html"));
-  await expect(page.getByRole("heading", { name: "Kandado is installed" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kandado is in your browser." })).toBeVisible();
   await both(page, "E-27");
 
   await page.getByRole("button", { name: "Continue with Google" }).click();
@@ -81,11 +81,11 @@ test("E-28: theme and toolbar count", async () => {
   await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
   await both(page, "E-28");
 
-  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await page.getByRole("radio", { name: "Light", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.emulateMedia({ colorScheme: "dark" });
   await page.screenshot({ path: `${shots}/E-28-chosen-light.png` });
-  await page.getByRole("button", { name: "System", exact: true }).click();
+  await page.getByRole("radio", { name: "System", exact: true }).click();
   await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
   await expect(
     page.getByRole("switch", { name: "Show item count on the toolbar icon" }),
@@ -146,14 +146,14 @@ test("E-31: a PIN set here unlocks the popup, and is asked for again after a pas
   await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
   await both(page, "E-31");
 
-  await page.getByRole("button", { name: /Extension PIN/ }).click();
+  await page.getByRole("button", { name: "Set PIN" }).click();
   await expect(page.getByRole("heading", { name: "Choose a PIN" })).toBeVisible();
   await page.keyboard.type("482913");
   await expect(page.getByRole("heading", { name: "Enter it again" })).toBeVisible();
   await page.keyboard.type("482913");
   await expect(page.getByText("On", { exact: true })).toBeVisible();
-  await page.getByLabel("Lock after").selectOption("5");
-  await expect(page.getByLabel("Lock after")).toHaveValue("5");
+  await page.getByRole("radio", { name: "5 min", exact: true }).click();
+  await expect(page.getByRole("radio", { name: "5 min", exact: true })).toBeChecked();
   await both(page, "E-31-pin-on");
 
   // The popup now unlocks with the PIN.

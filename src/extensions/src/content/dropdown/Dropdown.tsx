@@ -6,9 +6,8 @@
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DropdownChoice, DropdownRow, DropdownView } from "../../background/autofill";
 import type { WorkerMessage } from "../../shared/messages";
-import { K } from "../../ui/kandado";
+import { grouped, ItemRow, Kbd, LcdStrip, Tag, Well } from "../../ui/hardware";
 import { ask } from "../../ui/messaging";
-import type { IconName } from "../../ui/vendor/kandado";
 
 interface Entry {
   key: string;
@@ -16,17 +15,19 @@ interface Entry {
   render: (on: boolean, hover: () => void) => ReactNode;
 }
 
+/** A row that does something (search, unlock, use a password), drawn like an item row. */
 function Action({
-  icon,
   label,
   detail,
+  mono,
   on,
   onPick,
   onHover,
 }: {
-  icon: IconName;
   label: string;
   detail?: string;
+  /** The detail is a value (a password), set in mono. */
+  mono?: boolean;
   on: boolean;
   onPick: () => void;
   onHover: () => void;
@@ -34,25 +35,17 @@ function Action({
   return (
     <button
       type="button"
-      className={`kt-dd-act kx-dd-button${on ? " kt-dd-on" : ""}`}
+      className={`hw-item kx-item kx-dd-action${on ? " hw-item--on" : ""}`}
       onClick={onPick}
       onMouseEnter={onHover}
     >
-      <K.Icon name={icon} size={18} />
-      <span className="kt-srow-t">
-        <span className="kt-srow-l">{label}</span>
-        {detail && <span className="kt-srow-d">{detail}</span>}
+      <span className="kx-item-text">
+        <span className="hw-item-title">{label}</span>
+        {detail && <span className={`hw-item-sub${mono ? " kx-dd-mono" : ""}`}>{detail}</span>}
       </span>
+      {on && <Kbd>Enter</Kbd>}
     </button>
   );
-}
-
-function letterOf(title: string): string | undefined {
-  return title.trim().charAt(0).toUpperCase() || undefined;
-}
-
-function spaced(code: string): string {
-  return code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
 }
 
 export function Dropdown({ token }: { token: string }) {
@@ -150,14 +143,13 @@ export function Dropdown({ token }: { token: string }) {
   if (!view || view.mode === "closed") return <div ref={root} />;
   return (
     <div ref={root}>
-      <div className="kt-drop-in" role="listbox" aria-label="Kandado">
-        <div className="kt-dd-head">
-          <K.Logo size={16} />
-          <span>{headOf(view)}</span>
-        </div>
-        {entries.map((entry, index) => (
-          <div key={entry.key}>{entry.render(index === active, () => setActive(index))}</div>
-        ))}
+      <div className="kx-dropdown">
+        <LcdStrip light={view.mode === "locked" ? "warn" : "ok"} text={headOf(view)} />
+        <Well className="kx-dropdown-well" role="listbox" aria-label="Kandado">
+          {entries.map((entry, index) => (
+            <div key={entry.key}>{entry.render(index === active, () => setActive(index))}</div>
+          ))}
+        </Well>
       </div>
     </div>
   );
@@ -187,16 +179,16 @@ function entriesFor(
   const act = (
     key: string,
     choice: DropdownChoice | "close",
-    icon: IconName,
     label: string,
     detail?: string,
+    mono?: boolean,
   ): Entry => ({
     key,
     choice,
     render: (on, hover) => (
       <Action
-        icon={icon}
         label={label}
+        mono={mono}
         detail={detail}
         on={on}
         onPick={() => pick(choice)}
@@ -208,23 +200,13 @@ function entriesFor(
     key: row.id,
     choice: { item: row.id },
     render: (on, hover) => (
-      <K.ItemRow
+      <ItemRow
         onMouseEnter={hover}
-        kind={row.kind}
-        title={row.title}
+        title={row.favourite ? `${row.title} ★` : row.title}
         subtitle={row.subtitle || undefined}
-        letter={row.kind === "login" ? letterOf(row.title) : undefined}
-        favorite={row.favourite}
         selected={on}
-        dense
-        badge={row.insecure ? <K.Badge tone="warning">Not secure</K.Badge> : undefined}
+        end={row.insecure ? <Tag tone="warn">Not secure</Tag> : on ? <Kbd>Enter</Kbd> : undefined}
         onClick={() => pick({ item: row.id })}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            pick({ item: row.id });
-          }
-        }}
       />
     ),
   });
@@ -234,35 +216,23 @@ function entriesFor(
       act(
         "confirm",
         { item: confirm.id, confirmInsecure: true },
-        "alert",
         "Fill anyway",
         `${confirm.title} was saved for a secure page. This page is not encrypted.`,
       ),
-      act("cancel", "close", "x", "Don't fill"),
+      act("cancel", "close", "Don't fill"),
     ];
   }
   switch (view.mode) {
     case "closed":
       return [];
     case "locked":
-      return [
-        act(
-          "unlock",
-          { search: true },
-          "lock",
-          "Unlock Kandado to fill",
-          `Logins for ${view.host}`,
-        ),
-      ];
+      return [act("unlock", { search: true }, "Unlock Kandado to fill", `Logins for ${view.host}`)];
     case "logins":
-      return [
-        ...view.rows.map(itemRow),
-        act("search", { search: true }, "search", "Search all items"),
-      ];
+      return [...view.rows.map(itemRow), act("search", { search: true }, "Search all items")];
     case "new-password":
       return [
-        act("use", { generated: true }, "key", "Use a strong password", view.password),
-        act("more", { search: true }, "refresh", "More options…", "Opens the generator"),
+        act("use", { generated: true }, "Use a strong password", view.password, true),
+        act("more", { search: true }, "More options…", "Opens the generator"),
       ];
     case "cards":
     case "identities":
@@ -272,8 +242,7 @@ function entriesFor(
         act(
           entry.id,
           { item: entry.id },
-          "clock",
-          `Fill ${spaced(entry.code)}`,
+          `Fill ${grouped(entry.code)}`,
           `${entry.title} · ${entry.remaining} s left`,
         ),
       );

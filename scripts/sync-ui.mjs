@@ -1,17 +1,21 @@
-// Copies the design system's React components into the extension, and turns its
-// tokens into CSS custom properties. Source code never reads from docs/ directly.
+// Copies Kandado Hardware's components into the extension, and turns its tokens
+// into CSS custom properties. Source code never reads from docs/ directly.
 //
 //   node scripts/sync-ui.mjs           write
 //   node scripts/sync-ui.mjs --check   fail if a copy is missing or out of date
 //
-// The bundle's web font import is dropped: the extension ships the same font
-// files as the desktop app, so no page ever asks a font service for anything.
+// The extension renders Kandado Hardware (docs/design-system/project): plain CSS
+// classes, drawn by the React components in src/extensions/src/ui/hardware.tsx,
+// and the icon set, turned into data the Icon component draws.
+//
+// Web font imports are dropped: the extension ships the same font files as the
+// desktop app, so no page ever asks a font service for anything.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const ds = "docs/design-system/project";
+const hw = "docs/design-system/project";
 const out = "src/extensions/src/ui/vendor";
 const check = process.argv.includes("--check");
 
@@ -21,40 +25,97 @@ function read(path) {
   return readFileSync(resolve(root, path), "utf8");
 }
 
-function tokensCss() {
-  const tokens = JSON.parse(read(`${ds}/tokens.json`));
-  const theme = (id) =>
-    [
-      ...tokens.color.tokens.map((t) => `  --${t.name}: ${t.value[id]};`),
-      ...tokens.shadow.tokens.map((t) => `  --${t.name}: ${t.value[id]};`),
-    ].join("\n");
+// Drops the Google Fonts import, then makes sure nothing else in the file would
+// reach the network.
+function localCss(path) {
+  const css = read(path).replace(/^@import url\("https:\/\/fonts\.googleapis\.com[^\n]*\n/m, "");
+  const remote = css.match(/@import|url\(\s*["']?(?:https?:)?\/\//);
+  if (remote) {
+    throw new Error(
+      `${path} still loads something remote (${remote[0]}); handle it in sync-ui.mjs`,
+    );
+  }
+  return css;
+}
+
+// One CSS block per theme from tokens.json. A value is either the same in every
+// theme (a string) or one per theme ({ dark, light }), and "{name}" refers to
+// another token. Anything unresolved stops the sync rather than writing
+// "undefined" into the stylesheet.
+function tokensCss(path, { fallback, alternative, note }) {
+  const tokens = JSON.parse(read(path));
+  const themed = [...tokens.color.tokens, ...tokens.shadow.tokens];
+  const byName = new Map(themed.map((t) => [t.name, t]));
+  const resolveValue = (token, id, seen = new Set()) => {
+    if (seen.has(token.name)) throw new Error(`${path}: ${token.name} refers to itself`);
+    seen.add(token.name);
+    const raw = typeof token.value === "string" ? token.value : token.value[id];
+    if (typeof raw !== "string") throw new Error(`${path}: ${token.name} has no ${id} value`);
+    const alias = raw.match(/^\{([a-z0-9-]+)\}$/);
+    if (!alias) return raw;
+    const target = byName.get(alias[1]);
+    if (!target) throw new Error(`${path}: ${token.name} refers to unknown token ${alias[1]}`);
+    return resolveValue(target, id, seen);
+  };
+  const theme = (id, indent) =>
+    themed.map((t) => `${indent}--${t.name}: ${resolveValue(t, id)};`).join("\n");
   const fixed = [
     ...Object.entries(tokens.type.families).map(([name, value]) => `  --font-${name}: ${value};`),
     ...tokens.spacing.tokens.map((t) => `  --${t.name}: ${t.value};`),
     ...tokens.radius.tokens.map((t) => `  --${t.name}: ${t.value};`),
   ].join("\n");
-  // Dark (Vault) is the primary theme and the fallback; Light (Paper) follows the
-  // system unless the person chose a theme (data-theme on <html>).
-  return `${HEADER}:root {\n${fixed}\n${theme("dark")}\n  color-scheme: dark;\n}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {\n${theme("light")
-    .split("\n")
-    .map((line) => `  ${line}`)
-    .join("\n")}\n    color-scheme: light;\n  }\n}
-:root[data-theme="light"] {\n${theme("light")}\n  color-scheme: light;\n}\n`;
+  // The fallback theme applies unless the system prefers the other one or the
+  // person chose a theme (data-theme on <html>).
+  return `${HEADER}/* ${note} */
+:root {\n${fixed}\n${theme(fallback, "  ")}\n  color-scheme: ${fallback};\n}
+@media (prefers-color-scheme: ${alternative}) {
+  :root:not([data-theme="${fallback}"]) {\n${theme(alternative, "    ")}\n    color-scheme: ${alternative};\n  }\n}
+:root[data-theme="${alternative}"] {\n${theme(alternative, "  ")}\n  color-scheme: ${alternative};\n}\n`;
+}
+
+// The icon set as a TypeScript module: each icon's shapes as [tag, attributes]
+// pairs, so React draws them with no HTML strings.
+function iconsTs() {
+  const set = JSON.parse(read(`${hw}/assets/Icons/icons.json`));
+  const shapes = {};
+  for (const name of set.names) {
+    const inner = set.icons[name];
+    const list = [];
+    for (const [, tag, attrs] of inner.matchAll(/<(\w+)([^>]*?)\/?>/g)) {
+      if (!["path", "rect", "circle", "line", "polyline", "ellipse"].includes(tag)) {
+        throw new Error(`icons.json: ${name} has an unexpected <${tag}>`);
+      }
+      const props = {};
+      for (const [, key, value] of attrs.matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) {
+        props[key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
+      }
+      list.push([tag, props]);
+    }
+    shapes[name] = list;
+  }
+  return `${HEADER.replace("/*", "//").replace(" */", "")}
+export type IconName = ${set.names.map((n) => JSON.stringify(n)).join(" | ")};
+
+export const ICON_VIEW_BOX = ${JSON.stringify(set.viewBox)};
+
+export const ICONS: Record<IconName, ReadonlyArray<readonly [string, Record<string, string>]>> = ${JSON.stringify(shapes, null, 2)};
+`;
 }
 
 const files = {
-  [`${out}/kandado-bundle.js`]: `${HEADER}${read(`${ds}/components/bundle.js`)}`,
-  [`${out}/kandado-bundle.css`]: `${HEADER}${read(`${ds}/components/bundle.css`).replace(
-    /^@import url\("https:\/\/fonts\.googleapis\.com[^\n]*\n/m,
-    "",
-  )}`,
-  [`${out}/kandado.d.ts`]: `${HEADER}${read(`${ds}/components/index.d.ts`)}`,
-  [`${out}/tokens.css`]: tokensCss(),
-  // The Kandado mark for the icon inside page fields, as drawn by the design
-  // system Logo (scripts/sync-icons.mjs renders it for the desktop app).
-  [`${out}/logo.svg`]: read("src/desktop/resources/icons/logo.svg"),
+  [`${out}/hardware/icons.ts`]: iconsTs(),
+  [`${out}/hardware/tokens.css`]: tokensCss(`${hw}/tokens.json`, {
+    fallback: "light",
+    alternative: "dark",
+    note: "Enamel (light) is the default theme and the fallback; Graphite (dark) is the alternative.",
+  }),
+  [`${out}/hardware/hardware.css`]: `${HEADER}${localCss(`${hw}/components/bundle.css`)}`,
+  // The token values themselves, for the two places no stylesheet reaches: the
+  // mark the content script draws in page fields, and the toolbar badge colour.
+  [`${out}/hardware/tokens.json`]: read(`${hw}/tokens.json`),
+  // Static marks for places that cannot draw the mark inline.
+  [`${out}/hardware/logo-light.svg`]: read(`${hw}/assets/Logos/kandado-mark-light.svg`),
+  [`${out}/hardware/logo-dark.svg`]: read(`${hw}/assets/Logos/kandado-mark-dark.svg`),
 };
 
 let stale = 0;

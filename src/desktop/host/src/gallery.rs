@@ -1,5 +1,6 @@
-//! The component gallery: every design system component, in the states its
-//! preview shows, for side-by-side review with `docs/design-system`.
+//! The component gallery: every component, drawn as Kandado Hardware, in the
+//! states its preview shows, for side-by-side review with
+//! `docs/design-system/project/components`.
 //!
 //! All data here is made up. The "secrets" are sample text, not real ones.
 
@@ -105,7 +106,7 @@ impl Gallery {
     }
 }
 
-/// One titled card, like a preview card in the design system.
+/// One titled panel, like a preview card in the design system.
 fn section(title: &'static str, cx: &App, body: impl IntoElement) -> impl IntoElement {
     let p = cx.palette();
     v_flex()
@@ -113,18 +114,10 @@ fn section(title: &'static str, cx: &App, body: impl IntoElement) -> impl IntoEl
         .child(
             div()
                 .text_token(tokens::LABEL)
-                .text_color(color(p.ink_muted))
+                .text_color(color(p.ink_3))
                 .child(title.to_uppercase()),
         )
-        .child(
-            div()
-                .p(px(tokens::SPACE_4))
-                .rounded(px(tokens::RADIUS_LG))
-                .border_1()
-                .border_color(color(p.line))
-                .bg(color(p.surface_100))
-                .child(body),
-        )
+        .child(panel(cx).p(px(tokens::SPACE_5)).child(body))
 }
 
 fn row() -> Div {
@@ -154,26 +147,35 @@ impl Render for Gallery {
                 .child(
                     div()
                         .text_size(px(11.))
-                        .text_color(color(p.ink_muted))
+                        .text_color(color(p.ink_2))
                         .child(icon.name()),
                 )
         }));
 
         let type_styles = column().children(
             [
-                ("display-lg", tokens::DISPLAY_LG, "Your vault, your keys."),
-                ("title-lg", tokens::TITLE_LG, "GitHub"),
-                ("title-md", tokens::TITLE_MD, "Password generator"),
+                ("display", tokens::DISPLAY, "Your vault, your keys."),
+                ("title", tokens::TITLE, "GitHub"),
+                ("heading", tokens::HEADING, "Personal"),
+                ("subheading", tokens::SUBHEADING, "Generate password"),
                 (
                     "body",
                     tokens::BODY,
                     "Kandado locks after 5 minutes of inactivity.",
                 ),
-                ("body-strong", tokens::BODY_STRONG, "Personal vault"),
-                ("small", tokens::SMALL, "juan@kandado.me"),
+                (
+                    "body-strong",
+                    tokens::BODY_STRONG,
+                    "Unlock with Windows Hello",
+                ),
+                ("key", tokens::KEY, "Copy"),
+                ("small", tokens::SMALL, "juan.delacruz@kandado.me"),
                 ("label", tokens::LABEL, "USERNAME"),
-                ("secret", tokens::SECRET, "Tq7#vL2m!Ox0-r9P"),
-                ("totp", tokens::TOTP, "482 913"),
+                ("segment", tokens::SEGMENT, "15 MIN"),
+                ("tag", tokens::TAG, "LOGIN"),
+                ("secret", tokens::SECRET, "mV7x-Tq2#Lp9-wR4k!Nz8"),
+                ("lcd-code", tokens::LCD_CODE, "482 913"),
+                ("lcd-text", tokens::LCD_TEXT, "LOCKED · 09:42"),
             ]
             .map(|(name, token, sample)| {
                 h_flex()
@@ -184,7 +186,7 @@ impl Render for Gallery {
                             .w(px(96.))
                             .flex_none()
                             .text_token(tokens::SMALL)
-                            .text_color(color(p.ink_muted))
+                            .text_color(color(p.ink_2))
                             .child(name),
                     )
                     .child(div().text_token(token).child(sample))
@@ -197,6 +199,7 @@ impl Render for Gallery {
                     .child(Button::new("b-primary", "Unlock").primary())
                     .child(Button::new("b-secondary", "Cancel"))
                     .child(Button::new("b-ghost", "Skip").variant(ButtonVariant::Ghost))
+                    .child(Button::new("b-dark", "Lock").variant(ButtonVariant::Dark))
                     .child(Button::new("b-danger", "Delete forever").variant(ButtonVariant::Danger))
                     .child(
                         Button::new("b-quiet", "Move to trash")
@@ -239,8 +242,112 @@ impl Render for Gallery {
                         IconButton::new("ib-done", IconName::Check, "Copied")
                             .size(ButtonSize::Sm)
                             .confirmed(true),
+                    )
+                    .child(
+                        IconButton::new("ib-star", IconName::Star, "Favourite")
+                            .variant(IconButtonVariant::Secondary)
+                            .checked(true),
+                    )
+                    .child(
+                        IconButton::new("ib-lock", IconName::Lock, "Lock")
+                            .variant(IconButtonVariant::Dark),
                     ),
             );
+
+        let surfaces = div().child(
+            column()
+                .child(section_label("Panel", cx))
+                .child(
+                    well(cx).p(px(tokens::SPACE_2)).child(
+                        row()
+                            .child(
+                                div()
+                                    .px(px(tokens::SPACE_2))
+                                    .text_token(tokens::LABEL)
+                                    .text_color(color(p.ink_2))
+                                    .child("WELL"),
+                            )
+                            .child(raised(cx).px(px(14.)).py(px(10.)).child("Raised face"))
+                            .child(raised(cx).px(px(14.)).py(px(10.)).child("Raised face")),
+                    ),
+                )
+                .child(Banner::new(
+                    Tone::Warning,
+                    "JSON and CSV are not encrypted. Anyone with the file can read every password.",
+                )),
+        );
+
+        let lights = column()
+            .child(
+                row()
+                    .gap(px(22.))
+                    .child(
+                        row()
+                            .gap(px(8.))
+                            .child(StatusLight::new(LightState::Ok))
+                            .child(
+                                div()
+                                    .text_token(tokens::SEGMENT)
+                                    .font_weight(FontWeight::NORMAL)
+                                    .child("SYNCED"),
+                            ),
+                    )
+                    .child(
+                        row()
+                            .gap(px(8.))
+                            .child(StatusLight::new(LightState::Warn))
+                            .child(
+                                div()
+                                    .text_token(tokens::SEGMENT)
+                                    .font_weight(FontWeight::NORMAL)
+                                    .child("3 TO FIX"),
+                            ),
+                    )
+                    .child(
+                        row()
+                            .gap(px(8.))
+                            .child(StatusLight::new(LightState::Off))
+                            .child(
+                                div()
+                                    .text_token(tokens::SEGMENT)
+                                    .font_weight(FontWeight::NORMAL)
+                                    .child("NOT SET"),
+                            ),
+                    ),
+            )
+            .child(
+                row()
+                    .gap(px(8.))
+                    .children(
+                        [
+                            "Login", "Alias", "Card", "Note", "ID", "Passkey", "Password",
+                        ]
+                        .map(Tag::new),
+                    )
+                    .child(Tag::new("This device").tone(TagTone::Go))
+                    .child(Tag::new("Differs").tone(TagTone::Warn)),
+            )
+            .child(
+                row()
+                    .gap(px(5.))
+                    .child(kbd("Ctrl", cx))
+                    .child(kbd("Shift", cx))
+                    .child(kbd("Space", cx)),
+            );
+
+        let lcds = column()
+            .max_w(px(620.))
+            .child(
+                TotpCode::new("lcd-totp", "482913", 18)
+                    .copied(self.copied == Some("lcd code"))
+                    .on_copy(cx.listener(|this, _, _, cx| this.mark_copied("lcd code", cx))),
+            )
+            .child(
+                LcdStatus::new("Locked · 09:42")
+                    .light(LightState::Warn)
+                    .label("E2E"),
+            )
+            .child(LcdStatus::new("github.com · 2 logins").light(LightState::Ok));
 
         let fields = column()
             .max_w(px(420.))
@@ -341,31 +448,31 @@ impl Render for Gallery {
             (ItemKind::Alias, "Shopping", "shop.k3x@kandado.example"),
             (ItemKind::Identity, "Juan Dela Cruz", "Makati, Philippines"),
         ];
-        let item_rows =
-            v_flex()
-                .max_w(px(420.))
-                .gap(px(2.))
-                .children(
-                    rows.into_iter()
-                        .enumerate()
-                        .map(|(index, (kind, title, subtitle))| {
-                            ItemRow::new(("item", index), kind, title)
-                                .subtitle(subtitle)
-                                .selected(index == self.selected_row)
-                                .favorite(index == 0)
-                                .when(index == 1, |row| {
-                                    row.badge(Badge::new("Expiring").tone(Tone::Warning))
-                                })
-                                .when(kind == ItemKind::Login, |row| row.letter("G"))
-                                .on_copy(
-                                    cx.listener(|this, _, _, cx| this.mark_copied("item row", cx)),
-                                )
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.selected_row = index;
-                                    cx.notify();
-                                }))
-                        }),
-                );
+        let item_rows = well(cx)
+            .flex()
+            .flex_col()
+            .max_w(px(360.))
+            .p(px(6.))
+            .gap(px(4.))
+            .children(
+                rows.into_iter()
+                    .enumerate()
+                    .map(|(index, (kind, title, subtitle))| {
+                        ItemRow::new(("item", index), kind, title)
+                            .subtitle(subtitle)
+                            .selected(index == self.selected_row)
+                            .favorite(index == 0)
+                            .when(index == 1, |row| {
+                                row.badge(Badge::new("Expiring").tone(Tone::Warning))
+                            })
+                            .when(kind == ItemKind::Login, |row| row.letter("G"))
+                            .on_copy(cx.listener(|this, _, _, cx| this.mark_copied("item row", cx)))
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.selected_row = index;
+                                cx.notify();
+                            }))
+                    }),
+            );
 
         let secret_fields = div().max_w(px(420.)).child(
             FieldGroup::new()
@@ -558,7 +665,7 @@ impl Render for Gallery {
 
         v_flex()
             .size_full()
-            .bg(color(p.surface_000))
+            .bg(color(p.body))
             .text_color(color(p.ink))
             .text_token(tokens::BODY)
             .child(
@@ -572,16 +679,16 @@ impl Render for Gallery {
                         .child(
                             div()
                                 .text_token(tokens::SMALL)
-                                .text_color(color(p.ink_muted))
+                                .text_color(color(p.ink_2))
                                 .child(self.last_event.clone()),
                         )
                         .child(
                             Button::new(
                                 "toggle-theme",
-                                if other == theme::ThemeKind::Paper {
-                                    "Paper theme"
+                                if other == theme::ThemeKind::Enamel {
+                                    "Enamel theme"
                                 } else {
-                                    "Vault theme"
+                                    "Graphite theme"
                                 },
                             )
                             .size(ButtonSize::Sm)
@@ -601,11 +708,14 @@ impl Render for Gallery {
                             .p(px(tokens::SPACE_5))
                             .gap(px(tokens::SPACE_5))
                             .child(section("Logo", cx, logos))
+                            .child(section("Surfaces", cx, surfaces))
+                            .child(section("StatusLight, Tag and keycap", cx, lights))
+                            .child(section("Lcd", cx, lcds))
                             .child(section("Type", cx, type_styles))
                             .child(section("Icon", cx, icons))
-                            .child(section("Button and IconButton", cx, buttons))
+                            .child(section("Key (Button and IconButton)", cx, buttons))
                             .child(section("SearchBar and TextField", cx, fields))
-                            .child(section("Toggle", cx, toggles))
+                            .child(section("Switch (Toggle)", cx, toggles))
                             .child(section("Badge", cx, badges))
                             .child(section("VaultChip", cx, chips))
                             .child(section("ItemIcon", cx, item_icons))

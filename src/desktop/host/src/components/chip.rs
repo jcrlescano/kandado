@@ -4,7 +4,10 @@ use gpui_kit::{
     prelude::FluentBuilder as _, px,
 };
 
-use super::{Hue, Icon};
+use super::{
+    Hue, Icon,
+    hardware::{LightState, StatusLight, lip, ring},
+};
 use crate::{
     assets::IconName,
     theme::{KandadoTheme, color, focus_ring, tokens},
@@ -12,10 +15,11 @@ use crate::{
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
-/// A vault as a selectable chip: name, colour and optional count.
+/// A vault as a key: its light, its name and an optional count.
 ///
-/// Each vault picks one hue and an icon; the chip shows them on the hue's
-/// soft ground. Vaults are named by purpose: "Personal", "Family", "Work".
+/// A vault shows its colour as a light, never a coloured fill. The vault being
+/// viewed gets the green ring. Vaults are named by purpose: "Personal",
+/// "Family", "Work".
 #[derive(IntoElement)]
 pub struct VaultChip {
     id: ElementId,
@@ -81,7 +85,8 @@ impl VaultChip {
 impl RenderOnce for VaultChip {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
-        let (hue, soft) = self.hue.colors(p);
+        let light = self.hue.light(p);
+        let _ = self.icon;
         div()
             .id(self.id)
             .flex()
@@ -89,43 +94,30 @@ impl RenderOnce for VaultChip {
             .items_center()
             .gap(px(tokens::SPACE_2))
             .h(px(36.))
-            .pl(px(6.))
-            .pr(px(tokens::SPACE_3))
-            .rounded(px(tokens::RADIUS_PILL))
-            .border_1()
+            .px(px(tokens::SPACE_3))
+            .rounded(px(tokens::RADIUS_KEY))
+            .bg(color(p.raised))
             .text_color(color(p.ink))
             .font_family(tokens::FONT_SANS)
-            .font_weight(FontWeight::SEMIBOLD)
+            .font_weight(FontWeight::BOLD)
             .text_size(px(14.))
             .cursor_pointer()
             .tab_index(0)
-            .focus_visible(|chip| chip.shadow(focus_ring(p, p.surface_100)))
-            .map(|chip| {
-                if self.active {
-                    chip.bg(color(p.brass_soft)).border_color(color(p.brass))
-                } else {
-                    chip.bg(color(p.surface_100))
-                        .border_color(color(p.line))
-                        .hover(|chip| chip.bg(color(p.surface_200)))
-                }
+            .focus_visible(|chip| chip.shadow(focus_ring(p, p.panel)))
+            .shadow(if self.active {
+                vec![lip(p.edge_key, 3.), ring(p.green)]
+            } else {
+                vec![lip(p.edge_key, 3.)]
             })
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .size(px(24.))
-                    .rounded(px(tokens::RADIUS_PILL))
-                    .bg(soft)
-                    .text_color(hue)
-                    .child(Icon::new(self.icon).size(px(14.))),
-            )
+            .child(StatusLight::new(LightState::Ok).size(8.).color(light))
             .child(self.name)
             .when_some(self.count, |chip, count| {
                 chip.child(
                     div()
-                        .text_size(px(12.))
-                        .text_color(color(p.ink_muted))
+                        .font_family(tokens::FONT_MONO)
+                        .text_size(px(11.))
+                        .font_weight(FontWeight::NORMAL)
+                        .text_color(color(p.ink_3))
                         .child(count.to_string()),
                 )
             })
