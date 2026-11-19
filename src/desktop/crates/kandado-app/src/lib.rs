@@ -19,6 +19,7 @@
 //! | [`update`] | Signed updates: check, download, verify, install (D-54) |
 //! | [`tasks`] | Runs async work for views that have their own executor |
 //! | [`platform`] | Win32: open a URL, watch for sleep and session changes |
+//! | [`profile`] | Installed or development build: which data folder and names |
 #![deny(unsafe_code)]
 
 pub mod auth;
@@ -29,6 +30,7 @@ pub mod links;
 pub mod lock;
 pub mod monitor;
 pub mod platform;
+pub mod profile;
 pub mod secrets;
 pub mod service;
 pub mod settings;

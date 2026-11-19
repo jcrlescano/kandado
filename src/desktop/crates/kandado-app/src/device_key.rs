@@ -150,7 +150,7 @@ pub mod windows_hello {
     use super::{DeviceKey, DeviceKeyError, DeviceWrap, Uuid, unwrap_with, wrap_with};
 
     /// Name of the credential in Windows Hello.
-    const CREDENTIAL_NAME: &str = "Kandado";
+    const CREDENTIAL_NAME: &str = crate::profile::NAME;
     /// What Hello signs. Any fixed value works: RSA PKCS#1 signatures are
     /// deterministic, so the same challenge gives the same bytes every time.
     const CHALLENGE: &[u8] = b"kandado/device-key/v1";

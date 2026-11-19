@@ -34,6 +34,26 @@ fn main() {
     fs::write(path, out).expect("write tokens.rs");
 
     icons();
+    app_icon();
+}
+
+/// Puts `../resources/app-icon/kandado.ico` (made by `scripts/make-icons.mjs`)
+/// into kandado.exe as icon 1: Explorer, the Start menu and the taskbar show it,
+/// and GPUI loads it for the window.
+fn app_icon() {
+    const ICON: &str = "../resources/app-icon/kandado.ico";
+    println!("cargo::rerun-if-changed={ICON}");
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
+        return;
+    }
+    let mut resource = winresource::WindowsResource::new();
+    resource
+        .set_icon(ICON)
+        .set("ProductName", "Kandado")
+        .set("FileDescription", "Kandado");
+    resource
+        .compile()
+        .unwrap_or_else(|error| panic!("could not embed the app icon: {error}"));
 }
 
 /// Embeds every SVG in `../resources/icons` and generates the `IconName` enum

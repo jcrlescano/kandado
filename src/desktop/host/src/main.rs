@@ -15,12 +15,9 @@ use kandado_host::{
     views::Services,
 };
 
+/// `%APPDATA%\Kandado`, or `%APPDATA%\Kandado Dev` for a development build.
 fn data_dir() -> PathBuf {
-    std::env::var_os("APPDATA")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(PathBuf::from)
-        .unwrap_or_default()
-        .join("Kandado")
+    kandado_app::profile::data_dir()
 }
 
 fn main() {
@@ -39,7 +36,7 @@ fn main() {
         Arc<dyn kandado_app::device_key::DeviceKey>,
     ) = (
         Arc::new(kandado_app::secrets::windows_store::CredentialManager::new(
-            "Kandado",
+            kandado_app::profile::NAME,
         )),
         Arc::new(kandado_app::device_key::windows_hello::WindowsDeviceKey::new()),
     );
@@ -95,7 +92,15 @@ fn main() {
         theme::apply(kind, None, cx);
         app::bind_keys(cx);
 
-        let bounds = Bounds::centered(None, size(px(1200.), px(740.)), cx);
+        // 1200 by 740, but never taller or wider than the screen minus the
+        // taskbar, so the bottom of every screen is in view from the start.
+        let (mut width, mut height) = (px(1200.), px(740.));
+        if let Some(display) = cx.primary_display() {
+            let visible = display.visible_bounds().size;
+            width = width.min(visible.width - px(32.));
+            height = height.min(visible.height - px(32.));
+        }
+        let bounds = Bounds::centered(None, size(width, height), cx);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             // The design's minimum window.
