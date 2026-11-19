@@ -95,6 +95,12 @@ struct Summary<'a> {
     /// both are sent to the site at every sign-in.
     #[serde(skip_serializing_if = "Option::is_none")]
     passkey: Option<PasskeySummary<'a>>,
+    /// For a login: when its password was set, and the breaches marked
+    /// resolved (E-15 and Monitor). Not secret.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    password_changed_at: Option<i64>,
+    #[serde(skip_serializing_if = "<[String]>::is_empty")]
+    resolved_breaches: &'a [String],
 }
 
 #[derive(Serialize)]
@@ -423,6 +429,14 @@ impl Session {
                     credential_id: &passkey.credential_id,
                 }),
                 _ => None,
+            },
+            password_changed_at: match &content.data {
+                ItemData::Login(login) => login.password_changed_at,
+                _ => None,
+            },
+            resolved_breaches: match &content.data {
+                ItemData::Login(login) => &login.resolved_breaches,
+                _ => &[],
             },
         })
         .map_err(|_| JsError::new("the item could not be read"))

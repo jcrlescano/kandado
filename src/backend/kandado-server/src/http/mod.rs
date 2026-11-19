@@ -9,6 +9,9 @@ mod health;
 #[cfg(test)]
 mod link_tests;
 mod links;
+mod monitor;
+#[cfg(test)]
+mod monitor_tests;
 mod sync;
 #[cfg(test)]
 mod sync_tests;
@@ -47,6 +50,7 @@ pub struct AppState {
     pub google: Arc<GoogleProvider>,
     pub hub: crate::events::Hub,
     pub viewer: viewer::Viewer,
+    pub monitor: crate::monitor::Monitor,
 }
 
 impl AppState {
@@ -59,6 +63,7 @@ impl AppState {
             )),
             hub: crate::events::Hub::new(),
             viewer: viewer::Viewer::load(config.viewer_dir.as_deref()),
+            monitor: crate::monitor::Monitor::new(config.monitor.clone()),
             config: Arc::new(config),
             db,
         }
@@ -92,7 +97,10 @@ pub fn router(state: AppState) -> Router {
         .route("/events", get(crate::events::events))
         .route("/links", post(links::create).get(links::list))
         .route("/links/{id}", delete(links::revoke))
-        .route("/public/links/{id}/open", post(links::open));
+        .route("/public/links/{id}/open", post(links::open))
+        .route("/monitor/pwned/{prefix}", get(monitor::pwned))
+        .route("/monitor/breaches", get(monitor::breaches))
+        .route("/monitor/2fa-sites", get(monitor::two_factor_sites));
     #[cfg(debug_assertions)]
     let v1 = v1.route("/dev/sign-in", get(auth::dev_sign_in));
 

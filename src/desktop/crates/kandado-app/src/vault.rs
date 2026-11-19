@@ -572,7 +572,9 @@ impl KandadoApp {
 
     /// Creates an item and returns its id.
     pub fn create_item(&self, vault: Uuid, content: &ItemContent) -> Result<Uuid, AppError> {
-        self.write(|store, session| items::create(store, session, vault, content, now()))
+        let mut content = content.clone();
+        content.note_password_change(None, now());
+        self.write(|store, session| items::create(store, session, vault, &content, now()))
     }
 
     /// Saves an edit. `vault` moves the item if it differs from where it is.
@@ -583,7 +585,11 @@ impl KandadoApp {
         content: &ItemContent,
     ) -> Result<(), AppError> {
         self.write(|store, session| {
-            items::update(store, session, id, content, now())?;
+            // Monitor needs to know when the password was set (D-36).
+            let mut content = content.clone();
+            let current = items::get(store, session, id)?.content;
+            content.note_password_change(Some(&current), now());
+            items::update(store, session, id, &content, now())?;
             items::move_to(store, session, &[id], vault, now())
         })
     }

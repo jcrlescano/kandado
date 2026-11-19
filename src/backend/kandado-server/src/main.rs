@@ -9,6 +9,7 @@ mod error;
 mod events;
 mod http;
 mod jobs;
+mod monitor;
 
 use std::{process::ExitCode, time::Duration};
 

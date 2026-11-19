@@ -178,6 +178,30 @@ impl ItemContent {
         Ok(bytes)
     }
 
+    /// Records when a login's password was set (Monitor compares it with
+    /// breach dates). A new login with a password, or a password that differs
+    /// from `previous`, is stamped `now`; otherwise the earlier stamp is kept.
+    pub fn note_password_change(&mut self, previous: Option<&ItemContent>, now: i64) {
+        let ItemData::Login(login) = &mut self.data else {
+            return;
+        };
+        let before = previous.and_then(|previous| match &previous.data {
+            ItemData::Login(before) => Some(before),
+            _ => None,
+        });
+        match before {
+            Some(before) if before.password == login.password => {
+                login.password_changed_at =
+                    login.password_changed_at.or(before.password_changed_at);
+            }
+            Some(_) => login.password_changed_at = Some(now),
+            None if !login.password.is_empty() && login.password_changed_at.is_none() => {
+                login.password_changed_at = Some(now);
+            }
+            None => {}
+        }
+    }
+
     /// Reads bytes made by [`ItemContent::encode`], by this or another version of Kandado.
     pub fn decode(bytes: &[u8]) -> Result<Self> {
         let (&version, json) = bytes.split_first().ok_or(Error::Format)?;
@@ -248,6 +272,17 @@ pub struct Login {
     /// The two-factor setup key as an `otpauth://` URI (see [`crate::totp`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub totp: Option<Secret>,
+    /// When the password was last set, in Unix seconds. Monitor compares it
+    /// with breach dates (D-36). Absent on items saved before it existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password_changed_at: Option<i64>,
+    /// Breaches (Have I Been Pwned names) the person marked as resolved for
+    /// this login (D-36 "Mark as resolved").
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resolved_breaches: Vec<String>,
+    /// The person said this login will not get two-factor (D-39 "Not for this item").
+    #[serde(default, skip_serializing_if = "core::ops::Not::not")]
+    pub no_two_factor: bool,
     #[serde(flatten)]
     pub extra: Extra,
 }
@@ -426,6 +461,9 @@ mod tests {
                         extra: Extra::new(),
                     }],
                     totp: Some("otpauth://totp/GitHub:juan?secret=JBSWY3DPEHPK3PXP".into()),
+                    password_changed_at: None,
+                    resolved_breaches: Vec::new(),
+                    no_two_factor: false,
                     extra: Extra::new(),
                 }),
                 extra: Extra::new(),

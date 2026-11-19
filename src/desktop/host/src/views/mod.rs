@@ -4,6 +4,7 @@
 //! comes back.
 
 pub mod items;
+pub mod monitor;
 pub mod settings;
 pub mod sharing;
 pub mod start;

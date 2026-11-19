@@ -8,6 +8,7 @@
 //! | [`contexts`] | The associated data of vault keys, item keys and content |
 //! | [`item`] | The seven item kinds, their fields and the versioned encoding |
 //! | [`link`] | A secure link's snapshot of one item, and its encryption |
+//! | [`health`] | Monitor: weak, reused, exposed and breached passwords, two-factor |
 //! | [`generator`] | Random and memorable passwords |
 //! | [`strength`] | Password strength as a 0 to 4 score |
 //! | [`totp`] | Two-factor codes (RFC 6238) and `otpauth://` setup keys |
@@ -19,6 +20,7 @@
 pub mod contexts;
 mod error;
 pub mod generator;
+pub mod health;
 pub mod item;
 pub mod link;
 mod secret;

@@ -38,6 +38,10 @@ pub struct Config {
     /// The built secure link viewer (`scripts/build-viewer.mjs`).
     /// `KANDADO_VIEWER_DIR`, default `src/backend/viewer/dist`; empty turns it off.
     pub viewer_dir: Option<PathBuf>,
+    /// Where Monitor fetches its lists. `KANDADO_PWNED_URL`,
+    /// `KANDADO_HIBP_URL` and `KANDADO_TWO_FACTOR_URL`; defaults are the real
+    /// sources (Have I Been Pwned and the 2FA Directory).
+    pub monitor: crate::monitor::Sources,
 }
 
 #[derive(Clone)]
@@ -67,6 +71,7 @@ impl Config {
             extension_redirect_hosts: vec!["test.chromiumapp.org".to_owned()],
             dev_auth: true,
             viewer_dir: None,
+            monitor: crate::monitor::Sources::default(),
         }
     }
 
@@ -148,6 +153,24 @@ impl Config {
             None => Some(PathBuf::from("src/backend/viewer/dist")),
         };
 
+        let defaults = crate::monitor::Sources::default();
+        let source = |name: &'static str, default: String| -> Result<String, ConfigError> {
+            let value = get(name)
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or(default)
+                .trim_end_matches('/')
+                .to_owned();
+            match url::Url::parse(&value) {
+                Ok(url) if matches!(url.scheme(), "https" | "http") => Ok(value),
+                _ => Err(ConfigError::Invalid(name, value)),
+            }
+        };
+        let monitor = crate::monitor::Sources {
+            pwned: source("KANDADO_PWNED_URL", defaults.pwned)?,
+            breaches: source("KANDADO_HIBP_URL", defaults.breaches)?,
+            two_factor: source("KANDADO_TWO_FACTOR_URL", defaults.two_factor)?,
+        };
+
         Ok(Self {
             bind,
             database_url,
@@ -159,6 +182,7 @@ impl Config {
             extension_redirect_hosts,
             dev_auth,
             viewer_dir,
+            monitor,
         })
     }
 }

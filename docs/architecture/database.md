@@ -80,7 +80,6 @@ From the backend outline; columns are settled when each migration is written.
 
 | Table | Phase | Purpose |
 | --- | --- | --- |
-| `monitored_emails`, `breaches`, `user_breaches` | 7 | Email monitoring and breach matches (D-36) |
 
 ### Authorisation in SQL
 

@@ -25,7 +25,13 @@ export interface Summary {
   has_totp: boolean;
   /** For a passkey: its site and credential id (not secret). */
   passkey?: { rp_id: string; credential_id: string };
+  /** For a login: when its password was set (Unix seconds), if recorded. */
+  password_changed_at?: number;
+  /** For a login: breaches marked resolved (E-15, Monitor). */
+  resolved_breaches?: string[];
   trashed: boolean;
+  /** Unix seconds, from the row. */
+  created_at: number;
   updated_at: number;
 }
 
@@ -209,6 +215,7 @@ export class Keyring implements Keys {
         this.session.itemSummary(row.vault_id, row.id, row.key_wrapped, row.content_enc),
       ) as Summary;
       summary.trashed = row.trashed_at !== null;
+      summary.created_at = row.created_at;
       summary.updated_at = row.updated_at;
       this.summaries.set(row.id, { version_id: row.version_id, summary });
       return summary;
