@@ -137,13 +137,13 @@ pub struct Settings {
 }
 
 /// Where the app talks to unless told otherwise. Development builds use the
-/// local server (`docker compose up`, `cargo run -p kandado-server`). The
-/// release address is a placeholder until the backend host is chosen
-/// (decision A9 in `docs/implementation-plan/decisions.md`).
+/// local server (`docker compose up`, `cargo run -p kandado-server`). Release
+/// builds use the server on the droplet (decision 16 in
+/// `docs/implementation-plan/decisions.md`). `KANDADO_SERVER_URL` overrides either.
 pub const DEFAULT_SERVER_URL: &str = if cfg!(debug_assertions) {
     "http://127.0.0.1:8080"
 } else {
-    "https://api.kandado.app"
+    "https://kandado.duckdns.org"
 };
 
 impl Default for Settings {

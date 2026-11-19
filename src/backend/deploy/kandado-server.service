@@ -1,0 +1,47 @@
+# systemd unit for kandado-server on the droplet (decision 16).
+# Install: sudo cp kandado-server.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#          sudo systemctl enable --now kandado-server
+#
+# The binary is /opt/kandado/current/kandado-server, a symlink the deploy
+# script moves to each new release. Settings come from /etc/kandado/kandado.env
+# (root-only: database password, token secret) and /opt/kandado/config/google.env
+# (the Google client, which the pipeline writes).
+
+[Unit]
+Description=Kandado server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kandado
+Group=kandado
+EnvironmentFile=/etc/kandado/kandado.env
+# Google sign-in, written by the deploy pipeline from GitHub secrets (optional).
+EnvironmentFile=-/opt/kandado/config/google.env
+WorkingDirectory=/opt/kandado/current
+ExecStart=/opt/kandado/current/kandado-server
+Restart=on-failure
+RestartSec=3
+# Let in-flight requests finish (the server stops on SIGTERM).
+TimeoutStopSec=20
+
+# Hardening: the server needs the network and nothing else on disk.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
