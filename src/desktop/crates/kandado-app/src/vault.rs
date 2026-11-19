@@ -481,6 +481,12 @@ impl KandadoApp {
         self.write(|store, session| vaults::update(store, session, id, meta, now()))
     }
 
+    /// Deletes a vault for good, with every item in it, here and, at the next
+    /// sync, on the server and every other computer. Refused for the last vault.
+    pub fn delete_vault(&self, id: Uuid) -> Result<(), AppError> {
+        self.write(|store, session| vaults::delete(store, session, id))
+    }
+
     // ---- lists and search -------------------------------------------------
 
     /// The rows of a list. Empty while locked.

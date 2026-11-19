@@ -120,6 +120,7 @@ push (one device, one batch)
 - Trashing sets `trashed_at` (device clock) and `trashed_on` (server clock, set the first time only). Restoring clears both.
 - Deleting for good turns the row into a tombstone: `content_enc` and `item_key_wrapped` become empty, `deleted_at` is set, a new revision is drawn and every `item_revisions` row for the item is deleted. The row itself stays so other devices learn of the deletion through `revision > cursor`.
 - A tombstone beats any edit: a push against a deleted item always comes back as a conflict.
+- Deleting a vault is a push of that vault with `deleted` set. Only its owner may, and not their last live vault (refused). Every live item in it becomes a tombstone as above, each with its own revision, its secure links end, and then the vault gets `deleted_at` and a newer revision. The vault row keeps `meta_enc` and the sealed key, which the server cannot read, so a client from before vault deletion sees an empty vault rather than one it cannot open. Pull returns deleted vaults with `deleted: true`. Any later push to the vault, or to one of its tombstoned items (an edit, or a move into another vault), comes back as a conflict carrying the tombstone.
 - The trash purge job runs hourly and tombstones items whose `trashed_on` is more than 30 days old. It works one user at a time under that user's advisory lock, so its revisions stay ordered and it is safe on several server instances at once. It reads `trashed_on`, never a device clock.
 
 ### Notifications
@@ -154,9 +155,10 @@ The desktop app's local copy lives in `%APPDATA%\Kandado\vault.db`, opened by `k
 | `items` | `key_enc`, `content_enc`, `version_id`, timestamps, `trashed_at`, `server_revision`, `dirty`, and the merge base (`base_digest`, `base_vault_id`, `base_trashed_at`). Indexed by `vault_id` |
 | `item_revisions` | Earlier versions: `local_id`, `item_id`, `version_id`, `content_enc`, `saved_at`. Unique (`item_id`, `version_id`) |
 | `tombstones` | Items deleted here that the server still has: `item_id`, `vault_id`, `server_revision` |
+| `vault_tombstones` | Vaults deleted here that the server still has: `vault_id`, `server_revision`. Their items were removed with them and are not sent one by one |
 | `sync_state` | One row: the cursor, how far this computer has read the server's changes |
 
-There is no separate outbox. A row waiting to be sent is marked `dirty = 1`; a deletion waiting to be sent is a row in `tombstones`. `server_revision` is the `base_revision` sent with the change, and 0 means the server has never seen the row.
+There is no separate outbox. A row waiting to be sent is marked `dirty = 1`; a deletion waiting to be sent is a row in `tombstones` or `vault_tombstones`. A vault's deletion is sent only in a batch with no items, so an item moved out of it just before reaches its new vault first. If the server refuses it, the cursor goes back to 0 and the next pull brings the vault back. `server_revision` is the `base_revision` sent with the change, and 0 means the server has never seen the row.
 
 The merge base records what the server had at the last sync (a SHA-256 of `content_enc`, the vault and the trash state). With it, sync can tell which side changed what and do a three-way merge instead of overwriting.
 
@@ -169,6 +171,7 @@ The schema version is `PRAGMA user_version`, upgraded step by step in `Store::in
 | 1 | 1 | `account`, `device_wrap` |
 | 2 | 2 | `vaults`, `items`, `item_revisions` (local only) |
 | 3 | 3 | Rebuilds the three for sync, keeping existing rows: each gets a random `version_id` and is marked dirty. Adds `tombstones` and `sync_state` |
+| 4 | — | Deleting a vault: adds `vault_tombstones` |
 
 A file newer than the app knows is refused with `StoreError::Corrupt` rather than read wrongly. Rebuilding a table is done in one transaction with `defer_foreign_keys` on.
 

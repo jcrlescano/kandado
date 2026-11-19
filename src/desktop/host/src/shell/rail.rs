@@ -966,6 +966,30 @@ impl VaultShell {
                     cx,
                 )
             }
+            Overlay::DeleteVault(id) => {
+                let (name, _) = self.vault_name(*id);
+                let n = self
+                    .vaults
+                    .iter()
+                    .find(|vault| vault.id == *id)
+                    .map_or(0, |vault| vault.item_count);
+                let what = match n {
+                    0 => format!("{name} is"),
+                    1 => format!("{name} and its 1 item are"),
+                    n => format!("{name} and its {n} items are"),
+                };
+                self.confirm(
+                    Some(IconName::Trash),
+                    format!("Delete {name}?"),
+                    format!(
+                        "{what} deleted for good on every device signed in to your account, \
+                         with any of its items in the trash. This can\u{2019}t be undone."
+                    ),
+                    "Cancel",
+                    "Delete vault",
+                    cx,
+                )
+            }
             Overlay::Discard(_) => {
                 let name = match &self.pane {
                     Pane::Form(form) => form.read(cx).display_name(cx),

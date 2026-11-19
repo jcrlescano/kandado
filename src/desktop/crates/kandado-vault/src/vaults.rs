@@ -1,11 +1,12 @@
-//! Vaults: opening them at unlock, creating and renaming them.
+//! Vaults: opening them at unlock, creating, renaming and deleting them.
 //!
 //! Each vault has its own random key. The key is sealed to the account's
 //! X25519 public key, the same way it will be sealed to other members when
 //! vaults are shared, so nothing changes in the stored form then. The vault's
 //! name, colour and icon are encrypted with the vault key.
 //!
-//! A vault made or renamed here is marked as not yet sent; sync sends it.
+//! A vault made or renamed here is marked as not yet sent; sync sends it. A
+//! vault deleted here leaves a tombstone, which sync sends.
 
 use kandado_crypto::{
     Context, SecretKey, account, aead,
@@ -17,7 +18,7 @@ use uuid::Uuid;
 use crate::{
     Session, Store, VaultError, items,
     session::AccountKeys,
-    store::{LocalAccount, VaultRow},
+    store::{LocalAccount, VaultRow, VaultTombstone},
 };
 
 /// A vault as lists and menus show it.
@@ -132,6 +133,41 @@ pub fn update(
     row.dirty = true;
     store.put_vault(&row)?;
     Ok(())
+}
+
+/// Deletes a vault for good, with every item in it, the trashed ones too,
+/// and their history. The last vault cannot be deleted: there would be
+/// nowhere to keep a new item. A vault the server has leaves a tombstone,
+/// which sync sends; the server then deletes it, and its items, everywhere.
+pub fn delete(store: &Store, session: &mut Session, id: Uuid) -> Result<(), VaultError> {
+    if !session.is_unlocked() {
+        return Err(VaultError::Locked);
+    }
+    let vaults = store.vaults()?;
+    let row = vaults
+        .iter()
+        .find(|vault| vault.id == id)
+        .ok_or(VaultError::NotFound)?;
+    if vaults.len() < 2 {
+        return Err(VaultError::LastVault);
+    }
+    store.atomically(|store| {
+        if row.server_revision > 0 {
+            store.put_vault_tombstone(&VaultTombstone {
+                vault_id: id,
+                server_revision: row.server_revision,
+            })?;
+        }
+        store.delete_vault(id)
+    })?;
+    forget(session, id);
+    Ok(())
+}
+
+/// Drops a deleted vault's key and its items from the session.
+pub(crate) fn forget(session: &mut Session, id: Uuid) {
+    session.vault_keys.remove(&id);
+    session.index.remove_vault(id);
 }
 
 /// Every vault, oldest first, with its item count.

@@ -272,3 +272,58 @@ async fn the_server_going_away_and_coming_back_loses_nothing() {
     let _ = SyncFailure::Other;
     drop(server);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs the server binary and PostgreSQL; see the module docs"]
+async fn a_vault_deleted_on_one_computer_leaves_the_other_with_its_items() {
+    let server = start_server().await;
+    let email = unique_email();
+    let tasks = Tasks::new().unwrap();
+
+    let a = first_computer(&server, &email).await;
+    a.start_sync(&tasks);
+    let personal = first_vault(&a);
+    let kept = a.create_item(personal, &login("Kept", "pw")).unwrap();
+    let work = a
+        .create_vault(&kandado_model::VaultMeta::new("Work", "sky", "bolt"))
+        .unwrap();
+    let jira = a.create_item(work, &login("Jira", "pw")).unwrap();
+
+    let b = second_computer(&server, &email).await;
+    b.start_sync(&tasks);
+    until(
+        "both items on the second computer",
+        Duration::from_secs(15),
+        || b.entry(jira).and(b.entry(kept)),
+    )
+    .await;
+    assert_eq!(b.vaults().unwrap().len(), 2);
+
+    let started = Instant::now();
+    a.delete_vault(work).unwrap();
+    until(
+        "the vault to leave the second computer",
+        Duration::from_secs(10),
+        || (b.vaults().unwrap().len() == 1 && b.entry(jira).is_none()).then_some(()),
+    )
+    .await;
+    eprintln!(
+        "vault deletion reached the other computer in {:?}",
+        started.elapsed()
+    );
+    assert_eq!(b.vaults().unwrap()[0].id, personal);
+    assert!(b.entry(kept).is_some());
+    // The last vault is refused on both.
+    assert!(a.delete_vault(personal).is_err());
+    assert!(b.delete_vault(personal).is_err());
+    until("syncing to settle", Duration::from_secs(10), || {
+        (a.sync_status().state == SyncState::Idle && b.sync_status().state == SyncState::Idle)
+            .then_some(())
+    })
+    .await;
+    drop(server);
+    // The background runtime cannot be dropped from inside async code.
+    tokio::task::spawn_blocking(move || drop(tasks))
+        .await
+        .unwrap();
+}

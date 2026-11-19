@@ -1,7 +1,8 @@
 //! Sync, without a network: the real client algorithm against an in-memory
 //! server that follows the same rules as `kandado-server` (a change is
 //! accepted only against the row's current revision, a deletion is a
-//! tombstone that beats edits, every version is kept).
+//! tombstone that beats edits, every version is kept, a vault's deletion
+//! tombstones its items and beats every later change to them).
 //!
 //! The last test is the phase's property test: three computers make random
 //! edits, some of them offline, sync in random order, and in the end must hold
@@ -63,6 +64,16 @@ impl Server {
         let state = self.state.lock().unwrap();
         state.items.values().filter(|item| !item.deleted).count()
     }
+
+    fn live_vaults(&self) -> Vec<Uuid> {
+        let state = self.state.lock().unwrap();
+        state
+            .vaults
+            .values()
+            .filter(|vault| !vault.deleted)
+            .map(|vault| vault.id)
+            .collect()
+    }
 }
 
 /// One computer's connection. Offline, every call fails.
@@ -118,6 +129,42 @@ impl Remote for Link<'_> {
         let mut vaults = Vec::new();
         for change in &request.vaults {
             vaults.push(match state.vaults.get(&change.id).cloned() {
+                Some(current) if current.deleted => ChangeResult::Conflict { current },
+                Some(mut current) if change.deleted => {
+                    let others = state
+                        .vaults
+                        .values()
+                        .any(|v| v.id != change.id && !v.deleted);
+                    if !others {
+                        ChangeResult::Rejected
+                    } else {
+                        let mut gone: Vec<SyncItem> = state
+                            .items
+                            .values()
+                            .filter(|i| i.vault_id == change.id && !i.deleted)
+                            .cloned()
+                            .collect();
+                        for item in &mut gone {
+                            state.revision += 1;
+                            item.revision = state.revision;
+                            item.deleted = true;
+                            item.content_enc = Opaque::default();
+                            item.key_wrapped = Opaque::default();
+                            state.versions.retain(|(id, _), _| *id != item.id);
+                        }
+                        for item in gone {
+                            state.items.insert(item.id, item);
+                        }
+                        state.revision += 1;
+                        current.deleted = true;
+                        current.revision = state.revision;
+                        state.vaults.insert(current.id, current.clone());
+                        ChangeResult::Applied {
+                            revision: current.revision,
+                        }
+                    }
+                }
+                None if change.deleted => ChangeResult::Rejected,
                 None if change.revision == 0 => {
                     state.revision += 1;
                     let mut row = change.clone();
@@ -144,11 +191,21 @@ impl Remote for Link<'_> {
         }
         let mut items = Vec::new();
         for change in &request.items {
-            if !state.vaults.contains_key(&change.vault_id) {
+            let current = state.items.get(&change.id).cloned();
+            if let Some(current) = current.as_ref().filter(|current| current.deleted) {
+                items.push(ChangeResult::Conflict {
+                    current: current.clone(),
+                });
+                continue;
+            }
+            if !state
+                .vaults
+                .get(&change.vault_id)
+                .is_some_and(|vault| !vault.deleted)
+            {
                 items.push(ChangeResult::Rejected);
                 continue;
             }
-            let current = state.items.get(&change.id).cloned();
             let result = match current {
                 None if change.revision == 0 => {
                     state.revision += 1;
@@ -327,6 +384,25 @@ impl Computer {
     fn trash(&self, id: Uuid) {
         let now = self.now();
         self.with(|store, session| items::trash(store, session, &[id], now))
+            .unwrap();
+    }
+
+    fn add_vault(&self, name: &str) -> Uuid {
+        let now = self.now();
+        self.with(|store, session| {
+            vaults::create(store, session, &VaultMeta::new(name, "sky", "bolt"), now)
+        })
+        .unwrap()
+    }
+
+    fn delete_vault(&self, id: Uuid) {
+        self.with(|store, session| vaults::delete(store, session, id))
+            .unwrap();
+    }
+
+    fn move_to(&self, id: Uuid, vault: Uuid) {
+        let now = self.now();
+        self.with(|store, session| items::move_to(store, session, &[id], vault, now))
             .unwrap();
     }
 
@@ -717,6 +793,190 @@ impl Remote for Refusing<'_> {
             cursor: 0,
         })
     }
+}
+
+#[tokio::test]
+async fn a_deleted_vault_leaves_every_computer_with_its_items() {
+    let world = World::new();
+    let (ana, bea) = (world.computer(true), world.computer(false));
+    let personal = ana.vault(0);
+    let kept = ana.create(personal, "Kept", "pw");
+    let work = ana.add_vault("Work");
+    let jira = ana.create(work, "Jira", "pw-1");
+    let old = ana.create(work, "Old", "pw-2");
+    ana.trash(old);
+    world.sync(&ana).await.unwrap();
+    world.sync(&bea).await.unwrap();
+    assert_eq!(bea.snapshot().vaults.len(), 2);
+
+    ana.delete_vault(work);
+    let gone = ana.snapshot();
+    assert_eq!(gone.vaults.keys().copied().collect::<Vec<_>>(), [personal]);
+    assert_eq!(gone.items.keys().copied().collect::<Vec<_>>(), [kept]);
+    assert!(gone.unsent, "the deletion waits to be sent");
+    ana.with(|_, session| {
+        assert!(session.index().get(jira).is_none() && session.index().get(old).is_none());
+        Ok(())
+    })
+    .unwrap();
+
+    let report = world.sync(&ana).await.unwrap();
+    assert_eq!(report.pushed, 1);
+    assert!(!ana.snapshot().unsent);
+    assert_eq!(world.server.live_vaults(), [personal]);
+    assert_eq!(world.server.live_items(), 1);
+    assert!(world.server.versions_of(jira).is_empty());
+
+    let report = world.sync(&bea).await.unwrap();
+    assert!(report.changed);
+    let seen = bea.snapshot();
+    assert_eq!(seen, ana.snapshot());
+    assert!(bea.item(jira).is_none() && bea.item(old).is_none());
+    bea.with(|_, session| {
+        assert_eq!(session.index().count(None), 1);
+        assert_eq!(session.index().trash_count(), 0);
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[tokio::test]
+async fn changes_elsewhere_to_a_deleted_vault_lose_to_the_deletion() {
+    let world = World::new();
+    let (ana, bea) = (world.computer(true), world.computer(false));
+    let personal = ana.vault(0);
+    let work = ana.add_vault("Work");
+    let jira = ana.create(work, "Jira", "pw-1");
+    let wiki = ana.create(work, "Wiki", "pw-2");
+    world.sync(&ana).await.unwrap();
+    world.sync(&bea).await.unwrap();
+
+    // Offline, Bea edits one item, moves another out, adds a new one and
+    // renames the vault; Ana deletes it.
+    bea.online.store(false, Ordering::SeqCst);
+    bea.edit(jira, |content| set_password(content, "pw-new"));
+    bea.move_to(wiki, personal);
+    let added = bea.create(work, "New", "pw-3");
+    bea.with(|store, session| {
+        vaults::update(
+            store,
+            session,
+            work,
+            &VaultMeta::new("Job", "sky", "bolt"),
+            9,
+        )
+    })
+    .unwrap();
+    ana.delete_vault(work);
+    world.sync(&ana).await.unwrap();
+
+    bea.online.store(true, Ordering::SeqCst);
+    world.sync(&bea).await.unwrap();
+    world.sync(&ana).await.unwrap();
+    let seen = bea.snapshot();
+    assert_eq!(seen, ana.snapshot());
+    assert!(!seen.unsent, "nothing is left trying");
+    assert_eq!(seen.vaults.keys().copied().collect::<Vec<_>>(), [personal]);
+    for id in [jira, wiki, added] {
+        assert!(bea.item(id).is_none(), "{id} went with the vault");
+    }
+    assert_eq!(world.server.live_items(), 0);
+}
+
+#[tokio::test]
+async fn an_item_moved_out_just_before_its_vault_is_deleted_is_kept() {
+    let world = World::new();
+    let (ana, bea) = (world.computer(true), world.computer(false));
+    let personal = ana.vault(0);
+    let work = ana.add_vault("Work");
+    let jira = ana.create(work, "Jira", "pw-1");
+    world.sync(&ana).await.unwrap();
+
+    // Both happen before the next sync, which sends them together.
+    ana.move_to(jira, personal);
+    ana.delete_vault(work);
+    world.sync(&ana).await.unwrap();
+    world.sync(&bea).await.unwrap();
+
+    assert_eq!(world.server.live_vaults(), [personal]);
+    assert_eq!(world.server.live_items(), 1);
+    let seen = bea.snapshot();
+    assert_eq!(seen, ana.snapshot());
+    assert_eq!(seen.items[&jira].3, personal);
+    assert_eq!(bea.item(jira).unwrap().content, login("Jira", "pw-1"));
+}
+
+#[tokio::test]
+async fn an_item_moved_elsewhere_into_a_vault_deleted_here_goes_with_it() {
+    let world = World::new();
+    let (ana, bea) = (world.computer(true), world.computer(false));
+    let personal = ana.vault(0);
+    let work = ana.add_vault("Work");
+    let home = ana.create(personal, "Home", "pw");
+    world.sync(&ana).await.unwrap();
+    world.sync(&bea).await.unwrap();
+
+    // Bea deletes Work while offline; Ana moves an item into it.
+    bea.online.store(false, Ordering::SeqCst);
+    bea.delete_vault(work);
+    ana.move_to(home, work);
+    world.sync(&ana).await.unwrap();
+
+    // Bea pulls the move into a vault she no longer has, then sends the
+    // deletion, which takes the item on the server too.
+    bea.online.store(true, Ordering::SeqCst);
+    world.sync(&bea).await.unwrap();
+    world.sync(&ana).await.unwrap();
+    let seen = bea.snapshot();
+    assert_eq!(seen, ana.snapshot());
+    assert!(!seen.unsent);
+    assert_eq!(seen.vaults.keys().copied().collect::<Vec<_>>(), [personal]);
+    assert!(bea.item(home).is_none() && ana.item(home).is_none());
+    assert_eq!(world.server.live_items(), 0);
+}
+
+#[tokio::test]
+async fn the_last_vault_cannot_be_deleted_here_or_on_the_server() {
+    let world = World::new();
+    let (ana, bea) = (world.computer(true), world.computer(false));
+    let personal = ana.vault(0);
+    let alone = ana.with(|store, session| vaults::delete(store, session, personal));
+    assert!(matches!(alone, Err(VaultError::LastVault)), "{alone:?}");
+
+    // With two, each computer deletes a different one before hearing of the
+    // other. The second deletion is refused and its vault comes back there.
+    let home = ana.create(personal, "Home", "pw");
+    let work = ana.add_vault("Work");
+    let jira = ana.create(work, "Jira", "pw-1");
+    world.sync(&ana).await.unwrap();
+    world.sync(&bea).await.unwrap();
+    ana.delete_vault(work);
+    bea.delete_vault(personal);
+    world.sync(&ana).await.unwrap();
+    let report = world.sync(&bea).await.unwrap();
+    assert_eq!(report.rejected, 1);
+
+    assert_eq!(world.server.live_vaults(), [personal]);
+    let seen = bea.snapshot();
+    assert_eq!(seen, ana.snapshot());
+    assert!(!seen.unsent);
+    assert_eq!(seen.vaults.keys().copied().collect::<Vec<_>>(), [personal]);
+    assert_eq!(bea.item(home).unwrap().content, login("Home", "pw"));
+    assert!(bea.item(jira).is_none());
+}
+
+#[tokio::test]
+async fn a_vault_deleted_before_it_was_ever_sent_leaves_nothing_to_send() {
+    let world = World::new();
+    let ana = world.computer(true);
+    world.sync(&ana).await.unwrap();
+    let draft = ana.add_vault("Draft");
+    ana.create(draft, "Note", "pw");
+    ana.delete_vault(draft);
+    assert!(!ana.snapshot().unsent);
+    let report = world.sync(&ana).await.unwrap();
+    assert_eq!(report.pushed, 0);
+    assert_eq!(world.server.live_vaults().len(), 1);
 }
 
 #[tokio::test]

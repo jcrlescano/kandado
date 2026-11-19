@@ -122,6 +122,57 @@ describe("sync between two devices", () => {
     expect(await b.keyring.items()).toEqual([]);
   });
 
+  it("a vault deleted elsewhere leaves this device's lists, with its items", async () => {
+    const { server, a, b } = await setup();
+    await sync(a.store, a.keyring, server);
+    const kept = uuidv7();
+    const trashed = uuidv7();
+    await a.keyring.createItem(world.vaultId, kept, login("Gone"), now(), uuidv7());
+    await a.keyring.createItem(world.vaultId, trashed, login("Trashed"), now(), uuidv7());
+    await sync(a.store, a.keyring, server);
+    await sync(b.store, b.keyring, server);
+    expect((await b.keyring.vaults()).map((vault) => vault.id)).toEqual([world.vaultId]);
+
+    // Its owner deletes it on another device: the server tombstones each item,
+    // then the vault, each at a newer revision.
+    let revision = 100;
+    for (const [id, row] of server.items) {
+      revision += 1;
+      server.items.set(id, { ...row, deleted: true, key_wrapped: "", content_enc: "", revision });
+    }
+    const vault = server.vaults.get(world.vaultId);
+    if (!vault) throw new Error("not on the server");
+    server.vaults.set(world.vaultId, { ...vault, deleted: true, revision: revision + 1 });
+    const report = await sync(b.store, b.keyring, server);
+    expect(report.changed).toBe(true);
+    expect(await b.keyring.vaults()).toEqual([]);
+    expect(await b.keyring.items()).toEqual([]);
+    expect(await b.store.read((tx) => tx.items())).toEqual([]);
+  });
+
+  it("a deleted vault takes its items even when their tombstones come later", async () => {
+    const { server, a, b } = await setup();
+    await sync(a.store, a.keyring, server);
+    const id = uuidv7();
+    await a.keyring.createItem(world.vaultId, id, login("Inside"), now(), uuidv7());
+    await sync(a.store, a.keyring, server);
+    await sync(b.store, b.keyring, server);
+
+    const vault = server.vaults.get(world.vaultId);
+    if (!vault) throw new Error("not on the server");
+    server.vaults.set(world.vaultId, { ...vault, deleted: true, revision: 200 });
+    await sync(b.store, b.keyring, server);
+    expect(await b.keyring.vaults()).toEqual([]);
+    expect(await b.keyring.items()).toEqual([]);
+
+    // An edit of one of its items, pulled after the deletion, is not kept.
+    const row = server.items.get(id);
+    if (!row) throw new Error("not on the server");
+    server.items.set(id, { ...row, revision: 201 });
+    await sync(b.store, b.keyring, server);
+    expect(await b.store.read((tx) => tx.items())).toEqual([]);
+  });
+
   it("a long pull in pages gets everything", async () => {
     const { server, a, b } = await setup();
     await sync(a.store, a.keyring, server);
