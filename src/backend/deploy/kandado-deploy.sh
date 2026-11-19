@@ -12,6 +12,11 @@
 # the deploy user writes. Empty input leaves that file as it is. The values are
 # never printed.
 #
+# The archive may carry `redirect-hosts`: the extensions' sign-in redirect
+# hosts, comma separated. They become KANDADO_EXTENSION_REDIRECT_HOSTS in the
+# same file, which the service reads after /etc/kandado/kandado.env, so the
+# pipeline's list wins over an empty or older one there.
+#
 # The release is unpacked to /opt/kandado/releases/<sha>, `current` is pointed
 # at it, and the service restarts. If /readyz does not answer within 60 s,
 # `current` goes back to the previous release and the service restarts again.
@@ -58,6 +63,23 @@ chmod -R go-w "$target.tmp"
 chmod -R a+rX "$target.tmp"
 rm -rf "$target"
 mv "$target.tmp" "$target"
+
+# The extensions' redirect hosts, if this release names them. Other lines in
+# the file, such as the Google client, are kept.
+if [[ -f $target/redirect-hosts ]]; then
+  hosts=$(tr -d '[:space:]' < "$target/redirect-hosts")
+  [[ $hosts =~ ^[a-z0-9.-]+(,[a-z0-9.-]+)*$ ]] || { echo "redirect-hosts is not a list of host names" >&2; exit 2; }
+  settings=$root/config/google.env
+  mkdir -p "$root/config"
+  (
+    umask 027
+    { grep -v '^KANDADO_EXTENSION_REDIRECT_HOSTS=' "$settings" 2>/dev/null || true
+      printf 'KANDADO_EXTENSION_REDIRECT_HOSTS=%s\n' "$hosts"
+    } > "$settings.tmp"
+  )
+  mv -f "$settings.tmp" "$settings"
+  echo "extension redirect hosts: $hosts"
+fi
 
 previous=$(readlink -f "$root/current" 2>/dev/null || true)
 

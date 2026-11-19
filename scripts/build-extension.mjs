@@ -5,6 +5,7 @@
 //   node scripts/build-extension.mjs --browser=chrome
 //   node scripts/build-extension.mjs --skip-wasm     reuse src/extensions/wasm/pkg
 //   node scripts/build-extension.mjs --server=URL    the API address (or KANDADO_SERVER_URL)
+//   node scripts/build-extension.mjs --no-key        no fixed ID, for store uploads
 //
 // Output: src/extensions/dist/{chrome,edge,firefox}. Load that folder as an
 // unpacked extension. The manifest is the base plus the browser's own file.
@@ -18,6 +19,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const extension = resolve(root, "src/extensions");
 const args = process.argv.slice(2);
 const dev = args.includes("--dev");
+const noKey = args.includes("--no-key");
 const only = args.find((arg) => arg.startsWith("--browser="))?.slice("--browser=".length);
 const browsers = only ? [only] : ["chrome", "edge", "firefox"];
 
@@ -61,9 +63,13 @@ function manifest(browser) {
   const read = (name) => JSON.parse(readFileSync(resolve(extension, "manifests", name), "utf8"));
   const merged = merge(read("base.json"), read(`${browser}.json`));
   merged.version = version;
-  // Development Chromium builds get a fixed ID (see manifests/dev.json), so the
-  // desktop app can let them use its native messaging host.
-  if (dev && browser !== "firefox") merged.key = read("dev.json").key;
+  // Chromium builds get a fixed ID, so the server allows their sign-in redirect
+  // and the desktop app lets them use its native messaging host: development
+  // builds from manifests/dev.json, release zips from manifests/release.json.
+  // Store uploads leave it out; the stores give their own IDs.
+  if (browser !== "firefox" && !noKey) {
+    merged.key = read(dev ? "dev.json" : "release.json").key;
+  }
   const hosts = new Set(merged.host_permissions ?? []);
   hosts.add(`${new URL(server).origin}/*`);
   // Development builds may read and fill local fixture pages without the

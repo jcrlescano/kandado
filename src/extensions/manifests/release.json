@@ -1,0 +1,4 @@
+{
+  "//": "Release zips only (Chrome and Edge, loaded unpacked until the store listings exist): a fixed public key gives the extension a fixed ID, klnafmilbalngnmchikojeckmjahjddb, so the server can allow its sign-in redirect host and the desktop app can trust it. The private half was never kept. Store uploads leave the key out (--no-key): the stores assign their own IDs.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnTI5K72qgzT4auLaYIZgyf67d2VNW1APbctzHCbqLhE22hb3eCPiUq7kpJdTyw4DbZOLZ40QsAFYvjD6GialXceXOSRXA2ZQcVeOf90vUqHUmDn0sMgE1KAUxLVK1n6X2EfM0fzfTXQ/fc3CcBUin7ossxDP3XFSoWlmdfPgQxy2y9CkODq9P4HSoLLyHamwpoKtexKxEQfjyWg+A66qptrIyYNYPWo9cr05/tDMAM9pTPGQy1O2BUUspllLGTCc+yYaxOFfywRqR25FYXBzMEwxHDdIC/CLOlTMXvcoYgwmxK83XHhh6SSOk2xCCqrQocbGzxjMp9jtrNmn773qIwIDAQAB"
+}

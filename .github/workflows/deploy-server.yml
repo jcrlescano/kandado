@@ -8,6 +8,8 @@
 #            DEPLOY_KNOWN_HOSTS  the droplet's host key line(s), from `ssh-keyscan`
 #            GOOGLE_CLIENT_ID     Google sign-in (optional; both or neither), written
 #            GOOGLE_CLIENT_SECRET to /opt/kandado/config/google.env on each deploy
+# The extensions' sign-in redirect hosts come from the repository
+# (manifests/release.json) and go into the same file on each deploy.
 #   vars     KANDADO_PUBLIC_URL  https://<name>.duckdns.org, for the check after deploy
 # See src/backend/deploy/DEPLOY.md.
 name: Deploy server
@@ -22,6 +24,8 @@ on:
       - "src/extensions/src/ui/vendor/**"
       - "scripts/build-viewer.mjs"
       - "scripts/build-wasm.mjs"
+      - "scripts/extension-id.mjs"
+      - "src/extensions/manifests/release.json"
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
@@ -74,6 +78,9 @@ jobs:
           mkdir -p release/viewer
           cp target/release/kandado-server release/
           cp -r src/backend/viewer/dist/. release/viewer/
+          # The release zips' sign-in redirect host; the deploy script hands it to the server.
+          node scripts/extension-id.mjs --host > release/redirect-hosts
+          cat release/redirect-hosts
           tar -czf "kandado-server-${GITHUB_SHA}.tar.gz" -C release .
           cp src/backend/deploy/kandado-deploy.sh .
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
