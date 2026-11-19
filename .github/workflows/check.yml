@@ -102,16 +102,19 @@ jobs:
           cargo install wasm-bindgen-cli --version 0.2.130 --locked
           cargo test -p kandado-wasm --target wasm32-unknown-unknown --locked
 
-      # The extension: types, unit tests (they build the WebAssembly core with
-      # the test helpers first) and a build of every browser's folder.
+      # The extension: types, unit tests and a build of every browser's folder.
+      # The types import both WebAssembly packages (the release one and the one
+      # with the test helpers), which are generated, so they are built first.
       - name: Extension types and tests
         if: runner.os == 'Linux'
         run: |
+          node scripts/build-wasm.mjs
+          node scripts/build-wasm.mjs --testing --dev
           node src/extensions/node_modules/typescript/bin/tsc -p src/extensions --noEmit
           node src/extensions/node_modules/vitest/vitest.mjs run --root src/extensions
       - name: Extension build
         if: runner.os == 'Linux'
-        run: node scripts/build-extension.mjs
+        run: node scripts/build-extension.mjs --skip-wasm
       # The built extension in a real browser, against the fake server the tests
       # start. Branded Chrome no longer loads unpacked extensions, so CI uses
       # Playwright's own Chromium, headed under a virtual display.

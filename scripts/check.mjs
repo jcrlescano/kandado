@@ -9,8 +9,11 @@ const js = [
   ["node", ["scripts/sync-tokens.mjs", "--check"]],
   ["node", ["scripts/sync-icons.mjs", "--check"]],
   ["node", ["scripts/sync-ui.mjs", "--check"]],
-  // The extension: types, then unit tests (which build the WebAssembly core first;
-  // that needs the wasm-bindgen CLI, see scripts/build-wasm.mjs).
+  // The extension: types, then unit tests. The types import both generated
+  // WebAssembly packages, so they are built first (needs the wasm-bindgen CLI,
+  // see scripts/build-wasm.mjs).
+  ["node", ["scripts/build-wasm.mjs"]],
+  ["node", ["scripts/build-wasm.mjs", "--testing", "--dev"]],
   ["node", ["src/extensions/node_modules/typescript/bin/tsc", "-p", "src/extensions", "--noEmit"]],
   ["node", ["src/extensions/node_modules/vitest/vitest.mjs", "run", "--root", "src/extensions"]],
 ];
