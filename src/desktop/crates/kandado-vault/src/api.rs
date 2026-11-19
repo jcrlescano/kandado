@@ -5,9 +5,10 @@
 use std::{fmt, sync::Arc, time::Duration};
 
 use kandado_protocol::{
-    AccountKeys, ChangeMaster, ClientKind, DeviceInfo, DeviceList, FlowPurpose, ItemVersions, Me,
-    PROBLEM_CONTENT_TYPE, Problem, ProblemCode, PullResponse, PushRequest, PushResponse,
-    RefreshRequest, StartQuery, TokenRequest, TokenResponse,
+    AccountKeys, ChangeMaster, ClientKind, CreateLink, DeviceInfo, DeviceList, FlowPurpose,
+    ItemVersions, LinkCreated, LinkList, Me, PROBLEM_CONTENT_TYPE, Problem, ProblemCode,
+    PullResponse, PushRequest, PushResponse, RefreshRequest, StartQuery, TokenRequest,
+    TokenResponse,
 };
 use reqwest::{Method, StatusCode};
 use serde::{Serialize, de::DeserializeOwned};
@@ -405,6 +406,26 @@ impl Api {
 
     pub async fn revoke_other_devices(&self) -> Result<(), ApiError> {
         self.authed(Method::POST, "v1/devices/revoke-others", None)
+            .await
+            .map(|_| ())
+    }
+
+    // ---- secure links (D-32, D-33) -------------------------------------
+
+    /// Stores a link's encrypted payload. The key is not in `link` and never
+    /// goes to the server.
+    pub async fn create_link(&self, link: &CreateLink) -> Result<LinkCreated, ApiError> {
+        let body =
+            serde_json::to_vec(link).map_err(|error| ApiError::Unexpected(error.to_string()))?;
+        decode(&self.authed(Method::POST, "v1/links", Some(body)).await?)
+    }
+
+    pub async fn links(&self) -> Result<LinkList, ApiError> {
+        self.get_json("v1/links").await
+    }
+
+    pub async fn revoke_link(&self, id: Uuid) -> Result<(), ApiError> {
+        self.authed(Method::DELETE, &format!("v1/links/{id}"), None)
             .await
             .map(|_| ())
     }

@@ -10,6 +10,7 @@
 
 mod account;
 mod auth;
+mod links;
 mod opaque;
 mod problem;
 mod sync;
@@ -17,6 +18,7 @@ mod sync;
 pub use account::*;
 pub use auth::*;
 pub use kandado_model::ItemKind;
+pub use links::*;
 pub use opaque::Opaque;
 pub use problem::{Problem, ProblemCode};
 use serde::{Deserialize, Serialize};

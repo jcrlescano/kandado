@@ -5,6 +5,7 @@
 
 pub mod items;
 pub mod settings;
+pub mod sharing;
 pub mod start;
 pub mod system;
 pub mod vaults;
@@ -99,7 +100,10 @@ pub fn explain(error: &AppError) -> SharedString {
         AppError::Vault(_) | AppError::Store(_) | AppError::Secrets(_) | AppError::Settings(_) => {
             "Kandado could not read or write its data on this computer.".into()
         }
-        AppError::Crypto(_) | AppError::WrongState => {
+        AppError::Model(kandado_model::Error::NotShareable) => {
+            "A passkey can\u{2019}t be shared by link.".into()
+        }
+        AppError::Crypto(_) | AppError::Model(_) | AppError::WrongState => {
             "Something went wrong. Restart Kandado and try again.".into()
         }
     }

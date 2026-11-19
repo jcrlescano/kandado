@@ -39,6 +39,7 @@ Kandado keeps data in three places: PostgreSQL on the server, an SQLite file on 
 | `0001_baseline.sql` | 0 | Version check only |
 | `0002_accounts.sql` | 1 | `users`, `oauth_identities`, `user_keys`, `devices`, `auth_flows`, `auth_handoffs`, `audit_events` |
 | `0003_sync.sql` | 3 | `sync_revision` sequence, `vaults`, `vault_members`, `items`, `item_revisions` |
+| `0004_links.sql` | 6 | `secure_links` |
 
 Migrations are append-only. A shipped migration is never edited; a change is a new file with the next number.
 
@@ -65,6 +66,12 @@ Migrations are append-only. A shipped migration is never edited; a change is a n
 | `items` | The current version of each item | `kind`, `item_key_wrapped`, `content_enc`, `version_id`, `revision`. `created_at`, `updated_at`, `trashed_at` are the device's Unix seconds; `trashed_on` and `deleted_at` are the server's clock |
 | `item_revisions` | Every saved version, current one included (D-16) | Primary key (`item_id`, `version_id`). `author_id`, `saved_at` |
 
+**Secure links**
+
+| Table | Holds | Notes |
+| --- | --- | --- |
+| `secure_links` | One item shared by link (D-32, D-33) | ID chosen by the device. `payload_enc` is the snapshot encrypted under a key only the link holds; it is set to NULL as soon as the link stops working. `max_views` NULL means no limit. Owned by `owner_id`, and cascades from `items` too. Not synced: links live on the server only |
+
 All user-owned rows cascade from `users`, so deleting an account (`DELETE FROM users`) removes everything it owns in one statement.
 
 ### Planned tables
@@ -73,11 +80,7 @@ From the backend outline; columns are settled when each migration is written.
 
 | Table | Phase | Purpose |
 | --- | --- | --- |
-| `vault_invites` | 6 | Pending invites: `vault_id`, `email`, `role`, `invited_by`, `state`, `expires_at` |
-| `item_shares` | 6 | Single-item shares: `item_id`, `user_id`, `role`, `item_key_sealed` |
-| `secure_links` | 6 | Links (D-33): `item_id`, `owner_id`, `payload_enc`, `expires_at`, `max_views`, `views`, `revoked_at` |
 | `monitored_emails`, `breaches`, `user_breaches` | 7 | Email monitoring and breach matches (D-36) |
-| `aliases`, `mailboxes` | 9 | Email aliases and their forward targets |
 
 ### Authorisation in SQL
 
@@ -87,7 +90,7 @@ The server does not load a row and then decide whether the caller may see it. Th
 - Every write first reads the caller's role in the vault it touches. Viewer reads; editor writes items; manager also renames the vault, invites and changes roles; owner also deletes the vault.
 - Moving an item checks the role in both the old and the new vault.
 - An item may not change `kind` after it is created.
-- Sharing (phase 6) only changes who is in `vault_members` (and, later, `item_shares`). The queries stay the same.
+- Vaults are not shared (decision 14): every vault has one member, its owner. The role rules and the joins stay, so sharing could be added later by changing who is in `vault_members`; it would also need the per-user write lock replaced (P3-6).
 
 ### Revisions and the sync cursor
 

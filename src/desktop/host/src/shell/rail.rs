@@ -167,6 +167,13 @@ impl VaultShell {
                 None,
             ))
             .child(tool(
+                "nav-links",
+                IconName::Link,
+                "Secure links",
+                Place::Links,
+                None,
+            ))
+            .child(tool(
                 "nav-trash",
                 IconName::Trash,
                 "Trash",
@@ -924,6 +931,7 @@ impl VaultShell {
             Overlay::None => return None,
             Overlay::CreateMenu => return Some(self.create_menu(cx)),
             Overlay::Vault(dialog) => return Some(dialog.clone().into_any_element()),
+            Overlay::Link(dialog) => return Some(dialog.clone().into_any_element()),
             Overlay::Shortcuts => shortcuts_dialog(
                 cx.listener(|this, _, window, cx| this.close_dialog(window, cx)),
                 cx,

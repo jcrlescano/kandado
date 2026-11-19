@@ -7,7 +7,7 @@
 
 use kandado_crypto::{Context, Purpose, context::NO_ID};
 
-use crate::{item, vault};
+use crate::{item, link, vault};
 
 /// Version of the plaintext inside a sealed vault key or a wrapped item key:
 /// one raw 256-bit key.
@@ -33,6 +33,11 @@ pub fn item_content(item_id: [u8; 16]) -> Context {
     Context::new(Purpose::ItemContent, NO_ID, item_id, item::FORMAT_VERSION)
 }
 
+/// A secure link's snapshot of an item, encrypted with the link key. Object: the link.
+pub fn secure_link(link_id: [u8; 16]) -> Context {
+    Context::new(Purpose::SecureLink, NO_ID, link_id, link::FORMAT_VERSION)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,5 +61,9 @@ mod tests {
         assert_eq!((bytes[7], bytes[8]), (5, 1));
         let bytes = vault_meta([6; 16]).to_bytes();
         assert_eq!((bytes[7], bytes[8]), (6, vault::FORMAT_VERSION));
+        let bytes = secure_link([7; 16]).to_bytes();
+        assert_eq!((bytes[7], bytes[8]), (10, link::FORMAT_VERSION));
+        assert_eq!(&bytes[9..25], &[0; 16]);
+        assert_eq!(&bytes[25..41], &[7; 16]);
     }
 }

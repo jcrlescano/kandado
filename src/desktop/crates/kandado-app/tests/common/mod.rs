@@ -39,7 +39,13 @@ pub async fn start_server() -> Server {
 
 /// Starts the server on a chosen port, such as the one a stopped server had.
 pub async fn start_server_on(port: u16) -> Server {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+    // The workspace root: the nearest folder up with the lock file, so this
+    // works from any crate that includes it.
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .find(|dir| dir.join("Cargo.lock").exists())
+        .expect("inside the workspace")
+        .to_path_buf();
     let exe = if cfg!(windows) {
         "kandado-server.exe"
     } else {
@@ -63,6 +69,7 @@ pub async fn start_server_on(port: u16) -> Server {
             "e2e-secret-e2e-secret-e2e-secret-00",
         )
         .env("KANDADO_DEV_AUTH", "1")
+        .env("KANDADO_VIEWER_DIR", root.join("src/backend/viewer/dist"))
         .env("KANDADO_LOG_FORMAT", "text")
         .env(
             "DATABASE_URL",

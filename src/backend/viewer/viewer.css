@@ -1,0 +1,152 @@
+/* The secure link viewer (/l/{id}), drawn with Kandado Hardware
+   (tokens.css and hardware.css, copied from the extension's vendored copy). */
+@font-face {
+  font-family: "Schibsted Grotesk";
+  src: url("/l/assets/SchibstedGrotesk.ttf") format("truetype");
+  font-weight: 400 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Martian Mono";
+  src: url("/l/assets/MartianMono.ttf") format("truetype");
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+body {
+  padding: 24px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+/* Above .viewer-card section, which would otherwise show a hidden state. */
+[hidden],
+.viewer-card section[hidden] {
+  display: none;
+}
+
+.viewer-head {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.viewer-wordmark {
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+}
+.viewer-logo--dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  .viewer-logo--light {
+    display: none;
+  }
+  .viewer-logo--dark {
+    display: block;
+  }
+}
+
+.viewer-card {
+  width: 100%;
+  max-width: 600px;
+  padding: 24px;
+}
+.viewer-card section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.viewer-text {
+  margin: 0;
+  line-height: 1.5;
+}
+.viewer-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.viewer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.viewer-lcd {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.viewer-lcd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.viewer-grow {
+  flex: 1;
+}
+.viewer-title {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.viewer-fields {
+  padding: 4px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.viewer-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.viewer-field + .viewer-field {
+  border-top: 1px solid var(--edge);
+}
+.viewer-field-text {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.viewer-value {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.viewer-value--mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.viewer-code {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0.12em;
+}
+.viewer-field-keys {
+  display: flex;
+  gap: 6px;
+}
+
+.viewer-notes-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.viewer-notes {
+  padding: 12px 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}

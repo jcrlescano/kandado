@@ -12,7 +12,7 @@
 
 use kandado_model::{
     generator::{self, Options},
-    strength,
+    link, strength,
     totp::Totp,
     url_match::{self, MatchMode, UrlMatch},
 };
@@ -87,6 +87,17 @@ pub fn password_score(password: &str) -> u8 {
 #[wasm_bindgen(js_name = totpCode)]
 pub fn totp_code(setup: &str, unix_seconds: f64) -> JsResult<String> {
     Ok(Totp::parse(setup)?.code_at(unix_seconds as u64).digits)
+}
+
+/// Opens a secure link (D-32) for the viewer page: decrypts `payload` with the
+/// key in the link's fragment and returns the snapshot as JSON. Fails the same
+/// way for a wrong key, a payload from another link and a changed payload.
+#[wasm_bindgen(js_name = openSecureLink)]
+pub fn open_secure_link(link_id: &str, fragment: &str, payload: &[u8]) -> JsResult<String> {
+    let id = uuid::Uuid::parse_str(link_id).map_err(|_| JsError::new("not a link id"))?;
+    let key = link::key_from_fragment(fragment)?;
+    let snapshot = link::open(&key, *id.as_bytes(), payload)?;
+    serde_json::to_string(&snapshot).map_err(|_| JsError::new("the link could not be read"))
 }
 
 /// Whether a saved website matches a page: 0 no, 1 yes, 2 yes but the page is

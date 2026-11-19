@@ -35,12 +35,12 @@ item content                  ── encrypted with the item key
 ```
 
 - **AEAD:** XChaCha20-Poly1305 everywhere. Associated data binds each ciphertext to its owner ID, object ID and format version, so blobs cannot be swapped between rows.
-- **Sealing to a public key** (vault keys to members, item keys to share recipients) is HPKE, RFC 9180, base mode: DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, ChaCha20-Poly1305. HPKE fixes its own AEAD and uses each key once, so this is the one place the cipher is not XChaCha20-Poly1305. The same associated data is bound.
+- **Sealing to a public key** (vault keys to their owner's account key) is HPKE, RFC 9180, base mode: DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, ChaCha20-Poly1305. HPKE fixes its own AEAD and uses each key once, so this is the one place the cipher is not XChaCha20-Poly1305. The same associated data is bound.
 - **Recovery key:** HKDF-SHA256 over the phrase's 128 bits of entropy.
 - **KDF:** Argon2id, 64 MiB, 3 passes, 1 lane for new accounts. Clients refuse stored parameters below 19 MiB and 2 passes. Salt and parameters are stored per user so they can be raised later.
 - **Per-item keys** make single-item sharing possible without exposing the vault key: the item key is sealed to the recipient.
 - **Secure links:** the client encrypts a snapshot of the item with a fresh link key. The key travels only in the URL fragment, which browsers never send to the server. The server stores the ciphertext, expiry and view count.
-- **Metadata the server can see:** user email, vault membership and roles, item count, sizes and timestamps, alias addresses, monitored email addresses. Item titles, URLs, usernames and vault names are inside the encrypted content.
+- **Metadata the server can see:** user email, vault membership and roles, item count, sizes and timestamps, monitored email addresses. Item titles, URLs, usernames and vault names are inside the encrypted content.
 
 Every key and blob format carries a version byte. `kandado-crypto` is the only crate that touches key material; secrets are held in zeroizing types and never implement `Debug` or `Serialize` in the clear.
 
@@ -72,7 +72,7 @@ Every key and blob format carries a version byte. `kandado-crypto` is the only c
 
 ## Sharing and trust
 
-Vault and item sharing seal keys to the recipient's public key, which the server hands out. A malicious server could substitute a key. First version: show a key fingerprint in the member list (D-28) and pin keys on first use. Signed key directories are out of scope for now.
+Vault sharing is not built (decision 14). An item is shared only through a secure link, whose key stays in the URL fragment and never reaches the server; anyone holding the link can open it until it expires, runs out of views or is revoked. If vault sharing is added later, keys would be sealed to public keys the server hands out, and a key fingerprint and pinning on first use would be needed against a server that substitutes one.
 
 ## Out of scope for the first release
 

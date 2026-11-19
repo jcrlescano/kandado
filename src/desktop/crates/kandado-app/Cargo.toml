@@ -23,7 +23,7 @@ time = "=0.3.55"
 tokio = { version = "=1.54.1", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = "=0.1.44"
 url = "=2.5.8"
-uuid = { version = "=1.29.2", features = ["v4"] }
+uuid = { version = "=1.29.2", features = ["v4", "v7"] }
 rqrr = { version = "=0.11.0", default-features = false }
 zeroize = "=1.9.1"
 

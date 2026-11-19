@@ -5087,6 +5087,7 @@ dependencies = [
  "kandado-model",
  "kandado-protocol",
  "raw-window-handle",
+ "reqwest 0.13.5",
  "serde_json",
  "time",
  "tokio",
