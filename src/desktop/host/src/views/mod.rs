@@ -14,8 +14,9 @@ pub mod vaults;
 use std::sync::Arc;
 
 use gpui_kit::{
-    AnyElement, App, Div, IntoElement, ParentElement, SharedString, Styled,
-    component::{h_flex, v_flex},
+    AnyElement, App, Div, InteractiveElement as _, IntoElement, ParentElement, SharedString,
+    Styled,
+    component::{h_flex, scroll::ScrollableElement as _, v_flex},
     div,
     prelude::FluentBuilder as _,
     px,
@@ -213,56 +214,77 @@ pub fn auth_frame(
     status: impl Into<SharedString>,
     cx: &App,
 ) -> AnyElement {
-    v_flex()
+    // Centred when it fits; scrolls when the window is shorter than the
+    // form (a small screen, or the taskbar taking its share), so the button
+    // at the bottom can always be reached.
+    div()
+        .id("auth-scroll")
         .flex_1()
         .min_h_0()
-        .items_center()
-        .justify_center()
-        .p(px(tokens::SPACE_5))
+        .overflow_y_scrollbar()
         .child(
-            panel(cx)
-                .flex()
-                .flex_wrap()
-                .w_full()
-                .max_w(px(900.))
-                .gap(px(tokens::SPACE_5))
+            v_flex()
+                .min_h_full()
+                .items_center()
+                .justify_center()
                 .p(px(tokens::SPACE_5))
                 .child(
-                    well(cx)
+                    panel(cx)
                         .flex()
-                        .flex_col()
-                        .flex_grow(1.)
-                        .flex_basis(px(340.))
-                        .min_h(px(480.))
-                        .items_center()
-                        .justify_center()
-                        .gap(px(tokens::SPACE_6))
-                        .p(px(tokens::SPACE_7))
-                        .child(Logo::new().size(px(180.)))
+                        .flex_wrap()
+                        .w_full()
+                        .max_w(px(900.))
+                        .gap(px(tokens::SPACE_5))
+                        .p(px(tokens::SPACE_5))
                         .child(
-                            div()
-                                .w_full()
-                                .max_w(px(280.))
-                                .child(LcdStatus::new(status).light(light)),
+                            well(cx)
+                                .flex()
+                                .flex_col()
+                                .flex_grow(1.)
+                                .flex_basis(px(340.))
+                                // Text measures its unwrapped width as its minimum; without
+                                // this the two columns stack and the form falls off the bottom.
+                                .min_w_0()
+                                .min_h(px(380.))
+                                .items_center()
+                                .justify_center()
+                                .gap(px(tokens::SPACE_6))
+                                .p(px(tokens::SPACE_7))
+                                .child(Logo::new().size(px(140.)))
+                                .child(
+                                    div()
+                                        .w_full()
+                                        .max_w(px(280.))
+                                        .child(LcdStatus::new(status).light(light)),
+                                )
+                                .child(
+                                    v_flex()
+                                        .gap(px(6.))
+                                        .child(promise(
+                                            "Encrypted on this computer before it syncs.",
+                                            cx,
+                                        ))
+                                        .child(promise(
+                                            "Your master password never leaves it.",
+                                            cx,
+                                        )),
+                                ),
                         )
                         .child(
                             v_flex()
-                                .gap(px(6.))
-                                .child(promise("Encrypted on this computer before it syncs.", cx))
-                                .child(promise("Your master password never leaves it.", cx)),
+                                .flex_grow(1.)
+                                .flex_basis(px(340.))
+                                // Text measures its unwrapped width as its minimum; without
+                                // this the two columns stack and the form falls off the bottom.
+                                .min_w_0()
+                                .justify_center()
+                                .gap(px(20.))
+                                .px(px(tokens::SPACE_5))
+                                .py(px(tokens::SPACE_6))
+                                .child(Logo::new().size(px(26.)).wordmark())
+                                .child(form)
+                                .child(small(concat!("Kandado ", env!("CARGO_PKG_VERSION")), cx)),
                         ),
-                )
-                .child(
-                    v_flex()
-                        .flex_grow(1.)
-                        .flex_basis(px(340.))
-                        .justify_center()
-                        .gap(px(20.))
-                        .px(px(tokens::SPACE_5))
-                        .py(px(tokens::SPACE_6))
-                        .child(Logo::new().size(px(26.)).wordmark())
-                        .child(form)
-                        .child(small(concat!("Kandado ", env!("CARGO_PKG_VERSION")), cx)),
                 ),
         )
         .into_any_element()

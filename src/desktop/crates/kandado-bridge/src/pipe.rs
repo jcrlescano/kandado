@@ -30,9 +30,15 @@ mod windows_pipe {
 
     use super::PipeError;
 
-    /// `\\.\pipe\kandado-bridge-{SID}` for the user this process runs as.
+    /// `\\.\pipe\kandado-bridge-{SID}` for the user this process runs as;
+    /// `kandado-bridge-dev-{SID}` for a development build, so it never talks
+    /// to the installed app (kandado-app's `profile`).
     pub fn pipe_name() -> Result<String, PipeError> {
-        Ok(format!(r"\\.\pipe\kandado-bridge-{}", current_user_sid()?))
+        let dev = if cfg!(debug_assertions) { "dev-" } else { "" };
+        Ok(format!(
+            r"\\.\pipe\kandado-bridge-{dev}{}",
+            current_user_sid()?
+        ))
     }
 
     /// Creates one instance of the pipe, open to the current user only. The
