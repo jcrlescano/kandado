@@ -8,6 +8,7 @@ import type {
   PickResult,
   TabFillResult,
 } from "../background/autofill";
+import type { SiteBreach } from "../background/breaches";
 import type { ItemContentJson, Summary, VaultInfo } from "../background/keyring";
 import type { Suggestion } from "../background/matcher";
 import type {
@@ -60,6 +61,8 @@ export type Request =
   | { type: "vaults" }
   | { type: "items" }
   | { type: "suggestions"; url: string }
+  // E-15: a breach of the tab's site that affects one of its logins.
+  | { type: "site-breach"; url: string }
   | { type: "item"; id: string }
   | { type: "totp"; id: string }
   | { type: "generate"; options: GeneratorOptions }
@@ -153,6 +156,7 @@ export interface Responses {
   vaults: VaultInfo[];
   items: Summary[];
   suggestions: Suggestion[];
+  "site-breach": SiteBreach | null;
   item: ItemContentJson;
   totp: string;
   generate: Generated;
@@ -198,6 +202,7 @@ export const REQUEST_TYPES: ReadonlySet<string> = new Set<Request["type"]>([
   "vaults",
   "items",
   "suggestions",
+  "site-breach",
   "item",
   "totp",
   "generate",

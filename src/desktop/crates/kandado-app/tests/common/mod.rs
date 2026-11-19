@@ -25,7 +25,7 @@ impl Drop for Server {
     }
 }
 
-fn free_port() -> u16 {
+pub fn free_port() -> u16 {
     std::net::TcpListener::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
@@ -39,6 +39,11 @@ pub async fn start_server() -> Server {
 
 /// Starts the server on a chosen port, such as the one a stopped server had.
 pub async fn start_server_on(port: u16) -> Server {
+    start_server_with(port, &[]).await
+}
+
+/// Starts the server with extra environment, such as where Monitor's sources are.
+pub async fn start_server_with(port: u16, env: &[(&str, &str)]) -> Server {
     // The workspace root: the nearest folder up with the lock file, so this
     // works from any crate that includes it.
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -61,7 +66,9 @@ pub async fn start_server_on(port: u16) -> Server {
         "build the server first: cargo build -p kandado-server"
     );
 
-    let child = Command::new(binary)
+    let mut command = Command::new(binary);
+    command.envs(env.iter().copied());
+    let child = command
         .env("KANDADO_BIND", format!("127.0.0.1:{port}"))
         .env("KANDADO_PUBLIC_URL", format!("http://127.0.0.1:{port}"))
         .env(

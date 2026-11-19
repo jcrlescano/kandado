@@ -5,10 +5,10 @@
 use std::{fmt, sync::Arc, time::Duration};
 
 use kandado_protocol::{
-    AccountKeys, ChangeMaster, ClientKind, CreateLink, DeviceInfo, DeviceList, FlowPurpose,
-    ItemVersions, LinkCreated, LinkList, Me, PROBLEM_CONTENT_TYPE, Problem, ProblemCode,
-    PullResponse, PushRequest, PushResponse, RefreshRequest, StartQuery, TokenRequest,
-    TokenResponse,
+    AccountKeys, BreachList, ChangeMaster, ClientKind, CreateLink, DeviceInfo, DeviceList,
+    FlowPurpose, ItemVersions, LinkCreated, LinkList, Me, PROBLEM_CONTENT_TYPE, Problem,
+    ProblemCode, PullResponse, PushRequest, PushResponse, RefreshRequest, StartQuery, TokenRequest,
+    TokenResponse, TwoFactorSites,
 };
 use reqwest::{Method, StatusCode};
 use serde::{Serialize, de::DeserializeOwned};
@@ -422,6 +422,25 @@ impl Api {
 
     pub async fn links(&self) -> Result<LinkList, ApiError> {
         self.get_json("v1/links").await
+    }
+
+    // ---- monitor (D-35 to D-39) ----------------------------------------
+
+    /// The Pwned Passwords answer for the first five hex characters of a
+    /// SHA-1, padded. The rest of the hash never leaves this computer.
+    pub async fn pwned_range(&self, prefix: &str) -> Result<String, ApiError> {
+        let body = self
+            .authed(Method::GET, &format!("v1/monitor/pwned/{prefix}"), None)
+            .await?;
+        String::from_utf8(body).map_err(|error| ApiError::Unexpected(error.to_string()))
+    }
+
+    pub async fn breach_list(&self) -> Result<BreachList, ApiError> {
+        self.get_json("v1/monitor/breaches").await
+    }
+
+    pub async fn two_factor_sites(&self) -> Result<TwoFactorSites, ApiError> {
+        self.get_json("v1/monitor/2fa-sites").await
     }
 
     pub async fn revoke_link(&self, id: Uuid) -> Result<(), ApiError> {

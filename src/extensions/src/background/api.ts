@@ -11,6 +11,7 @@ import type {
   PushResponse,
   TokenResponse,
 } from "../shared/types";
+import type { BreachList } from "./breaches";
 import type { Remote } from "./sync";
 
 export interface Tokens {
@@ -99,6 +100,11 @@ export class Api implements Remote {
   }
 
   /** The wrapped keys, as the JSON text the WebAssembly core reads. */
+  /** `GET /v1/monitor/breaches`: Have I Been Pwned's breached sites (E-15). */
+  breaches(): Promise<BreachList> {
+    return this.send<BreachList>("GET", "/v1/monitor/breaches");
+  }
+
   async accountKeys(): Promise<AccountKeysJson> {
     return JSON.stringify(await this.send<unknown>("GET", "/v1/account/keys"));
   }

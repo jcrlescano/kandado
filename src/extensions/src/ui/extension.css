@@ -633,6 +633,14 @@ html:has(.kx-prompt-page),
   gap: 10px;
 }
 
+/* ---- E-15: the breached-site banner -------------------------------------------- */
+.kx-block {
+  display: block;
+}
+.kx-lcd-breached .kx-lcd-end {
+  color: var(--lcd-warn);
+}
+
 /* ---- Passkey prompts (E-25, E-26), the same frame ---------------------------- */
 .kx-passkey-top {
   align-items: center;

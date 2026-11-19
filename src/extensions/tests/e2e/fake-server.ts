@@ -15,6 +15,8 @@ export interface Running {
   url: string;
   world: World;
   sync: FakeServer;
+  /** What `GET /v1/monitor/breaches` answers (E-15). Empty unless a test sets it. */
+  breaches: import("../../src/background/breaches").BreachSite[];
   close(): Promise<void>;
 }
 
@@ -60,6 +62,14 @@ export async function startFakeServer(port: number, items: ItemContentJson[]): P
     device_id: world.account.device_id,
   });
 
+  const running: Running = {
+    url: `http://127.0.0.1:${port}`,
+    world,
+    sync,
+    breaches: [],
+    close: async () => {},
+  };
+
   const server: Server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const body = await new Promise<string>((done) => {
@@ -99,6 +109,8 @@ export async function startFakeServer(port: number, items: ItemContentJson[]): P
         });
       case "GET /v1/account/keys":
         return json(JSON.parse(world.account.keys_json));
+      case "GET /v1/monitor/breaches":
+        return json({ breaches: running.breaches, fetched_at: new Date().toISOString() });
       case "GET /v1/sync":
         return json(
           await sync.pull(
@@ -127,12 +139,8 @@ export async function startFakeServer(port: number, items: ItemContentJson[]): P
     }
   });
   await new Promise<void>((done) => server.listen(port, "127.0.0.1", done));
-  return {
-    url: `http://127.0.0.1:${port}`,
-    world,
-    sync,
-    close: () => new Promise((done) => server.close(() => done())),
-  };
+  running.close = () => new Promise((done) => server.close(() => done()));
+  return running;
 }
 
 export const SAMPLE_ITEMS: ItemContentJson[] = [

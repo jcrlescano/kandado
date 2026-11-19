@@ -59,7 +59,11 @@ impl Reply {
 
 impl Api {
     pub(super) fn new(db: PgPool) -> Self {
-        let app = router(AppState::new(db.clone(), Config::for_tests()));
+        Self::with_config(db, Config::for_tests())
+    }
+
+    pub(super) fn with_config(db: PgPool, config: Config) -> Self {
+        let app = router(AppState::new(db.clone(), config));
         Self { app, db }
     }
 

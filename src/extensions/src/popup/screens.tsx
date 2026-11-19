@@ -3,6 +3,7 @@
 // they look follows the Kandado Hardware extension boards.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { SiteBreach } from "../background/breaches";
 import type { ItemContentJson, Summary, VaultInfo } from "../background/keyring";
 import type { Suggestion } from "../background/matcher";
 import type { ErrorCode, Generated, GeneratorOptions, Status } from "../shared/messages";
@@ -10,6 +11,7 @@ import type { ItemKind } from "../shared/types";
 import { copySecret } from "../ui/clipboard";
 import {
   Badge,
+  Banner,
   Field,
   Icon,
   ItemRow,
@@ -332,6 +334,7 @@ export function Home(props: HomeProps) {
   const [items, setItems] = useState<Summary[]>([]);
   const [vaults, setVaults] = useState<VaultInfo[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [breach, setBreach] = useState<SiteBreach | null>(null);
   const [query, setQuery] = useState("");
   const [overlay, setOverlay] = useState<null | "menu" | "vaults">(null);
   const [loaded, setLoaded] = useState(false);
@@ -349,6 +352,12 @@ export function Home(props: HomeProps) {
     setVaults(vaultList);
     setSuggestions(hits);
     setLoaded(true);
+    // E-15 needs the breach list, which may come from the server: after the list.
+    if (host && props.tabUrl && hits.length > 0) {
+      void ask({ type: "site-breach", url: props.tabUrl }).then(setBreach, () => setBreach(null));
+    } else {
+      setBreach(null);
+    }
   }, [host, props.tabUrl]);
 
   useEffect(() => {
@@ -386,9 +395,12 @@ export function Home(props: HomeProps) {
   };
 
   // A suggestion for the site fills the page; any other row opens the item.
+  const breached = new Set(breach?.item_ids ?? []);
   const row = (item: Summary, { insecure = false, fills = false } = {}) => {
     const end = insecure ? (
       <Tag tone="warn">Not secure</Tag>
+    ) : fills && breached.has(item.id) ? (
+      <Tag tone="warn">Change</Tag>
     ) : item.kind === "login" ? (
       <Key
         size="sm"
@@ -478,9 +490,13 @@ export function Home(props: HomeProps) {
   const vaultName = activeVault?.name ?? "All vaults";
   const lcd = host
     ? {
-        light: suggested.length > 0 ? ("ok" as const) : ("off" as const),
+        light: breach
+          ? ("warn" as const)
+          : suggested.length > 0
+            ? ("ok" as const)
+            : ("off" as const),
         text: `${host} · ${plural(suggested.length, "login", "logins")}`,
-        label: suggested.length > 0 ? "Click to fill" : undefined,
+        label: breach ? "Breached" : suggested.length > 0 ? "Click to fill" : undefined,
       }
     : {
         light: "ok" as const,
@@ -527,7 +543,17 @@ export function Home(props: HomeProps) {
         </label>
       </Panel>
 
-      <LcdStrip {...lcd} />
+      <LcdStrip {...lcd} className={breach ? "kx-lcd-breached" : undefined} />
+
+      {breach && !searching && (
+        <Banner tone="danger">
+          <strong className="kx-block">{`${breach.domain} had a breach on ${breachDay(breach.breach_date)}`}</strong>
+          {breach.item_ids.length === 1
+            ? "Sign in, then change this password."
+            : "Sign in, then change these passwords."}
+          <span className="kx-block hw-sub">Source: Have I Been Pwned</span>
+        </Banner>
+      )}
 
       <Well className="kx-list">
         {searching ? (
@@ -583,6 +609,13 @@ export function Home(props: HomeProps) {
       </Foot>
     </Pop>
   );
+}
+
+/** "2 Nov", as the E-15 banner writes a breach date. */
+function breachDay(date: string): string {
+  const parsed = new Date(`${date.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 // ---- E-06, E-07 and the other kinds ---------------------------------------------

@@ -10,7 +10,7 @@ One Rust service, `kandado-server`, in front of PostgreSQL. It authenticates use
 | Database | PostgreSQL through sqlx (compile-time checked queries, `sqlx migrate`) |
 | Auth | `openidconnect` for Google; opaque rotating refresh tokens; short-lived signed access tokens |
 | Realtime | WebSocket at `/v1/events` (PostgreSQL `LISTEN/NOTIFY` fan-out) |
-| Email | SMTP through `lettre` (breach alerts, new-device notices) |
+| Email | None yet (decisions 14, 15); new-device notices would need a provider |
 | Jobs | In-process tokio tasks with advisory locks |
 | Config | Environment variables; `.env` for local development |
 | Observability | `tracing` with JSON logs, `/healthz`, `/readyz` |
@@ -28,7 +28,7 @@ src/backend/
 │     ├─ http/          # one module per API area below
 │     ├─ db/            # sqlx queries, one module per table group
 │     ├─ events.rs      # WebSocket hub
-│     ├─ jobs/          # trash purge, link expiry, breach scan
+│     ├─ jobs/          # trash purge, link expiry
 │     └─ mail/          # templates and sender
 ├─ migrations/
 └─ docker-compose.yml
@@ -48,7 +48,7 @@ All routes are under `/v1`, JSON, authenticated with a bearer access token unles
 | Sync | `GET /sync?cursor=`, `POST /sync` (batch of vault and item changes) | Every item screen, D-54 |
 | Item history | `GET /items/{id}/revisions`, `GET /items/{id}/revisions/{rev}` | D-16 |
 | Secure links | `POST /links`, `GET /links`, `DELETE /links/{id}`, `POST /public/links/{id}/open` (public; counts one view), `GET /l/{id}` and `GET /l/assets/{name}` (public viewer page, outside `/v1`) | D-32, D-33 |
-| Monitor | `GET /monitor/breaches`, `POST /monitor/breaches/{id}/resolve`, `GET /monitor/pwned/{prefix}`, `GET /monitor/emails`, `POST /monitor/emails`, `PATCH /monitor/emails/{id}`, `GET /monitor/2fa-sites` | D-35 to D-40, E-15 |
+| Monitor | `GET /monitor/pwned/{prefix}`, `GET /monitor/breaches`, `GET /monitor/2fa-sites` (relayed and cached from HIBP and the 2FA Directory) | D-35 to D-39, E-15 |
 | Icons | `GET /icons/{domain}` (proxied and cached, so sites never see the user) | Item rows everywhere |
 | Events | `GET /events` (WebSocket) | Sync |
 | Updates | Static `latest.json` / `beta.json` plus installer, served from object storage | D-54 |
@@ -75,7 +75,6 @@ Tables, the revision sequence, authorisation in SQL, tombstones and migrations a
 | Trash purge | Hourly | Hard-deletes items trashed more than 30 days ago, writes tombstones |
 | Link expiry | Every 5 min | Drops the payloads of expired, used-up or revoked links; deletes links 30 days after they ended |
 | Session cleanup | Daily | Removes revoked devices and used handoff codes |
-| Breach scan | Daily | Checks monitored emails against the breach source, creates `user_breaches`, sends email |
 
 ## Limits and protection
 
@@ -91,6 +90,7 @@ Per-IP and per-user rate limits on auth, lookup and link routes; request body ca
 - Expiry is one of 1 hour, 1 day, 7 days, 30 days; the view limit one of 1, 5, 10 or none. The payload is at most 32 KiB. An account may have 500 working links.
 - Opening is a `POST`, so a crawler or chat preview fetching `/l/{id}` uses no view. The viewer page also waits for "Show item" before opening. Every link that does not work any more answers 404, whatever the reason.
 - The payload is dropped the moment a link stops working: on its last view (in the same transaction), on revoke, by the expiry job, and when its item is deleted for good. Trashing an item does not stop its links; the item can come back.
+- Monitor (decision 15, P7-1): `/v1/monitor/pwned/{prefix}` relays Pwned Passwords with `Add-Padding`; `/v1/monitor/breaches` and `/v1/monitor/2fa-sites` relay Have I Been Pwned's breach list and the 2FA Directory's TOTP list, filtered. Answers are kept in memory (24 h and 12 h); a list is served up to a week old when its source is down. Devices match the lists locally, so the server never learns a person's sites.
 - The viewer page is served with `Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; …`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and `X-Frame-Options: DENY`. It removes the key from the address bar as soon as it has read it, and writes every value with `textContent`.
 
 ### Authentication details

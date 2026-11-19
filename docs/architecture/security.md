@@ -40,7 +40,7 @@ item content                  ── encrypted with the item key
 - **KDF:** Argon2id, 64 MiB, 3 passes, 1 lane for new accounts. Clients refuse stored parameters below 19 MiB and 2 passes. Salt and parameters are stored per user so they can be raised later.
 - **Per-item keys** make single-item sharing possible without exposing the vault key: the item key is sealed to the recipient.
 - **Secure links:** the client encrypts a snapshot of the item with a fresh link key. The key travels only in the URL fragment, which browsers never send to the server. The server stores the ciphertext, expiry and view count.
-- **Metadata the server can see:** user email, vault membership and roles, item count, sizes and timestamps, monitored email addresses. Item titles, URLs, usernames and vault names are inside the encrypted content.
+- **Metadata the server can see:** user email, vault membership and roles, item count, sizes and timestamps, and the first five characters of SHA-1 hashes of passwords being checked (Monitor), which by design match hundreds of others. Item titles, URLs, usernames and vault names are inside the encrypted content.
 
 Every key and blob format carries a version byte. `kandado-crypto` is the only crate that touches key material; secrets are held in zeroizing types and never implement `Debug` or `Serialize` in the clear.
 

@@ -405,12 +405,7 @@ impl VaultShell {
                 )
         });
 
-        let body: AnyElement = if self.place == Place::Monitor {
-            EmptyState::new(IconName::Shield, "Monitor is coming")
-                .hue(Hue::Teal)
-                .body("Weak, reused and breached passwords show here in a later release.")
-                .into_any_element()
-        } else if self.rows.is_empty() {
+        let body: AnyElement = if self.rows.is_empty() {
             let (icon, hue, title, body) = if trash {
                 (
                     IconName::Trash,

@@ -11,6 +11,7 @@
 //! | [`totp_import`] | Two-factor setup keys, pasted or from a QR code on screen |
 //! | [`auth`] | Loopback listener for the Google redirect |
 //! | [`browser`] | The browser extension link: pairing and unlock (D-45) |
+//! | [`monitor`] | Health: weak, reused, exposed and breached passwords, two-factor |
 //! | [`lock`] | Idle timer and the wrong-password limit |
 //! | [`device_key`] | Windows Hello / DPAPI key that unlocks without the password |
 //! | [`secrets`] | Credential Manager for the refresh token |
@@ -25,6 +26,7 @@ pub mod clipboard;
 pub mod device_key;
 pub mod links;
 pub mod lock;
+pub mod monitor;
 pub mod platform;
 pub mod secrets;
 pub mod service;

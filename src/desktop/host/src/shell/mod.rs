@@ -43,6 +43,7 @@ use crate::{
             form::{FormEvent, FormStart, FormView},
             history::{HistoryEvent, HistoryView},
         },
+        monitor::{MonitorEvent, MonitorPage},
         sharing::{LinkDialog, LinkDialogEvent, LinksEvent, LinksPage},
         vaults::{VaultDialog, VaultDialogEvent},
     },
@@ -62,7 +63,7 @@ pub enum Place {
     AllVaults,
     Vault(Uuid),
     Trash,
-    /// Monitor arrives in phase 7; the entry explains that.
+    /// Tools › Health (D-35 to D-39): one page in place of the list and detail.
     Monitor,
     /// Tools › Secure links (D-33): one page in place of the list and detail.
     Links,
@@ -145,6 +146,8 @@ pub struct VaultShell {
     pub(crate) pane: Pane,
     /// The secure links page, while Tools › Secure links is open.
     pub(crate) links: Option<Entity<LinksPage>>,
+    /// The Health page, while Tools › Health is open.
+    pub(crate) monitor: Option<Entity<MonitorPage>>,
     pub(crate) overlay: Overlay,
     pub(crate) search: Entity<InputState>,
     pub(crate) search_open: bool,
@@ -228,6 +231,7 @@ impl VaultShell {
             checked: Vec::new(),
             pane: Pane::Empty,
             links: None,
+            monitor: None,
             overlay: Overlay::None,
             search,
             search_open: false,
@@ -472,6 +476,7 @@ impl VaultShell {
                 self.checked.clear();
                 self.pane = Pane::Empty;
                 self.links = (place == Place::Links).then(|| self.links_page(window, cx));
+                self.monitor = (place == Place::Monitor).then(|| self.monitor_page(window, cx));
                 self.refresh(cx);
                 self.focus.focus(window, cx);
             }
@@ -508,6 +513,7 @@ impl VaultShell {
             };
             self.kind = None;
             self.links = None;
+            self.monitor = None;
             self.refresh(cx);
         }
         let (vault_name, hue) = self.vault_name(entry.vault_id);
@@ -834,6 +840,7 @@ impl VaultShell {
         if matches!(self.place, Place::Trash | Place::Monitor | Place::Links) {
             self.place = Place::AllVaults;
             self.links = None;
+            self.monitor = None;
             self.refresh(cx);
         }
         self.show_form(
@@ -1050,6 +1057,33 @@ impl VaultShell {
             Overlay::Link(dialog) => Some(dialog),
             _ => None,
         }
+    }
+
+    fn monitor_page(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Entity<MonitorPage> {
+        let services = self.services.clone();
+        let page = cx.new(|cx| MonitorPage::new(services, cx));
+        cx.subscribe_in(
+            &page,
+            window,
+            |this, _, event: &MonitorEvent, window, cx| match event {
+                // "Change" and "Add code": the item's form, in its list.
+                MonitorEvent::Edit(id) => this.open_monitor_item(*id, window, cx),
+                MonitorEvent::Toast(message) => this.toast(message.clone(), cx),
+            },
+        )
+        .detach();
+        page
+    }
+
+    /// Health's "Change" and "Add code": the item's form, in its list.
+    pub fn open_monitor_item(&mut self, id: Uuid, window: &mut Window, cx: &mut Context<Self>) {
+        self.open(id, window, cx);
+        self.edit(window, cx);
+    }
+
+    /// The Health page, if it is open.
+    pub fn monitor(&self) -> Option<&Entity<MonitorPage>> {
+        self.monitor.as_ref()
     }
 
     /// The secure links page, if it is open.
@@ -1349,7 +1383,7 @@ impl Render for VaultShell {
             // Before the inputs, which would otherwise take keys like Ctrl S.
             .capture_key_down(cx.listener(Self::on_key))
             .child(self.sidebar(rail, cx))
-            .when(self.links.is_none(), |shell| {
+            .when(self.links.is_none() && self.monitor.is_none(), |shell| {
                 shell.child(self.list_pane(cx))
             })
             .child(
@@ -1361,9 +1395,10 @@ impl Render for VaultShell {
                     .min_w_0()
                     .h_full()
                     .overflow_hidden()
-                    .map(|panel| match &self.links {
-                        Some(links) => panel.child(links.clone()),
-                        None => panel.child(pane),
+                    .map(|panel| match (&self.links, &self.monitor) {
+                        (Some(links), _) => panel.child(links.clone()),
+                        (None, Some(monitor)) => panel.child(monitor.clone()),
+                        (None, None) => panel.child(pane),
                     })
                     .when_some(self.toast_layer(cx), |pane, toast| pane.child(toast)),
             )

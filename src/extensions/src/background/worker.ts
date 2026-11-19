@@ -24,6 +24,7 @@ import { type ExtensionSettings, normaliseSite, readSettings } from "../shared/s
 import { type Api, ApiError } from "./api";
 import { type IdentityFlow, SignInError, signIn } from "./auth";
 import { Autofill, type FrameRef } from "./autofill";
+import { BREACH_LIST_FRESH_MS, type BreachSite, type SiteBreach, siteBreach } from "./breaches";
 import { type Core, loadCore } from "./core";
 import { type ConnectNative, DesktopLink } from "./desktop";
 import { type ItemContentJson, Keyring, WrongPassword } from "./keyring";
@@ -186,7 +187,10 @@ export class Worker {
       const now = this.platform.now();
       await keyring.updateItem(
         itemId,
-        { ...content, data: { ...content.data, password } },
+        {
+          ...content,
+          data: { ...content.data, password, password_changed_at: Math.floor(now / 1000) },
+        },
         Math.floor(now / 1000),
         uuidv7(now),
       );
@@ -645,6 +649,8 @@ export class Worker {
         return (await keyring.vaults()) as Out;
       case "items":
         return (await keyring.items()).filter((item) => !item.trashed) as Out;
+      case "site-breach":
+        return (await this.siteBreach(keyring, request.url)) as Out;
       case "suggestions":
         return suggestionsFor(
           keyring,
@@ -681,6 +687,33 @@ export class Worker {
     return out;
   }
 
+  // ---- E-15: the breached-site banner ------------------------------------------
+
+  private breachList: { at: number; breaches: BreachSite[] } | null = null;
+
+  /** Have I Been Pwned's breach list, kept for twelve hours. Empty when unreachable. */
+  private async breaches(): Promise<BreachSite[]> {
+    const now = this.platform.now();
+    if (this.breachList && now - this.breachList.at < BREACH_LIST_FRESH_MS) {
+      return this.breachList.breaches;
+    }
+    try {
+      const list = await this.api.breaches();
+      this.breachList = { at: now, breaches: list.breaches };
+    } catch {
+      // Offline: keep an older list if there is one, and try again next time.
+      return this.breachList?.breaches ?? [];
+    }
+    return this.breachList.breaches;
+  }
+
+  private async siteBreach(keyring: Keyring, url: string): Promise<SiteBreach | null> {
+    const settings = await this.settings();
+    const suggestions = suggestionsFor(keyring, await keyring.items(), url, settings.excludedSites);
+    if (suggestions.length === 0) return null;
+    return siteBreach(keyring, await this.breaches(), url, suggestions);
+  }
+
   /** E-10: a new login, saved here and sent with the next sync. */
   private async createLogin(keyring: Keyring, login: NewLogin): Promise<string> {
     const vaults = await keyring.vaults();
@@ -697,6 +730,8 @@ export class Worker {
         username: login.username,
         password: login.password,
         websites: login.url.trim() ? [{ url: login.url.trim(), match_mode: "domain" }] : [],
+        // Monitor compares it with breach dates (E-15, D-36).
+        ...(login.password ? { password_changed_at: Math.floor(this.platform.now() / 1000) } : {}),
       },
     };
     const now = Math.floor(this.platform.now() / 1000);
@@ -722,7 +757,15 @@ export class Worker {
       {
         ...content,
         title: login.title.trim() || content.title,
-        data: { ...content.data, username: login.username, password: login.password, websites },
+        data: {
+          ...content.data,
+          username: login.username,
+          password: login.password,
+          websites,
+          ...(login.password !== content.data.password
+            ? { password_changed_at: Math.floor(now / 1000) }
+            : {}),
+        },
       },
       Math.floor(now / 1000),
       uuidv7(now),
