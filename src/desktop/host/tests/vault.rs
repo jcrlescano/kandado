@@ -611,6 +611,77 @@ fn trash_restore_delete_forever_and_empty_trash(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn deleting_a_vault_asks_then_shows_another(cx: &mut TestAppContext) {
+    for window_size in SIZES {
+        let vault = unlocked("delete-vault");
+        let app = vault.services.app.clone();
+        let personal = app.vaults().unwrap()[0].id;
+        let kept = app.create_item(personal, &login("GitHub", "juan")).unwrap();
+        let (window, shell) = open_shell(cx, &vault, window_size);
+
+        // The only vault: its edit dialog offers no Delete, and nothing asks.
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.open_vault_dialog(Some(personal), window, cx)
+        });
+        press(cx, window, "escape");
+        with(cx, window, &shell, |shell, _, cx| {
+            shell.ask_delete_vault(personal, cx)
+        });
+        cx.update(|cx| assert!(!shell.read(cx).has_dialog()));
+
+        let work = app
+            .create_vault(&VaultMeta::new("Work", "sky", "bolt"))
+            .unwrap();
+        let jira = app.create_item(work, &login("Jira", "juan")).unwrap();
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.go(Place::Vault(work), window, cx);
+            shell.select(jira, window, cx);
+        });
+        // D-27 editing, with Delete vault, then the confirmation.
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.open_vault_dialog(Some(work), window, cx)
+        });
+        press(cx, window, "escape");
+        with(cx, window, &shell, |shell, _, cx| {
+            shell.ask_delete_vault(work, cx)
+        });
+        cx.update(|cx| assert!(shell.read(cx).has_dialog()));
+        // Cancel keeps everything.
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.close_dialog(window, cx)
+        });
+        assert_eq!(app.vaults().unwrap().len(), 2);
+        assert!(app.entry(jira).is_some());
+
+        with(cx, window, &shell, |shell, _, cx| {
+            shell.ask_delete_vault(work, cx)
+        });
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.confirm_dialog(window, cx)
+        });
+        let left: Vec<Uuid> = app.vaults().unwrap().iter().map(|v| v.id).collect();
+        assert_eq!(left, [personal]);
+        assert!(app.entry(jira).is_none());
+        assert!(app.entry(kept).is_some());
+        cx.update(|cx| {
+            let shell = shell.read(cx);
+            assert!(!shell.has_dialog());
+            assert_eq!(
+                shell.place(),
+                Place::Vault(personal),
+                "moved to another vault"
+            );
+            assert_eq!(shell.selected(), None);
+            assert!(shell.detail().is_none());
+            assert_eq!(
+                shell.toast_message().as_ref().map(|t| t.as_ref()),
+                Some("Work deleted.")
+            );
+        });
+    }
+}
+
+#[gpui_kit::test]
 fn history_restores_an_earlier_version(cx: &mut TestAppContext) {
     let vault = unlocked("history");
     let ids = fill(&vault);

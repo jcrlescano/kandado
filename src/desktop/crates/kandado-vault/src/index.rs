@@ -197,6 +197,11 @@ impl Index {
         self.entries.remove(&id);
     }
 
+    /// Drops every item of a vault, the trashed ones too.
+    pub(crate) fn remove_vault(&mut self, vault: Uuid) {
+        self.entries.retain(|_, entry| entry.vault_id != vault);
+    }
+
     pub(crate) fn get_mut(&mut self, id: Uuid) -> Option<&mut Entry> {
         self.entries.get_mut(&id)
     }

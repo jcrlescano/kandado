@@ -23,12 +23,21 @@ pub const MAX_BATCH: usize = 200;
 /// The largest `content_enc` or `meta_enc` the server stores, in bytes.
 pub const MAX_BLOB: usize = 512 * 1024;
 
-/// A vault. `key_sealed` is the vault key sealed to the caller's public key.
+/// A vault, or its tombstone (`deleted`). `key_sealed` is the vault key sealed
+/// to the caller's public key.
+///
+/// Deleting a vault deletes every item in it: each item becomes a tombstone
+/// of its own, so a device that pulls learns of both. A deletion is sent with
+/// `deleted` set; its `key_sealed` and `meta_enc` are not read.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyncVault {
     pub id: Uuid,
     pub key_sealed: Opaque,
     pub meta_enc: Opaque,
+    /// Deleted for good by its owner. The server keeps the row so that other
+    /// devices learn of it.
+    #[serde(default)]
+    pub deleted: bool,
     pub revision: i64,
 }
 
@@ -158,6 +167,20 @@ mod tests {
             .unwrap()
             .replace(r#""deleted":false,"#, "");
         assert!(!serde_json::from_str::<SyncItem>(&json).unwrap().deleted);
+    }
+
+    #[test]
+    fn an_older_client_may_leave_out_a_vaults_deleted() {
+        let json = concat!(
+            r#"{"id":"00000000-0000-0000-0000-000000000002","#,
+            r#""key_sealed":"AQ==","meta_enc":"Ag==","revision":4}"#,
+        );
+        let vault: SyncVault = serde_json::from_str(json).unwrap();
+        assert!(!vault.deleted);
+        assert_eq!(
+            serde_json::to_string(&vault).unwrap(),
+            json.replace(r#","revision""#, r#","deleted":false,"revision""#)
+        );
     }
 
     #[test]

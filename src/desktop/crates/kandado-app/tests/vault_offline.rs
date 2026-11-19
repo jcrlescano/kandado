@@ -325,3 +325,64 @@ async fn edit_history_trash_and_undo_through_the_service() {
     assert_eq!(detail.password_field, Some(0));
     assert_eq!(detail.strength.unwrap().label(), "Strong");
 }
+
+#[tokio::test]
+async fn deleting_a_vault_through_the_service() {
+    let fixture = Fixture::new("delete-vault");
+    fixture.unlock().await;
+    let personal = fixture.app.vaults().unwrap()[0].id;
+    let kept = fixture.app.create_item(personal, &login()).unwrap();
+
+    // The only vault stays.
+    assert!(matches!(
+        fixture.app.delete_vault(personal),
+        Err(AppError::Vault(VaultError::LastVault))
+    ));
+
+    let work = fixture
+        .app
+        .create_vault(&VaultMeta::new("Work", "sky", "bolt"))
+        .unwrap();
+    let jira = fixture.app.create_item(work, &login()).unwrap();
+    let old = fixture.app.create_item(work, &login()).unwrap();
+    fixture.app.trash_items(&[old]).unwrap();
+    assert_eq!(fixture.app.vaults().unwrap()[1].item_count, 1);
+    assert_eq!(fixture.app.counts(), (2, 1));
+
+    fixture.app.delete_vault(work).unwrap();
+    let vaults = fixture.app.vaults().unwrap();
+    assert_eq!(vaults.len(), 1);
+    assert_eq!(vaults[0].id, personal);
+    // Its items went with it, the trashed one too; the other vault's stayed.
+    assert_eq!(fixture.app.counts(), (1, 0));
+    assert!(fixture.app.entry(jira).is_none() && fixture.app.entry(old).is_none());
+    assert!(fixture.app.entry(kept).is_some());
+    assert!(
+        fixture
+            .app
+            .entries(Filter {
+                vault: Some(work),
+                ..Filter::default()
+            })
+            .is_empty()
+    );
+    assert!(matches!(
+        fixture.app.delete_vault(work),
+        Err(AppError::Vault(VaultError::NotFound))
+    ));
+    // Now the last one again.
+    assert!(matches!(
+        fixture.app.delete_vault(personal),
+        Err(AppError::Vault(VaultError::LastVault))
+    ));
+
+    // It stays deleted after the app starts again.
+    let dir = fixture.dir.clone();
+    drop(fixture);
+    let fixture = Fixture::open(dir);
+    fixture.unlock().await;
+    let vaults = fixture.app.vaults().unwrap();
+    assert_eq!(vaults.len(), 1);
+    assert_eq!(vaults[0].id, personal);
+    assert_eq!(fixture.app.counts(), (1, 0));
+}

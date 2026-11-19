@@ -7,7 +7,7 @@
 //! | [`api`] | `reqwest` client for `kandado-protocol`, refreshing tokens itself |
 //! | [`store`] | SQLite file: the account, vaults, items and their history, all as ciphertext |
 //! | [`session`] | The unlocked keys and the search index, in memory only; `lock()` drops them |
-//! | [`vaults`] | Open the vaults at unlock; create and rename them |
+//! | [`vaults`] | Open the vaults at unlock; create, rename and delete them |
 //! | [`items`] | Create, edit, move, trash, restore, delete, favourite, duplicate |
 //! | [`index`] | Search over decrypted titles, usernames, websites and notes |
 //! | [`history`] | An item's earlier versions and restoring one |
@@ -49,6 +49,8 @@ pub enum VaultError {
     Cancelled,
     #[error("only items in the trash can be deleted forever")]
     NotInTrash,
+    #[error("an account keeps at least one vault")]
+    LastVault,
 }
 
 impl From<StoreError> for VaultError {

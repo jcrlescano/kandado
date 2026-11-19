@@ -7,6 +7,8 @@ export interface WireVault {
   id: string;
   key_sealed: string;
   meta_enc: string;
+  /** Deleted for good by its owner, with every item in it. Absent from older servers. */
+  deleted?: boolean;
   revision: number;
 }
 

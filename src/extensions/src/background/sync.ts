@@ -41,6 +41,8 @@ export interface Remote {
 /** What sync needs from the unlocked session. Keys never leave it. */
 export interface Keys {
   openVault(vaultId: string, keySealed: Uint8Array): void;
+  /** Drops the key of a vault deleted elsewhere. */
+  forgetVault(vaultId: string): void;
   itemKind(
     vaultId: string,
     itemId: string,
@@ -118,6 +120,14 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 /** Applies one vault from the server. Returns whether anything changed. */
 async function applyRemoteVault(tx: Tx, keys: Keys, remote: WireVault): Promise<boolean> {
   const local = await tx.vault(remote.id);
+  if (remote.deleted) {
+    // Deleted for good by its owner: gone here too, with its items, whatever
+    // was changed here since. The extension never deletes a vault itself.
+    if (!local) return false;
+    await tx.deleteVault(remote.id);
+    keys.forgetVault(remote.id);
+    return true;
+  }
   const keySealed = fromBase64(remote.key_sealed);
   const metaEnc = fromBase64(remote.meta_enc);
   if (!local) {
@@ -169,6 +179,8 @@ async function applyRemoteItem(tx: Tx, remote: WireItem, digests: Digests): Prom
   }
   const digest = digests.get(remote.id) ?? "";
   if (!local) {
+    // In a vault this device does not keep (deleted, or one it could not open).
+    if (!(await tx.vault(remote.vault_id))) return false;
     await tx.putItem(adopt(remote, digest, undefined));
     return true;
   }

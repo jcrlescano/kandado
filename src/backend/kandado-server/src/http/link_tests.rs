@@ -22,6 +22,7 @@ fn vault(id: u128) -> SyncVault {
         id: Uuid::from_u128(id),
         key_sealed: Opaque::new(vec![1, 2, 3]),
         meta_enc: Opaque::new(vec![9; 16]),
+        deleted: false,
         revision: 0,
     }
 }
@@ -352,6 +353,46 @@ async fn deleting_the_item_for_good_ends_its_links(db: PgPool) {
         .await
         .json();
     assert!(matches!(pushed.items[0], ChangeResult::Applied { .. }));
+    assert_eq!(open(&api, 1).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(stored_payload(&db, 1).await, None);
+    assert_eq!(list(&api, &ana).await.links[0].state, LinkState::Revoked);
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn deleting_the_vault_ends_the_links_to_its_items(db: PgPool) {
+    let api = Api::new(db.clone());
+    let ana = account(&api, "ana@example.test", 1).await;
+    // A second vault, so the first is not her last.
+    let reply = api
+        .post(
+            "/v1/sync",
+            Some(&ana),
+            &PushRequest {
+                vaults: vec![vault(2)],
+                items: vec![],
+            },
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::OK);
+    api.post("/v1/links", Some(&ana), &request(1, 110, None))
+        .await;
+    assert_eq!(open(&api, 1).await.0, StatusCode::OK);
+
+    let pushed: PushResponse = api
+        .post(
+            "/v1/sync",
+            Some(&ana),
+            &PushRequest {
+                vaults: vec![SyncVault {
+                    deleted: true,
+                    ..vault(1)
+                }],
+                items: vec![],
+            },
+        )
+        .await
+        .json();
+    assert!(matches!(pushed.vaults[0], ChangeResult::Applied { .. }));
     assert_eq!(open(&api, 1).await.0, StatusCode::NOT_FOUND);
     assert_eq!(stored_payload(&db, 1).await, None);
     assert_eq!(list(&api, &ana).await.links[0].state, LinkState::Revoked);
