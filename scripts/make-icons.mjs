@@ -56,8 +56,7 @@ function paint(x, y) {
   if (roundRect(x, y, 0, 0, UNITS, UNITS, TILE_RADIUS) > 0) return null;
   const lx = x - OFFSET[0];
   const ly = y - OFFSET[1];
-  const keyhole =
-    Math.hypot(lx - 15, ly - 20) <= 2.6 || roundRect(lx, ly, 14, 21, 2, 5, 1) <= 0;
+  const keyhole = Math.hypot(lx - 15, ly - 20) <= 2.6 || roundRect(lx, ly, 14, 21, 2, 5, 1) <= 0;
   if (roundRect(lx, ly, 3, 12, 24, 18, 5) <= 0) return keyhole ? TILE : GREEN;
   if (shackle(lx, ly) <= 0) return INK;
   return TILE;
