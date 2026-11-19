@@ -1,8 +1,11 @@
 # Builds Kandado's downloads and attaches them to a GitHub Release.
 #
-#   git tag v0.1.0 && git push origin v0.1.0
+#   git tag v0.2.0 && git push origin v0.2.0
 #
-# A tag must match the version in Cargo.toml and src/extensions/package.json.
+# The tag is the version. Each build writes it into Cargo.toml, Cargo.lock and
+# the package.json files (scripts/set-version.mjs) before it compiles, so a
+# release needs no version-bump commit. The version committed in the repository
+# is only what local builds report.
 # The tag runs every check first, then builds:
 #   kandado-<v>-setup.exe                Windows installer (per user; unsigned for now)
 #   kandado-<v>-windows-x64.zip          the same two programs, without an installer
@@ -27,6 +30,7 @@ on:
       - "scripts/build-extension.mjs"
       - "scripts/build-wasm.mjs"
       - "scripts/build-viewer.mjs"
+      - "scripts/set-version.mjs"
       - ".github/workflows/release.yml"
   workflow_dispatch:
 
@@ -51,15 +55,18 @@ jobs:
         with:
           persist-credentials: false
       - id: read
-        name: Read and check the version
+        name: Read the version
         run: |
-          cargo=$(grep -m1 -E '^version = "' Cargo.toml | cut -d'"' -f2)
-          extension=$(node -p "require('./src/extensions/package.json').version")
-          [ "$cargo" = "$extension" ] || { echo "Cargo.toml says $cargo, the extension says $extension"; exit 1; }
+          # A tag gives the version; a pull request or a manual run builds the committed one.
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            [ "${GITHUB_REF_NAME}" = "v$cargo" ] || { echo "the tag ${GITHUB_REF_NAME} is not v$cargo"; exit 1; }
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version=$(grep -m1 -E '^version = "' Cargo.toml | cut -d'"' -f2)
           fi
-          echo "version=$cargo" >> "$GITHUB_OUTPUT"
+          # The desktop app's update check reads MAJOR.MINOR.PATCH and nothing else.
+          echo "$version" | grep -qE '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
+            || { echo "\"${GITHUB_REF_NAME}\" does not give a version like v1.2.3"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   # A release passes every check first. Pull requests already run them in check.yml.
   check:
@@ -86,6 +93,9 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: release-windows
+      # After the cache step, so the stamped Cargo.lock does not change its key.
+      - name: Set the version
+        run: node scripts/set-version.mjs "$VERSION"
       - name: Build kandado.exe and kandado-native-host.exe
         run: cargo build --release --locked -p kandado -p kandado-bridge --bins
       - name: Stage
@@ -137,6 +147,8 @@ jobs:
         with:
           key: release-extension
       - run: pnpm install --frozen-lockfile
+      - name: Set the version
+        run: node scripts/set-version.mjs "$VERSION"
       # Release builds: no development key, the real server address.
       - name: Build
         run: |
@@ -175,6 +187,8 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: release-server
+      - name: Set the version
+        run: node scripts/set-version.mjs "$VERSION"
       - name: Build
         run: |
           cargo build --release -p kandado-server --locked
