@@ -16,6 +16,7 @@
 //! | [`device_key`] | Windows Hello / DPAPI key that unlocks without the password |
 //! | [`secrets`] | Credential Manager for the refresh token |
 //! | [`settings`] | `settings.json` |
+//! | [`update`] | Signed updates: check, download, verify, install (D-54) |
 //! | [`tasks`] | Runs async work for views that have their own executor |
 //! | [`platform`] | Win32: open a URL, watch for sleep and session changes |
 #![deny(unsafe_code)]
@@ -37,6 +38,7 @@ pub mod tasks;
 pub mod testing;
 pub mod totp_import;
 pub mod transfer;
+pub mod update;
 pub mod vault;
 
 pub use kandado_crypto::kdf::KdfParams;

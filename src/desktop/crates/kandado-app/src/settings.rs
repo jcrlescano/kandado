@@ -134,6 +134,8 @@ pub struct Settings {
     /// D-45: paired browser extensions unlock when this app does, and the
     /// native messaging host is registered with the browsers.
     pub unlock_extension: bool,
+    /// D-43 Updates: look for a new version every 12 hours (D-54).
+    pub check_updates: bool,
 }
 
 /// Where the app talks to unless told otherwise. Development builds use the
@@ -161,6 +163,7 @@ impl Default for Settings {
             import_offered: false,
             server_url: DEFAULT_SERVER_URL.to_owned(),
             unlock_extension: false,
+            check_updates: true,
         }
     }
 }
@@ -216,6 +219,7 @@ mod tests {
             Some(Duration::from_secs(60))
         );
         assert!(settings.keep_in_tray && !settings.start_at_login);
+        assert!(settings.check_updates);
     }
 
     #[test]

@@ -37,17 +37,21 @@ pub struct Services {
     pub tasks: Tasks,
     /// The browser extension link (D-45).
     pub browser: Arc<kandado_app::browser::BrowserLink>,
+    /// Updates (D-54). Created here; `main.rs` starts its checks.
+    pub updater: Arc<kandado_app::update::Updater>,
 }
 
 impl Services {
     /// The services for an app keeping its files in `data_dir`. The browser
     /// link is created but not started; the app starts it (`main.rs`).
     pub fn new(app: Arc<KandadoApp>, tasks: Tasks, data_dir: std::path::PathBuf) -> Self {
+        let updater = kandado_app::update::Updater::new(&data_dir);
         let browser = kandado_app::browser::BrowserLink::new(app.clone(), tasks.handle(), data_dir);
         Self {
             app,
             tasks,
             browser,
+            updater,
         }
     }
 }

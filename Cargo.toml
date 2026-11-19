@@ -11,6 +11,7 @@ members = [
   "src/extensions/wasm",
   "src/backend/kandado-server",
   "src/desktop/host",
+  "src/desktop/tools/update-signer",
 ]
 
 [workspace.package]
