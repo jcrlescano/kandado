@@ -173,7 +173,7 @@ pub fn set_start_at_login(on: bool) -> Result<(), PlatformError> {
         core::{HSTRING, w},
     };
     let run = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-    let name = w!("Kandado");
+    let name = &HSTRING::from(crate::profile::NAME);
     let failed = |code: u32| PlatformError::Failed(format!("registry error {code}"));
     if !on {
         // SAFETY: valid constant strings; deleting a missing value is fine.

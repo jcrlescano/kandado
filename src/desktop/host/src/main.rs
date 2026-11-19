@@ -15,12 +15,9 @@ use kandado_host::{
     views::Services,
 };
 
+/// `%APPDATA%\Kandado`, or `%APPDATA%\Kandado Dev` for a development build.
 fn data_dir() -> PathBuf {
-    std::env::var_os("APPDATA")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(PathBuf::from)
-        .unwrap_or_default()
-        .join("Kandado")
+    kandado_app::profile::data_dir()
 }
 
 fn main() {
@@ -39,7 +36,7 @@ fn main() {
         Arc<dyn kandado_app::device_key::DeviceKey>,
     ) = (
         Arc::new(kandado_app::secrets::windows_store::CredentialManager::new(
-            "Kandado",
+            kandado_app::profile::NAME,
         )),
         Arc::new(kandado_app::device_key::windows_hello::WindowsDeviceKey::new()),
     );
