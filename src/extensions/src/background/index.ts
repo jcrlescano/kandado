@@ -100,6 +100,8 @@ const platform: Platform = {
  * injects it only where access was given.
  */
 const CONTENT_SCRIPT_ID = "kandado-autofill";
+/** The WebAuthn shim (E-25, E-26): main world, top frame, before the page's own scripts. */
+const WEBAUTHN_SCRIPT_ID = "kandado-webauthn";
 
 async function registerContentScript(): Promise<void> {
   const granted = await chrome.permissions.getAll();
@@ -107,9 +109,10 @@ async function registerContentScript(): Promise<void> {
     (origin) =>
       origin.startsWith("http://") || origin.startsWith("https://") || origin === "<all_urls>",
   );
-  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+  const ids = [CONTENT_SCRIPT_ID, WEBAUTHN_SCRIPT_ID];
+  const existing = await chrome.scripting.getRegisteredContentScripts({ ids });
   if (existing.length > 0)
-    await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+    await chrome.scripting.unregisterContentScripts({ ids: existing.map((script) => script.id) });
   if (matches.length === 0) return;
   await chrome.scripting.registerContentScripts([
     {
@@ -118,6 +121,15 @@ async function registerContentScript(): Promise<void> {
       matches,
       allFrames: true,
       runAt: "document_idle",
+      persistAcrossSessions: true,
+    },
+    {
+      id: WEBAUTHN_SCRIPT_ID,
+      js: ["webauthn.js"],
+      matches,
+      allFrames: false,
+      runAt: "document_start",
+      world: "MAIN",
       persistAcrossSessions: true,
     },
   ]);

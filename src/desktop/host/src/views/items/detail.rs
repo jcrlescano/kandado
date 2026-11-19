@@ -31,7 +31,7 @@ use crate::{
     assets::IconName,
     components::{
         Badge, Banner, Button, ButtonVariant, Hue, Icon, IconButton, IconButtonVariant, ItemIcon,
-        LightState, Link, SecretField, StatusLight, Tone, TotpCode, section_label, well,
+        LightState, Link, SecretField, StatusLight, Tone, TotpCode, lcd, section_label, well,
     },
     theme::{KandadoTheme, TextStyles as _, color, tokens},
 };
@@ -316,6 +316,8 @@ impl DetailView {
 
         let view = cx.entity();
         let is_password = detail.kind == ItemKind::Password;
+        // D-13: a passkey is viewed and deleted, never edited or copied.
+        let is_passkey = detail.kind == ItemKind::Passkey;
         let more = KitButton::new("detail-more")
             .ghost()
             .tooltip("More actions")
@@ -332,7 +334,9 @@ impl DetailView {
                 })
                 .item(item("Move to vault", DetailEvent::Move))
                 .item(item("History", DetailEvent::History))
-                .item(item("Duplicate", DetailEvent::Duplicate))
+                .when(!is_passkey, |menu| {
+                    menu.item(item("Duplicate", DetailEvent::Duplicate))
+                })
                 .separator()
                 .item(item("Move to trash", DetailEvent::Trash))
             });
@@ -375,11 +379,13 @@ impl DetailView {
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(DetailEvent::Share))),
                     )
                 })
-                .child(
-                    Button::new("detail-edit", "Edit")
-                        .primary()
-                        .on_click(cx.listener(|_, _, _, cx| cx.emit(DetailEvent::Edit))),
-                )
+                .when(!is_passkey, |actions| {
+                    actions.child(
+                        Button::new("detail-edit", "Edit")
+                            .primary()
+                            .on_click(cx.listener(|_, _, _, cx| cx.emit(DetailEvent::Edit))),
+                    )
+                })
                 .child(more)
         };
 
@@ -430,6 +436,46 @@ impl DetailView {
     }
 }
 
+impl DetailView {
+    /// D-13's readout: what a passkey is, on the LCD.
+    fn passkey_lcd(&self, detail: &ItemDetail, cx: &mut Context<Self>) -> impl IntoElement {
+        let p = cx.palette();
+        let label = |text: String| {
+            div()
+                .text_token(tokens::LABEL)
+                .text_color(color(p.lcd_label))
+                .child(SharedString::from(text))
+        };
+        lcd(cx)
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(tokens::SPACE_5))
+            .py(px(tokens::SPACE_5))
+            .px(px(20.))
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_w(px(220.))
+                    .gap(px(6.))
+                    .child(label("PASSKEY \u{b7} STORED IN KANDADO".to_owned()))
+                    .child(
+                        div()
+                            .font_family(tokens::FONT_MONO)
+                            .font_weight(gpui_kit::FontWeight::MEDIUM)
+                            .text_size(px(20.))
+                            .line_height(px(26.))
+                            .text_color(color(p.lcd_ink))
+                            .child("SIGNS IN WITHOUT A PASSWORD"),
+                    ),
+            )
+            .child(label(format!(
+                "ADDED {}",
+                date(detail.created_at).to_uppercase()
+            )))
+    }
+}
+
 /// The note, as a labelled well (hw-field). Notes are not concealed.
 pub fn note_box(text: &str, cx: &gpui_kit::App) -> impl IntoElement {
     let p = cx.palette();
@@ -473,6 +519,21 @@ impl Render for DetailView {
                 )
                 .icon(IconName::Clock),
             );
+        }
+        if let Some(site) = detail.passkey_site.clone() {
+            body = body.child(self.passkey_lcd(&detail, cx));
+            if detail.days_left.is_none() {
+                body = body.child(
+                    Banner::new(
+                        Tone::Neutral,
+                        format!(
+                            "Moving this passkey to the trash doesn\u{2019}t remove it from your \
+                             account on {site}. Remove it there too."
+                        ),
+                    )
+                    .icon(IconName::Info),
+                );
+            }
         }
         // The two-factor code reads on the LCD, under the title.
         for field in detail.sections.iter().flat_map(|section| &section.fields) {

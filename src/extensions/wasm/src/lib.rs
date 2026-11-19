@@ -25,7 +25,9 @@ mod session;
 #[cfg(feature = "vectors")]
 pub use raw::*;
 
-pub use session::{PairingKey, SealedItem, Session, create_pairing_key, pairing_code};
+pub use session::{
+    PairingKey, SealedItem, SealedPasskey, Session, create_pairing_key, pairing_code,
+};
 
 type JsResult<T> = Result<T, JsError>;
 

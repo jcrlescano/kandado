@@ -180,6 +180,16 @@ function Autofill({ settings, change }: PageProps) {
           onChange={(on) => void change({ suggestPasswords: on })}
         />
       </Row>
+      <Row
+        label="Use Kandado for passkeys"
+        description="Save and sign in with passkeys from your vault. Off: the browser handles them."
+      >
+        <Switch
+          label="Use Kandado for passkeys"
+          checked={settings.passkeys}
+          onChange={(on) => void change({ passkeys: on })}
+        />
+      </Row>
     </Rows>
   );
 }

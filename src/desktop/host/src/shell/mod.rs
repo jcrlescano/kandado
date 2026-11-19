@@ -852,7 +852,8 @@ impl VaultShell {
             return;
         };
         match self.services.app.item(id) {
-            Ok(item) if item.trashed_at.is_none() => {
+            // A passkey has no form (D-13): editing it here could only break it.
+            Ok(item) if item.trashed_at.is_none() && item.content.kind() != ItemKind::Passkey => {
                 self.show_form(FormStart::Edit(Box::new(item)), window, cx);
             }
             Ok(_) => {}

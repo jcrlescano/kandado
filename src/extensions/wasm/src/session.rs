@@ -20,7 +20,7 @@ use kandado_crypto::{
     seal::{self, PUBLIC_KEY_LEN, PrivateKey},
     wrap,
 };
-use kandado_model::{ItemContent, ItemData, VaultMeta, contexts};
+use kandado_model::{ItemContent, ItemData, Secret, VaultMeta, contexts, webauthn};
 use kandado_protocol::AccountKeys;
 use serde::Serialize;
 use uuid::Uuid;
@@ -91,6 +91,16 @@ struct Summary<'a> {
     websites: Vec<WebsiteSummary<'a>>,
     favourite: bool,
     has_totp: bool,
+    /// For a passkey: which site it is for and its credential id. Not secret;
+    /// both are sent to the site at every sign-in.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    passkey: Option<PasskeySummary<'a>>,
+}
+
+#[derive(Serialize)]
+struct PasskeySummary<'a> {
+    rp_id: &'a str,
+    credential_id: &'a str,
 }
 
 #[derive(Serialize)]
@@ -177,6 +187,15 @@ pub struct SealedItem {
     pub content_enc: Vec<u8>,
     /// `login`, `card`, ... The server files items by it (decision 11).
     pub kind: String,
+}
+
+/// A new passkey: the sealed item to store, and the answer for the page.
+#[wasm_bindgen(getter_with_clone)]
+pub struct SealedPasskey {
+    pub key_wrapped: Vec<u8>,
+    pub content_enc: Vec<u8>,
+    /// `webauthn::Registration` as JSON: no secret, it goes to the site.
+    pub response_json: String,
 }
 
 /// The unlocked keys of one account.
@@ -398,6 +417,13 @@ impl Session {
             websites,
             favourite: content.favourite,
             has_totp,
+            passkey: match &content.data {
+                ItemData::Passkey(passkey) => Some(PasskeySummary {
+                    rp_id: &passkey.rp_id,
+                    credential_id: &passkey.credential_id,
+                }),
+                _ => None,
+            },
         })
         .map_err(|_| JsError::new("the item could not be read"))
     }
@@ -412,7 +438,11 @@ impl Session {
         key_wrapped: &[u8],
         content_enc: &[u8],
     ) -> JsResult<String> {
-        let content = self.content(vault_id, item_id, key_wrapped, content_enc)?;
+        let mut content = self.content(vault_id, item_id, key_wrapped, content_enc)?;
+        // A passkey's private key never leaves the core: it only signs, here.
+        if let ItemData::Passkey(passkey) = &mut content.data {
+            passkey.private_key = Secret::default();
+        }
         serde_json::to_string(&content).map_err(|_| JsError::new("the item could not be read"))
     }
 
@@ -474,12 +504,76 @@ impl Session {
         let (vault, item) = (id(vault_id)?, id(item_id)?);
         let content: ItemContent = serde_json::from_str(content_json)
             .map_err(|_| JsError::new("the item is malformed"))?;
+        // The JavaScript side only ever sees a passkey without its key, so an
+        // edit from there would lose it.
+        if matches!(content.data, ItemData::Passkey(_)) {
+            return Err(JsError::new("a passkey is not edited here"));
+        }
         let key = self.item_key(vault, item, key_wrapped)?;
         Ok(SealedItem {
             key_wrapped: key_wrapped.to_vec(),
             content_enc: aead::encrypt(&key, &contexts::item_content(item), &content.encode()?)?,
             kind: content.kind().as_str().to_owned(),
         })
+    }
+
+    /// Makes a passkey for `navigator.credentials.create` (E-25) and seals it
+    /// as a new item. `request_json` is a `webauthn::CreateRequest`, whose
+    /// `origin` the worker took from the browser, not from the page.
+    /// `user_verified`: the session was opened with the master password or
+    /// the desktop app, so the person is who unlocked the vault.
+    #[wasm_bindgen(js_name = createPasskey)]
+    pub fn create_passkey(
+        &self,
+        vault_id: &str,
+        item_id: &str,
+        request_json: &str,
+        user_verified: bool,
+    ) -> JsResult<SealedPasskey> {
+        let (vault, item) = (id(vault_id)?, id(item_id)?);
+        let request: webauthn::CreateRequest = serde_json::from_str(request_json)
+            .map_err(|_| JsError::new("the passkey request is malformed"))?;
+        let (passkey, registration) = webauthn::register(&request, user_verified)?;
+        let title = if passkey.rp_name.trim().is_empty() {
+            passkey.rp_id.clone()
+        } else {
+            passkey.rp_name.clone()
+        };
+        let content = ItemContent::new(title, ItemData::Passkey(passkey));
+        let key = SecretKey::generate()?;
+        Ok(SealedPasskey {
+            key_wrapped: wrap::wrap_key(
+                self.vault_key(&vault)?,
+                &contexts::item_key(vault, item),
+                &key,
+            )?,
+            content_enc: aead::encrypt(&key, &contexts::item_content(item), &content.encode()?)?,
+            response_json: serde_json::to_string(&registration)
+                .map_err(|_| JsError::new("the passkey could not be made"))?,
+        })
+    }
+
+    /// Signs in with a stored passkey for `navigator.credentials.get` (E-26).
+    /// Returns a `webauthn::Assertion` as JSON. Fails if the item is not a
+    /// passkey or belongs to another site.
+    #[wasm_bindgen(js_name = assertPasskey)]
+    pub fn assert_passkey(
+        &self,
+        vault_id: &str,
+        item_id: &str,
+        key_wrapped: &[u8],
+        content_enc: &[u8],
+        request_json: &str,
+        user_verified: bool,
+    ) -> JsResult<String> {
+        let content = self.content(vault_id, item_id, key_wrapped, content_enc)?;
+        let ItemData::Passkey(passkey) = &content.data else {
+            return Err(JsError::new("that item is not a passkey"));
+        };
+        let request: webauthn::GetRequest = serde_json::from_str(request_json)
+            .map_err(|_| JsError::new("the passkey request is malformed"))?;
+        let assertion = webauthn::assert(passkey, &request, user_verified)?;
+        serde_json::to_string(&assertion).map_err(|_| JsError::new("the sign-in could not be made"))
     }
 
     /// The kind of an item (`login`, `card`, ...), for a push.

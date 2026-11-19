@@ -15,6 +15,7 @@
 //! | [`kdf`] | Argon2id: master password to master key |
 //! | [`wrap`] | One symmetric key encrypted under another |
 //! | [`seal`] | Encrypt to an X25519 public key (HPKE, RFC 9180) |
+//! | [`passkey`] | ES256 keys for WebAuthn passkeys: generate, store, sign |
 //! | [`pairing`] | Pairing the browser extension; the user key sealed to it |
 //! | [`recovery`] | The 12-word recovery phrase and its key |
 //! | [`random`] | The system's secure random source |
@@ -26,6 +27,7 @@ pub mod context;
 mod error;
 pub mod kdf;
 pub mod pairing;
+pub mod passkey;
 pub mod random;
 pub mod recovery;
 pub mod seal;

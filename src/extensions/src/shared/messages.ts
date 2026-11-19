@@ -10,6 +10,13 @@ import type {
 } from "../background/autofill";
 import type { ItemContentJson, Summary, VaultInfo } from "../background/keyring";
 import type { Suggestion } from "../background/matcher";
+import type {
+  PasskeyAnswer,
+  PasskeyOutcome,
+  PasskeyRequest,
+  PasskeyStart,
+  PasskeyView,
+} from "../background/passkeys";
 import type { PromptAnswer, PromptView } from "../background/prompts";
 import type { FormKind } from "../content/detect";
 import type { FillValues } from "../content/fill";
@@ -78,6 +85,12 @@ export type Request =
   | { type: "prompt-view"; token: string }
   | { type: "prompt-answer"; token: string; answer: PromptAnswer }
   | { type: "prompt-size"; token: string; height: number }
+  // From a top frame's content script: the page called navigator.credentials (E-25, E-26).
+  | { type: "passkey-start"; call: PasskeyRequest }
+  | { type: "passkey-abort"; token: string }
+  // From the prompt page, for a passkey request.
+  | { type: "passkey-view"; token: string }
+  | { type: "passkey-answer"; token: string; answer: PasskeyAnswer }
   // From the settings and welcome pages (E-27 to E-31).
   | { type: "settings-get" }
   | { type: "settings-set"; patch: Partial<ExtensionSettings> }
@@ -159,6 +172,10 @@ export interface Responses {
   "prompt-view": PromptView;
   "prompt-answer": null;
   "prompt-size": null;
+  "passkey-start": PasskeyStart;
+  "passkey-abort": null;
+  "passkey-view": PasskeyView;
+  "passkey-answer": null;
   "settings-get": ExtensionSettings;
   "settings-set": ExtensionSettings;
   "desktop-status": DesktopLinkStatus;
@@ -200,6 +217,10 @@ export const REQUEST_TYPES: ReadonlySet<string> = new Set<Request["type"]>([
   "prompt-view",
   "prompt-answer",
   "prompt-size",
+  "passkey-start",
+  "passkey-abort",
+  "passkey-view",
+  "passkey-answer",
   "settings-get",
   "settings-set",
   "desktop-status",
@@ -219,6 +240,8 @@ export const CONTENT_SCRIPT_ALLOWED: ReadonlySet<Request["type"]> = new Set([
   "dropdown-close",
   "login-captured",
   "prompt-check",
+  "passkey-start",
+  "passkey-abort",
 ]);
 
 /** Messages the worker sends to a content script (in one frame) or to the dropdown pages. */
@@ -230,4 +253,6 @@ export type WorkerMessage =
   | { type: "kandado-dropdown-close"; token: string }
   | { type: "kandado-dropdown-key"; token: string; key: DropdownKey }
   | { type: "kandado-prompt-size"; token: string; height: number }
-  | { type: "kandado-prompt-close"; token: string };
+  | { type: "kandado-prompt-close"; token: string }
+  /** To the top frame: show the passkey prompt for this request. */
+  | { type: "kandado-passkey-outcome"; token: string; outcome: PasskeyOutcome };

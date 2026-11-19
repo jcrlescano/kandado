@@ -13,6 +13,7 @@
 //! | [`totp`] | Two-factor codes (RFC 6238) and `otpauth://` setup keys |
 //! | [`url_match`] | Which websites a login belongs to |
 //! | [`vault`] | A vault's name, colour and icon |
+//! | [`webauthn`] | Passkeys: registrations and assertions as an authenticator makes them |
 #![forbid(unsafe_code)]
 
 pub mod contexts;
@@ -25,6 +26,7 @@ pub mod strength;
 pub mod totp;
 pub mod url_match;
 pub mod vault;
+pub mod webauthn;
 
 pub use error::{Error, Result};
 pub use item::{ItemContent, ItemData, ItemKind};

@@ -106,6 +106,27 @@ pub struct ItemDetail {
     pub updated_at: i64,
     /// Days until it is deleted for good, when it is in the trash.
     pub days_left: Option<i64>,
+    /// For a passkey (D-13): the site it signs in to.
+    pub passkey_site: Option<String>,
+}
+
+/// A passkey's credential id as D-13 shows it: the first eight bytes in hex,
+/// in groups of four, such as `7F3A·91C0·E2B4·C21E`. Enough to tell two apart
+/// and to match the list a site shows; not the whole id.
+pub fn key_id(credential_id: &str) -> String {
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+    match URL_SAFE_NO_PAD.decode(credential_id.trim_end_matches('=')) {
+        Ok(bytes) if !bytes.is_empty() => bytes
+            .iter()
+            .take(8)
+            .map(|byte| format!("{byte:02X}"))
+            .collect::<Vec<_>>()
+            .chunks(2)
+            .map(|pair| pair.concat())
+            .collect::<Vec<_>>()
+            .join("\u{b7}"),
+        _ => credential_id.chars().take(16).collect(),
+    }
 }
 
 /// What a copy did, for the toast: "Password copied. Clears in 60 s."
@@ -295,11 +316,20 @@ fn raw_sections(content: &ItemContent) -> Vec<(Option<&'static str>, Vec<Raw>)> 
         ItemData::Passkey(passkey) => sections.push((
             None,
             vec![
-                Raw::plain("Username", FieldIcon::User, &passkey.user_name),
+                Raw::plain(
+                    "Username",
+                    FieldIcon::User,
+                    if passkey.user_name.is_empty() {
+                        &passkey.user_display_name
+                    } else {
+                        &passkey.user_name
+                    },
+                ),
                 Raw {
                     link: true,
                     ..Raw::plain("Website", FieldIcon::Globe, &passkey.rp_id)
                 },
+                Raw::plain("Key ID", FieldIcon::Key, &key_id(&passkey.credential_id)).mono(),
             ],
         )),
     }
@@ -396,6 +426,10 @@ fn detail(item: &Item, now: i64) -> ItemDetail {
         days_left: item
             .trashed_at
             .map(|trashed_at| items::days_left(trashed_at, now)),
+        passkey_site: match &content.data {
+            ItemData::Passkey(passkey) => Some(passkey.rp_id.clone()),
+            _ => None,
+        },
     }
 }
 

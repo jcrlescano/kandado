@@ -63,7 +63,9 @@ MV3 service workers are stopped when idle. The unlocked key is kept in `chrome.s
 
 ## Passkeys
 
-`webauthn-main.ts` wraps `navigator.credentials.create` and `.get`. Requests go to the service worker, which shows E-25 or E-26. If the user chooses Kandado, the WASM core creates or uses the credential (ES256) stored as a passkey item; otherwise the call passes through to the browser untouched.
+`webauthn-main.ts` wraps `navigator.credentials.create` and `.get` in the top frame's main world (registered for `document_start`). It turns the options into plain values and posts them to the content script, which asks the worker (`passkey-start`). The worker (`background/passkeys.ts`) decides at once whether Kandado answers; if not (an iframe, a conditional request, passkeys off in E-29, an excluded site, no ES256, or no stored passkey that fits a sign-in) the shim calls the browser's own function with the page's original options. Otherwise the prompt iframe shows E-25 or E-26 and the answer comes back as `kandado-passkey-outcome`. The origin is always the one the browser reports for the frame.
+
+The WASM core makes the credential (ES256, "none" attestation) and signs with it (`kandado_model::webauthn`, `kandado_crypto::passkey`). The private key never reaches JavaScript: `itemContent` blanks it and `sealItemUpdate` refuses a passkey. "Use another device" hands the call to the browser; Cancel answers `NotAllowedError` (or `InvalidStateError` when the site already has the passkey); the page's `AbortSignal` closes the prompt. Details and limits are P8-1 to P8-10 in [decisions.md](../implementation-plan/decisions.md).
 
 ## Desktop link
 
@@ -77,5 +79,5 @@ Native messaging to `kandado-native-host` (see [desktop.md](desktop.md#kandado-b
 
 - `wasm-pack` builds `kandado-wasm`; Vite builds the rest; one output folder per browser.
 - Unit tests in Vitest. Crypto vectors are the same files the Rust tests use.
-- Playwright loads the built extension and runs autofill against local fixture pages (login, sign-up, change password, checkout, address, 2FA code, WebAuthn).
+- Playwright loads the built extension and runs autofill against local fixture pages (login, sign-up, change password, checkout, address, 2FA code, and a WebAuthn relying party that checks every answer with Web Crypto).
 - Biome for lint and format, as the root workspace.

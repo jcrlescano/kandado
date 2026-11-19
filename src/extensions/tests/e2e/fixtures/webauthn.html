@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Passkeys at Local</title>
+<style>body{font:16px system-ui;margin:40px}button{font:inherit;padding:8px 14px;margin-right:8px}output{display:block;margin-top:16px;font-family:monospace;white-space:pre-wrap}</style></head>
+<body>
+<h1>Passkeys at Local</h1>
+<p>A relying party in one page: it registers a passkey, signs in with it, and checks every answer the way a server would, with Web Crypto.</p>
+<button id="register" type="button">Create a passkey</button>
+<button id="register-again" type="button">Create another for the same account</button>
+<button id="signin" type="button">Sign in with a passkey</button>
+<button id="abort" type="button">Sign in, then give up</button>
+<output id="result"></output>
+<script>
+  const out = document.getElementById("result");
+  const show = (text) => { out.textContent = text; };
+  const enc = new TextEncoder();
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  const sha256 = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const challenge = () => crypto.getRandomValues(new Uint8Array(32));
+  const state = JSON.parse(localStorage.getItem("rp") || "null");
+  const save = (value) => localStorage.setItem("rp", JSON.stringify(value));
+
+  function derToRaw(der) {
+    let at = 2;
+    const part = () => {
+      const len = der[at + 1];
+      let v = der.slice(at + 2, at + 2 + len);
+      at += 2 + len;
+      while (v.length > 32 && v[0] === 0) v = v.slice(1);
+      const o = new Uint8Array(32); o.set(v, 32 - v.length); return o;
+    };
+    const r = part(), s = part();
+    return new Uint8Array([...r, ...s]);
+  }
+
+  async function register(exclude) {
+    const sent = challenge();
+    try {
+      const credential = await navigator.credentials.create({ publicKey: {
+        rp: { name: "Local" },
+        user: { id: enc.encode("user-7"), name: "juan@local.test", displayName: "Juan" },
+        challenge: sent,
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        excludeCredentials: exclude ? [{ type: "public-key", id: unb64(state.id) }] : [],
+        authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
+        extensions: { credProps: true },
+      } });
+      const r = credential.response;
+      const client = JSON.parse(new TextDecoder().decode(r.clientDataJSON));
+      const checks = {
+        instance: credential instanceof PublicKeyCredential && r instanceof AuthenticatorAttestationResponse,
+        type: client.type === "webauthn.create",
+        challenge: client.challenge === b64(sent),
+        origin: client.origin === location.origin,
+        rpIdHash: same(new Uint8Array(r.getAuthenticatorData()).slice(0, 32), await sha256(enc.encode(location.hostname))),
+        userPresent: (new Uint8Array(r.getAuthenticatorData())[32] & 1) === 1,
+        es256: r.getPublicKeyAlgorithm() === -7,
+        rawId: b64(credential.rawId) === credential.id,
+        credProps: credential.getClientExtensionResults().credProps?.rk === true,
+        json: credential.toJSON().response.clientDataJSON === b64(r.clientDataJSON),
+      };
+      const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
+      if (failed.length) return show(`register failed: ${failed.join(", ")}`);
+      save({ id: credential.id, spki: b64(r.getPublicKey()) });
+      show(`registered ${credential.id}`);
+    } catch (error) {
+      show(`register error: ${error.name}`);
+    }
+  }
+
+  async function signIn(giveUp) {
+    const current = JSON.parse(localStorage.getItem("rp") || "null");
+    const sent = challenge();
+    const controller = new AbortController();
+    if (giveUp) setTimeout(() => controller.abort(), 800);
+    try {
+      const credential = await navigator.credentials.get({ publicKey: {
+        challenge: sent,
+        allowCredentials: current ? [{ type: "public-key", id: unb64(current.id) }] : [],
+        userVerification: "preferred",
+      }, signal: controller.signal });
+      const r = credential.response;
+      const client = JSON.parse(new TextDecoder().decode(r.clientDataJSON));
+      const authData = new Uint8Array(r.authenticatorData);
+      const key = await crypto.subtle.importKey("spki", unb64(current.spki), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+      const signed = new Uint8Array([...authData, ...(await sha256(new Uint8Array(r.clientDataJSON)))]);
+      const valid = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, derToRaw(new Uint8Array(r.signature)), signed);
+      const checks = {
+        instance: r instanceof AuthenticatorAssertionResponse,
+        id: credential.id === current.id,
+        type: client.type === "webauthn.get",
+        challenge: client.challenge === b64(sent),
+        origin: client.origin === location.origin,
+        rpIdHash: same(authData.slice(0, 32), await sha256(enc.encode(location.hostname))),
+        user: new TextDecoder().decode(r.userHandle) === "user-7",
+        signature: valid,
+      };
+      const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
+      show(failed.length ? `sign-in failed: ${failed.join(", ")}` : `signed in as user-7`);
+    } catch (error) {
+      show(`sign-in error: ${error.name}`);
+    }
+  }
+
+  document.getElementById("register").onclick = () => register(false);
+  document.getElementById("register-again").onclick = () => register(true);
+  document.getElementById("signin").onclick = () => signIn(false);
+  document.getElementById("abort").onclick = () => signIn(true);
+</script>
+</body>
+</html>

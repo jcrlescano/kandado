@@ -14,6 +14,8 @@ export interface ExtensionSettings {
   suggestPasswords: boolean;
   /** E-29: the save and update prompts (E-23, E-24). */
   offerToSave: boolean;
+  /** E-29: answer passkey requests from the vault (E-25, E-26). */
+  passkeys: boolean;
   /** E-30: hostnames that get no dropdown and no prompt. */
   excludedSites: string[];
   /** E-31 */
@@ -30,6 +32,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   showInFields: true,
   suggestPasswords: true,
   offerToSave: true,
+  passkeys: true,
   excludedSites: [],
   autoLockMinutes: 15,
   pinWanted: false,
@@ -78,6 +81,7 @@ export function readSettings(stored: unknown): ExtensionSettings {
     showInFields: bool("showInFields"),
     suggestPasswords: bool("suggestPasswords"),
     offerToSave: bool("offerToSave"),
+    passkeys: bool("passkeys"),
     excludedSites: [...new Set(sites)],
     autoLockMinutes: (AUTO_LOCK_CHOICES as readonly number[]).includes(minutes)
       ? minutes
