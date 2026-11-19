@@ -101,6 +101,8 @@ pub(crate) enum Overlay {
     },
     DeleteForever(Vec<Uuid>),
     EmptyTrash,
+    /// Delete a vault and everything in it.
+    DeleteVault(Uuid),
     Discard(Pending),
     Shortcuts,
     /// D-32 Create secure link.
@@ -318,10 +320,15 @@ impl VaultShell {
         let app = &self.services.app;
         self.vaults = app.vaults().unwrap_or_default();
         self.counts = app.counts();
+        // The vault being looked at was deleted (here or elsewhere): show
+        // another one.
         if let Place::Vault(id) = self.place
             && !self.vaults.iter().any(|vault| vault.id == id)
         {
-            self.place = Place::AllVaults;
+            self.place = self
+                .vaults
+                .first()
+                .map_or(Place::AllVaults, |vault| Place::Vault(vault.id));
         }
         let entries = match self.place {
             Place::Monitor | Place::Links => Vec::new(),
@@ -759,6 +766,14 @@ impl VaultShell {
         }
     }
 
+    /// Delete vault, from its edit dialog: asks first. Not the last vault.
+    pub fn ask_delete_vault(&mut self, id: Uuid, cx: &mut Context<Self>) {
+        if self.vaults.len() > 1 && self.vaults.iter().any(|vault| vault.id == id) {
+            self.overlay = Overlay::DeleteVault(id);
+            cx.notify();
+        }
+    }
+
     pub fn ask_empty_trash(&mut self, cx: &mut Context<Self>) {
         if self.counts.1 > 0 {
             self.overlay = Overlay::EmptyTrash;
@@ -786,6 +801,22 @@ impl VaultShell {
                 let emptied = result.as_ref().map(|_| ()).map_err(|_| ());
                 if self.attempt(result.map(|_| ()), cx) && emptied.is_ok() {
                     self.toast("Trash emptied.", cx);
+                }
+            }
+            Overlay::DeleteVault(id) => {
+                let (name, _) = self.vault_name(id);
+                let was_open = self.place == Place::Vault(id);
+                let result = self.services.app.delete_vault(id);
+                // The refresh in here already points `place` at another vault.
+                if self.attempt(result, cx) {
+                    self.toast(format!("{name} deleted."), cx);
+                    if was_open {
+                        // Off to that vault, from a clean slate. A form with
+                        // edits asks first.
+                        return self.go(self.place, window, cx);
+                    }
+                    // Drops the open item if it was in that vault.
+                    self.on_synced(cx);
                 }
             }
             Overlay::Discard(pending) => {
@@ -987,12 +1018,13 @@ impl VaultShell {
         let existing =
             vault.and_then(|id| self.vaults.iter().find(|vault| vault.id == id).cloned());
         let services = self.services.clone();
-        let dialog = cx.new(|cx| VaultDialog::new(services, existing, window, cx));
+        let can_delete = self.vaults.len() > 1;
+        let dialog = cx.new(|cx| VaultDialog::new(services, existing, can_delete, window, cx));
         cx.subscribe_in(
             &dialog,
             window,
-            |this, _, event: &VaultDialogEvent, window, cx| {
-                if let VaultDialogEvent::Saved { id, created } = event {
+            |this, _, event: &VaultDialogEvent, window, cx| match event {
+                VaultDialogEvent::Saved { id, created } => {
                     this.overlay = Overlay::None;
                     if *created {
                         // A new vault is selected in the sidebar.
@@ -1002,9 +1034,9 @@ impl VaultShell {
                         this.refresh(cx);
                         this.toast("Vault saved.", cx);
                     }
-                } else {
-                    this.close_dialog(window, cx);
                 }
+                VaultDialogEvent::Delete(id) => this.ask_delete_vault(*id, cx),
+                VaultDialogEvent::Cancelled => this.close_dialog(window, cx),
             },
         )
         .detach();

@@ -18,6 +18,13 @@
 //! item's history, here and on the server, so no edit is ever lost (D-16).
 //! An item deleted for good is deleted everywhere, whatever else happened to it.
 //!
+//! So is a vault: deleting one here removes it and its items at once and
+//! leaves a vault tombstone, sent once nothing else is waiting (so an item
+//! moved out of it just before is safe in its new vault first). The server
+//! answers every later change to it, or to its items, with the deletion. If
+//! the server refuses the deletion (it was the account's last vault there),
+//! this computer reads everything again and the vault comes back.
+//!
 //! The network is behind [`Remote`] and the locked store behind [`Access`], so
 //! no lock is held while waiting on the network, and the whole algorithm runs
 //! against an in-memory server in the tests.
@@ -33,7 +40,7 @@ use uuid::Uuid;
 use crate::{
     ApiError, Session, Store, StoreError, VaultError,
     items::{self, digest},
-    store::{Base, ItemRow, Tombstone, VaultRow},
+    store::{Base, ItemRow, Tombstone, VaultRow, VaultTombstone},
     vaults,
 };
 
@@ -176,13 +183,39 @@ fn merge(local: &ItemRow, remote: &SyncItem) -> ItemRow {
 
 // ---- applying what the server sent ---------------------------------------
 
+/// Applies one vault from the server. Returns whether anything changed here.
+/// A vault deleted is added to `dropped`, so that its key and items leave the
+/// session once the page is kept.
 fn apply_remote_vault(
     store: &Store,
     session: &mut Session,
     remote: &SyncVault,
     now: i64,
+    dropped: &mut Vec<Uuid>,
 ) -> Result<bool, VaultError> {
     let local = store.vault(remote.id)?;
+    if remote.deleted {
+        // Deleted for good somewhere, or the echo of our own deletion: gone
+        // here too, with its items, whatever was changed here meanwhile.
+        store.remove_vault_tombstone(remote.id)?;
+        return Ok(match local {
+            Some(_) => {
+                store.delete_vault(remote.id)?;
+                dropped.push(remote.id);
+                true
+            }
+            None => false,
+        });
+    }
+    if let Some(mut tombstone) = store.vault_tombstone(remote.id)? {
+        // Deleted here and changed elsewhere: the deletion still stands and
+        // is still waiting to be sent.
+        if remote.revision > tombstone.server_revision {
+            tombstone.server_revision = remote.revision;
+            store.put_vault_tombstone(&tombstone)?;
+        }
+        return Ok(false);
+    }
     match local {
         None => {
             let account = session.account.as_ref().ok_or(VaultError::Locked)?;
@@ -229,6 +262,18 @@ fn apply_remote_vault(
     }
 }
 
+/// Keeps the row an item on this computer becomes. If that puts it in a
+/// vault no longer here (deleted here, the deletion not yet sent), it goes
+/// with the vault: the server deletes it too once the deletion arrives.
+fn keep(store: &Store, row: &ItemRow) -> Result<Touch, VaultError> {
+    if store.vault(row.vault_id)?.is_none() {
+        store.delete_item(row.id)?;
+        return Ok(Touch::Remove(row.id));
+    }
+    store.put_item(row)?;
+    Ok(Touch::Upsert(row.id))
+}
+
 /// Applies one item from the server. Returns what to do with the index.
 fn apply_remote_item(store: &Store, remote: &SyncItem) -> Result<Option<Touch>, VaultError> {
     let local = store.item(remote.id)?;
@@ -259,6 +304,11 @@ fn apply_remote_item(store: &Store, remote: &SyncItem) -> Result<Option<Touch>, 
         return Ok(None);
     }
     let Some(local) = local else {
+        if store.vault(remote.vault_id)?.is_none() {
+            // In a vault this computer does not keep (deleted here, or one it
+            // could not open): nothing to add it to.
+            return Ok(None);
+        }
         store.put_item(&adopt(remote, None))?;
         return Ok(Some(Touch::Upsert(remote.id)));
     };
@@ -276,8 +326,7 @@ fn apply_remote_item(store: &Store, remote: &SyncItem) -> Result<Option<Touch>, 
                 local.updated_at,
             )?;
         }
-        store.put_item(&adopt(remote, Some(&local)))?;
-        return Ok(Some(Touch::Upsert(remote.id)));
+        return Ok(Some(keep(store, &adopt(remote, Some(&local)))?));
     }
     let merged = merge(&local, remote);
     // Whichever content lost is kept in the history.
@@ -296,16 +345,20 @@ fn apply_remote_item(store: &Store, remote: &SyncItem) -> Result<Option<Touch>, 
             local.updated_at,
         )?;
     }
-    store.put_item(&merged)?;
-    Ok(Some(Touch::Upsert(remote.id)))
+    Ok(Some(keep(store, &merged)?))
 }
 
-/// Brings the search index in line with the rows a pull changed.
+/// Brings the session in line with the rows a pull changed: the vaults it
+/// deleted, then the items.
 fn refresh_index(
     store: &Store,
     session: &mut Session,
+    dropped: &[Uuid],
     touched: &[Touch],
 ) -> Result<(), VaultError> {
+    for vault in dropped {
+        vaults::forget(session, *vault);
+    }
     for touch in touched {
         match touch {
             Touch::Remove(id) => session.index.remove(*id),
@@ -336,9 +389,10 @@ pub fn apply_pull(
     report: &mut Report,
 ) -> Result<(), VaultError> {
     let mut touched = Vec::new();
+    let mut dropped = Vec::new();
     store.atomically(|store| {
         for vault in &page.vaults {
-            if apply_remote_vault(store, session, vault, now).map_err(into_store)? {
+            if apply_remote_vault(store, session, vault, now, &mut dropped).map_err(into_store)? {
                 report.pulled += 1;
                 report.changed = true;
             }
@@ -352,7 +406,7 @@ pub fn apply_pull(
         }
         store.set_cursor(page.cursor.max(store.cursor()?))
     })?;
-    refresh_index(store, session, &touched)?;
+    refresh_index(store, session, &dropped, &touched)?;
     Ok(())
 }
 
@@ -412,6 +466,7 @@ pub fn prepare_push(
             id: vault.id,
             key_sealed: Opaque::new(vault.key_enc),
             meta_enc: Opaque::new(vault.meta_enc),
+            deleted: false,
             revision: vault.server_revision,
         });
     }
@@ -471,6 +526,27 @@ pub fn prepare_push(
             revision: tombstone.server_revision,
         });
     }
+    // A vault's deletion goes alone, once the items are sent: in the same
+    // batch the server would delete an item moved out of it just before.
+    if request.items.is_empty() {
+        for VaultTombstone {
+            vault_id,
+            server_revision,
+        } in store.vault_tombstones()?
+        {
+            if skip.contains(&vault_id) || request.vaults.len() >= MAX_BATCH {
+                continue;
+            }
+            sent.vault_revision.push((vault_id, Vec::new()));
+            request.vaults.push(SyncVault {
+                id: vault_id,
+                key_sealed: Opaque::default(),
+                meta_enc: Opaque::default(),
+                deleted: true,
+                revision: server_revision,
+            });
+        }
+    }
     if request.vaults.is_empty() && request.items.is_empty() {
         return Ok(None);
     }
@@ -488,6 +564,7 @@ pub fn apply_push(
 ) -> Result<Vec<Uuid>, VaultError> {
     let mut refused = Vec::new();
     let mut touched = Vec::new();
+    let mut dropped = Vec::new();
     if response.vaults.len() != batch.request.vaults.len()
         || response.items.len() != batch.request.items.len()
     {
@@ -501,7 +578,32 @@ pub fn apply_push(
             .zip(&batch.sent.vault_revision)
             .zip(&response.vaults)
         {
-            let _ = sent;
+            if sent.deleted {
+                match result {
+                    ChangeResult::Applied { .. } => {
+                        store.remove_vault_tombstone(*id)?;
+                        report.pushed += 1;
+                    }
+                    ChangeResult::Conflict { current } => {
+                        // Deleted already; anything else, and the deletion
+                        // waits for the next sync.
+                        apply_remote_vault(store, session, current, now, &mut dropped)
+                            .map_err(into_store)?;
+                        report.conflicts += 1;
+                    }
+                    ChangeResult::Rejected => {
+                        // The server keeps it (it is the account's last
+                        // vault there, or not ours): read everything again,
+                        // which brings it and its items back.
+                        store.remove_vault_tombstone(*id)?;
+                        store.set_cursor(0)?;
+                        refused.push(*id);
+                        report.rejected += 1;
+                        report.changed = true;
+                    }
+                }
+                continue;
+            }
             match result {
                 ChangeResult::Applied { revision } => {
                     if let Some(mut row) = store.vault(*id)? {
@@ -512,7 +614,8 @@ pub fn apply_push(
                     }
                 }
                 ChangeResult::Conflict { current } => {
-                    apply_remote_vault(store, session, current, now).map_err(into_store)?;
+                    apply_remote_vault(store, session, current, now, &mut dropped)
+                        .map_err(into_store)?;
                     report.conflicts += 1;
                     report.changed = true;
                 }
@@ -582,7 +685,7 @@ pub fn apply_push(
         }
         Ok(())
     })?;
-    refresh_index(store, session, &touched)?;
+    refresh_index(store, session, &dropped, &touched)?;
     Ok(refused)
 }
 

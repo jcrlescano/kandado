@@ -174,6 +174,10 @@ export class Keyring implements Keys {
     this.session.openVault(vaultId, keySealed);
   }
 
+  forgetVault(vaultId: string): void {
+    this.session.forgetVault(vaultId);
+  }
+
   itemKind(
     vaultId: string,
     itemId: string,

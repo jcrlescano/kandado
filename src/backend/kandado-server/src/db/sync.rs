@@ -49,10 +49,12 @@ fn kind_of(row: &PgRow) -> sqlx::Result<ItemKind> {
 }
 
 fn vault_from(row: &PgRow) -> sqlx::Result<SyncVault> {
+    let deleted: Option<time::OffsetDateTime> = row.try_get("deleted_at")?;
     Ok(SyncVault {
         id: row.try_get("id")?,
         key_sealed: Opaque::new(row.try_get("vault_key_sealed")?),
         meta_enc: Opaque::new(row.try_get("meta_enc")?),
+        deleted: deleted.is_some(),
         revision: row.try_get("revision")?,
     })
 }
@@ -76,7 +78,7 @@ fn item_from(row: &PgRow) -> sqlx::Result<SyncItem> {
 
 macro_rules! vault_columns {
     () => {
-        "v.id, m.vault_key_sealed, v.meta_enc, v.revision"
+        "v.id, m.vault_key_sealed, v.meta_enc, v.deleted_at, v.revision"
     };
 }
 macro_rules! item_columns {
@@ -99,7 +101,7 @@ pub async fn pull(
         vault_columns!(),
         " FROM vaults v
          JOIN vault_members m ON m.vault_id = v.id AND m.user_id = $1
-         WHERE v.revision > $2 AND v.deleted_at IS NULL
+         WHERE v.revision > $2
          ORDER BY v.revision LIMIT $3"
     ))
     .bind(user_id)
@@ -185,7 +187,7 @@ async fn next_revision(conn: &mut PgConnection) -> sqlx::Result<i64> {
         .await
 }
 
-/// The caller's role in a vault, if they are a member.
+/// The caller's role in a vault, if they are a member and it is not deleted.
 async fn role_in(
     conn: &mut PgConnection,
     user_id: Uuid,
@@ -200,6 +202,17 @@ async fn role_in(
     .fetch_optional(conn)
     .await?;
     Ok(role.as_deref().and_then(Role::parse))
+}
+
+/// True if the caller is a member of a vault, deleted or not.
+async fn is_member(conn: &mut PgConnection, user_id: Uuid, vault_id: Uuid) -> sqlx::Result<bool> {
+    sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM vault_members WHERE vault_id = $1 AND user_id = $2)",
+    )
+    .bind(vault_id)
+    .bind(user_id)
+    .fetch_one(conn)
+    .await
 }
 
 /// Applies a batch of changes from one device, all or nothing. Each change is
@@ -250,7 +263,8 @@ async fn push_vault(
         .fetch_optional(&mut *conn)
         .await?;
     if exists.is_none() {
-        if change.revision != 0 {
+        // Nothing to delete in a vault the server never had.
+        if change.revision != 0 || change.deleted {
             return Ok(ChangeResult::Rejected);
         }
         let revision = next_revision(conn).await?;
@@ -274,22 +288,40 @@ async fn push_vault(
         .await?;
         return Ok(ChangeResult::Applied { revision });
     }
-    // Renaming a vault takes a manager or the owner.
-    match role_in(conn, user_id, change.id).await? {
-        Some(role) if role >= Role::Manager => {}
-        _ => return Ok(ChangeResult::Rejected),
-    }
-    let current = sqlx::query(concat!(
+    // The vault as the caller sees it, deleted or not. Someone else's vault
+    // is refused as if it did not exist.
+    let Some(row) = sqlx::query(concat!(
         "SELECT ",
         vault_columns!(),
-        " FROM vaults v
+        ", m.role, v.owner_id FROM vaults v
          JOIN vault_members m ON m.vault_id = v.id AND m.user_id = $1 WHERE v.id = $2"
     ))
     .bind(user_id)
     .bind(change.id)
-    .fetch_one(&mut *conn)
-    .await?;
-    let current = vault_from(&current)?;
+    .fetch_optional(&mut *conn)
+    .await?
+    else {
+        return Ok(ChangeResult::Rejected);
+    };
+    let current = vault_from(&row)?;
+    // A deleted vault stays deleted: whatever was sent, the device learns of
+    // the deletion and drops the vault.
+    if current.deleted {
+        return Ok(ChangeResult::Conflict { current });
+    }
+    let role: String = row.try_get("role")?;
+    let role = Role::parse(&role);
+    if change.deleted {
+        let owner: Uuid = row.try_get("owner_id")?;
+        if role != Some(Role::Owner) || owner != user_id {
+            return Ok(ChangeResult::Rejected);
+        }
+        return delete_vault(conn, user_id, change.id).await;
+    }
+    // Renaming a vault takes a manager or the owner.
+    if role.is_none_or(|role| role < Role::Manager) {
+        return Ok(ChangeResult::Rejected);
+    }
     if current.revision != change.revision {
         return Ok(ChangeResult::Conflict { current });
     }
@@ -297,6 +329,60 @@ async fn push_vault(
     sqlx::query("UPDATE vaults SET meta_enc = $2, revision = $3 WHERE id = $1")
         .bind(change.id)
         .bind(change.meta_enc.as_bytes())
+        .bind(revision)
+        .execute(&mut *conn)
+        .await?;
+    Ok(ChangeResult::Applied { revision })
+}
+
+/// Deletes a vault for good, with everything in it. Only its owner may, and
+/// not their last vault: an account always keeps one.
+///
+/// Every item in it becomes a tombstone, as if deleted for good one by one,
+/// with its history and secure links gone; the vault becomes a tombstone
+/// last. A device that pulls removes both. The vault row keeps its sealed key
+/// and encrypted name, which the server cannot read, so that a device from
+/// before vault deletion, which knows nothing of the flag, sees an empty
+/// vault rather than one it cannot open.
+async fn delete_vault(
+    conn: &mut PgConnection,
+    user_id: Uuid,
+    vault_id: Uuid,
+) -> sqlx::Result<ChangeResult<SyncVault>> {
+    let others: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM vaults
+                        WHERE owner_id = $1 AND id <> $2 AND deleted_at IS NULL)",
+    )
+    .bind(user_id)
+    .bind(vault_id)
+    .fetch_one(&mut *conn)
+    .await?;
+    if !others {
+        return Ok(ChangeResult::Rejected);
+    }
+    // A revision each, so a pull cut short between two of them misses none.
+    let ids: Vec<Uuid> = sqlx::query_scalar(
+        "UPDATE items SET content_enc = '\\x', item_key_wrapped = '\\x',
+                revision = nextval('sync_revision'), deleted_at = now(), trashed_on = NULL
+         WHERE vault_id = $1 AND deleted_at IS NULL
+         RETURNING id",
+    )
+    .bind(vault_id)
+    .fetch_all(&mut *conn)
+    .await?;
+    sqlx::query(
+        "DELETE FROM item_revisions r USING items i
+         WHERE r.item_id = i.id AND i.vault_id = $1",
+    )
+    .bind(vault_id)
+    .execute(&mut *conn)
+    .await?;
+    for id in &ids {
+        super::links::end_for_item(conn, *id).await?;
+    }
+    let revision = next_revision(conn).await?;
+    sqlx::query("UPDATE vaults SET deleted_at = now(), revision = $2 WHERE id = $1")
+        .bind(vault_id)
         .bind(revision)
         .execute(&mut *conn)
         .await?;
@@ -311,11 +397,6 @@ async fn push_item(
     if change.content_enc.len() > MAX_BLOB || change.key_wrapped.len() > MAX_BLOB {
         return Ok(ChangeResult::Rejected);
     }
-    // Writing needs at least the editor role in the vault the item goes to.
-    match role_in(conn, user_id, change.vault_id).await? {
-        Some(role) if role >= Role::Editor => {}
-        _ => return Ok(ChangeResult::Rejected),
-    }
     let current = sqlx::query(concat!(
         "SELECT ",
         item_columns!(),
@@ -324,6 +405,19 @@ async fn push_item(
     .bind(change.id)
     .fetch_optional(&mut *conn)
     .await?;
+    // A tombstone the caller can see wins over any change, even one into or
+    // out of a vault that has since been deleted, which `role_in` refuses.
+    if let Some(row) = &current {
+        let tombstone = item_from(row)?;
+        if tombstone.deleted && is_member(conn, user_id, tombstone.vault_id).await? {
+            return Ok(ChangeResult::Conflict { current: tombstone });
+        }
+    }
+    // Writing needs at least the editor role in the vault the item goes to.
+    match role_in(conn, user_id, change.vault_id).await? {
+        Some(role) if role >= Role::Editor => {}
+        _ => return Ok(ChangeResult::Rejected),
+    }
 
     let Some(current) = current else {
         if change.revision != 0 {

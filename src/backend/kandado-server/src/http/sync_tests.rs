@@ -20,6 +20,7 @@ fn vault(id: u128, revision: i64) -> SyncVault {
         id: Uuid::from_u128(id),
         key_sealed: Opaque::new(vec![1, 2, 3]),
         meta_enc: Opaque::new(vec![9; 16]),
+        deleted: false,
         revision,
     }
 }
@@ -565,4 +566,159 @@ async fn concurrent_writers_of_one_account_never_share_or_reorder_revisions(db: 
     seen.sort_unstable();
     seen.dedup();
     assert_eq!(seen.len(), 40);
+}
+
+fn deletion(id: u128) -> SyncVault {
+    SyncVault {
+        key_sealed: Opaque::default(),
+        meta_enc: Opaque::default(),
+        deleted: true,
+        ..vault(id, 0)
+    }
+}
+
+fn is_deleted_vault(result: &ChangeResult<SyncVault>) -> bool {
+    matches!(result, ChangeResult::Conflict { current } if current.deleted)
+}
+
+fn is_deleted_item(result: &ChangeResult<SyncItem>) -> bool {
+    matches!(result, ChangeResult::Conflict { current } if current.deleted)
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn deleting_a_vault_reaches_every_device_with_its_items(db: PgPool) {
+    let api = Api::new(db.clone());
+    let laptop = device(&api, "ana@example.test").await;
+    let desktop = device(&api, "ana@example.test").await;
+    let ana_id = api.sign_in("ana@example.test").await.user_id;
+    let mut trashed = item(11, 1, 0);
+    trashed.trashed_at = Some(150);
+    let first = push(
+        &api,
+        &laptop,
+        vec![vault(1, 0), vault(2, 0)],
+        vec![item(10, 1, 0), trashed, item(12, 2, 0)],
+    )
+    .await;
+    let kept = applied(&first.items[2]);
+    let seen = pull(&api, &desktop, 0).await.cursor;
+
+    let mut listener = PgListener::connect_with(&db).await.unwrap();
+    listener.listen(sync::CHANNEL).await.unwrap();
+    let response = push(&api, &laptop, vec![deletion(1)], vec![]).await;
+    let revision = applied(&response.vaults[0]);
+    assert_eq!(response.cursor, revision, "the vault is deleted last");
+    let notification = tokio::time::timeout(std::time::Duration::from_secs(5), listener.recv())
+        .await
+        .expect("the other devices are told")
+        .unwrap();
+    assert_eq!(notification.payload(), ana_id.to_string());
+
+    // The other device learns of the vault and of each of its items, the
+    // trashed one too; the other vault's item is untouched.
+    let pulled = pull(&api, &desktop, seen).await;
+    assert_eq!(pulled.vaults.len(), 1);
+    assert!(pulled.vaults[0].deleted);
+    assert_eq!(pulled.vaults[0].revision, revision);
+    let mut gone: Vec<_> = pulled.items.iter().map(|item| item.id).collect();
+    gone.sort();
+    assert_eq!(gone, [Uuid::from_u128(10), Uuid::from_u128(11)]);
+    assert!(pulled.items.iter().all(|item| item.deleted
+        && item.content_enc.is_empty()
+        && item.key_wrapped.is_empty()
+        && item.revision < revision));
+    // So does a device that starts from nothing.
+    let fresh = pull(&api, &desktop, 0).await;
+    let vault_one = fresh.vaults.iter().find(|v| v.id == Uuid::from_u128(1));
+    assert!(vault_one.is_some_and(|vault| vault.deleted));
+    let other = fresh.items.iter().find(|i| i.id == Uuid::from_u128(12));
+    assert!(other.is_some_and(|item| !item.deleted && item.revision == kept));
+    // The history went with the items.
+    let reply = api
+        .get(
+            &format!("/v1/items/{}/revisions", Uuid::from_u128(10)),
+            Some(&desktop.token),
+        )
+        .await;
+    assert_eq!(reply.status, StatusCode::NOT_FOUND);
+    let history: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM item_revisions WHERE item_id = ANY($1)")
+            .bind([Uuid::from_u128(10), Uuid::from_u128(11)])
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert_eq!(history, 0);
+
+    // A device that has not heard of it yet renames the vault, edits an item,
+    // moves one out to the other vault, deletes the vault again: each is
+    // answered with the deletion. A new item in it is refused.
+    let mut renamed = vault(1, first.cursor);
+    renamed.meta_enc = Opaque::new(vec![7; 16]);
+    let mut edited = item(10, 1, applied(&first.items[0]));
+    edited.version_id = Uuid::from_u128(77);
+    let mut moved = item(11, 2, applied(&first.items[1]));
+    moved.version_id = Uuid::from_u128(78);
+    let late = push(
+        &api,
+        &desktop,
+        vec![renamed, deletion(1)],
+        vec![edited, moved, item(13, 1, 0)],
+    )
+    .await;
+    assert!(
+        late.vaults.iter().all(is_deleted_vault),
+        "{:?}",
+        late.vaults
+    );
+    assert!(is_deleted_item(&late.items[0]), "{:?}", late.items[0]);
+    assert!(is_deleted_item(&late.items[1]), "{:?}", late.items[1]);
+    assert_eq!(late.items[2], ChangeResult::Rejected);
+    assert_eq!(late.cursor, revision, "nothing was written");
+}
+
+#[sqlx::test(migrations = "../migrations")]
+async fn only_the_owner_deletes_a_vault_and_never_their_last(db: PgPool) {
+    let api = Api::new(db);
+    let ana = device(&api, "ana@example.test").await;
+    let bob = device(&api, "bob@example.test").await;
+    let first = push(
+        &api,
+        &ana,
+        vec![vault(1, 0), vault(2, 0)],
+        vec![item(10, 1, 0)],
+    )
+    .await;
+    push(&api, &bob, vec![vault(3, 0)], vec![]).await;
+
+    // Bob cannot delete Ana's vault, at any revision, nor tell it exists.
+    let mut at_revision = deletion(1);
+    at_revision.revision = applied(&first.vaults[0]);
+    let refused = push(&api, &bob, vec![deletion(1), at_revision], vec![]).await;
+    assert!(
+        refused.vaults.iter().all(|r| *r == ChangeResult::Rejected),
+        "{:?}",
+        refused.vaults
+    );
+    let after = pull(&api, &ana, 0).await;
+    assert!(after.vaults.iter().all(|vault| !vault.deleted));
+    assert_eq!(after.items.len(), 1);
+    assert!(!after.items[0].deleted);
+    assert_eq!(after.items[0].content_enc, Opaque::new(vec![5; 32]));
+
+    // A vault the server never had has nothing to delete.
+    let unknown = push(&api, &ana, vec![deletion(9)], vec![]).await;
+    assert_eq!(unknown.vaults[0], ChangeResult::Rejected);
+
+    // Ana deletes one of her two, but not the one left.
+    let deleted = push(&api, &ana, vec![deletion(1)], vec![]).await;
+    applied(&deleted.vaults[0]);
+    let last = push(&api, &ana, vec![deletion(2)], vec![]).await;
+    assert_eq!(last.vaults[0], ChangeResult::Rejected);
+    let after = pull(&api, &ana, 0).await;
+    let two = after.vaults.iter().find(|v| v.id == Uuid::from_u128(2));
+    assert!(two.is_some_and(|vault| !vault.deleted));
+    // Bob's own vault is untouched by any of it.
+    let bobs = pull(&api, &bob, 0).await;
+    assert_eq!(bobs.vaults.len(), 1);
+    assert!(!bobs.vaults[0].deleted);
 }

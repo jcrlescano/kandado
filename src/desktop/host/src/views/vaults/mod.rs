@@ -1,5 +1,6 @@
 //! D-27 Create vault dialog, also used to edit one: name, colour and icon.
-//! States: new, editing, name missing, saving failed.
+//! States: new, editing, name missing, saving failed. Editing offers "Delete
+//! vault" when it is not the last one; the shell asks before deleting.
 
 use gpui_kit::AppContext as _;
 use gpui_kit::{
@@ -19,20 +20,27 @@ use uuid::Uuid;
 
 use super::{Services, error_line, explain};
 use crate::{
-    components::{Button, Dialog, Icon, TextField, section_label, window_layer},
+    components::{Button, ButtonVariant, Dialog, Icon, TextField, section_label, window_layer},
     shell::{hue_of, vault_icon},
     theme::{KandadoTheme, color, focus_ring, tokens},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VaultDialogEvent {
-    Saved { id: Uuid, created: bool },
+    Saved {
+        id: Uuid,
+        created: bool,
+    },
+    /// Delete vault was pressed: the shell confirms first.
+    Delete(Uuid),
     Cancelled,
 }
 
 pub struct VaultDialog {
     services: Services,
     editing: Option<VaultInfo>,
+    /// Editing a vault that is not the last one.
+    can_delete: bool,
     name: Entity<InputState>,
     colour: usize,
     icon: usize,
@@ -46,9 +54,11 @@ pub struct VaultDialog {
 impl EventEmitter<VaultDialogEvent> for VaultDialog {}
 
 impl VaultDialog {
+    /// `can_delete`: offer Delete vault (when editing and not the last one).
     pub fn new(
         services: Services,
         editing: Option<VaultInfo>,
+        can_delete: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -80,6 +90,7 @@ impl VaultDialog {
                 .iter()
                 .position(|i| *i == meta.icon)
                 .unwrap_or(0),
+            can_delete: can_delete && editing.is_some(),
             editing,
             name,
             name_error: None,
@@ -214,6 +225,17 @@ impl Render for VaultDialog {
             .child(icons);
         if let Some(failure) = self.failure.clone() {
             dialog = dialog.child(error_line(failure, cx));
+        }
+        if self.can_delete
+            && let Some(id) = self.editing.as_ref().map(|vault| vault.id)
+        {
+            dialog = dialog.action(
+                Button::new("vault-delete", "Delete vault")
+                    .variant(ButtonVariant::DangerQuiet)
+                    .on_click(
+                        cx.listener(move |_, _, _, cx| cx.emit(VaultDialogEvent::Delete(id))),
+                    ),
+            );
         }
         window_layer(
             dialog

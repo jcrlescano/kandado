@@ -78,6 +78,16 @@ export class Tx {
   vaults(): Promise<VaultRow[]> {
     return request(this.store("vaults").getAll());
   }
+  /** Removes a vault with its items and the tombstones of its items. */
+  async deleteVault(id: string): Promise<void> {
+    for (const item of await this.items()) {
+      if (item.vault_id === id) await this.deleteItem(item.id);
+    }
+    for (const tombstone of await this.tombstones()) {
+      if (tombstone.vault_id === id) await this.removeTombstone(tombstone.item_id);
+    }
+    await request(this.store("vaults").delete(id));
+  }
   item(id: string): Promise<ItemRow | undefined> {
     return request(this.store("items").get(id));
   }

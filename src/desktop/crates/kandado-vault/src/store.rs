@@ -98,6 +98,14 @@ pub struct RevisionRow {
     pub saved_at: i64,
 }
 
+/// A vault deleted here that the server still has: waiting to be sent. Its
+/// items went with it and are not sent one by one; the server deletes them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VaultTombstone {
+    pub vault_id: Uuid,
+    pub server_revision: i64,
+}
+
 /// An item deleted here that the server still has: waiting to be sent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tombstone {
@@ -175,7 +183,7 @@ pub struct Store {
     depth: std::cell::Cell<u32>,
 }
 
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 
 impl Store {
     /// Opens the file, creating it if needed.
@@ -334,6 +342,16 @@ impl Store {
             transaction.commit()?;
             db.pragma_update(None, "user_version", 3)?;
         }
+        if version < 4 {
+            // Deleting a vault: vaults deleted here that the server still has.
+            db.execute_batch(
+                "CREATE TABLE IF NOT EXISTS vault_tombstones (
+                    vault_id BLOB PRIMARY KEY,
+                    server_revision INTEGER NOT NULL
+                ) WITHOUT ROWID;",
+            )?;
+            db.pragma_update(None, "user_version", 4)?;
+        }
         Ok(Self {
             path,
             db,
@@ -381,6 +399,18 @@ impl Store {
             ],
         )?;
         Ok(())
+    }
+
+    /// Removes a vault for good: its items with their history, and the
+    /// tombstones of its items deleted here. Leaves no tombstone of its own.
+    pub fn delete_vault(&self, id: Uuid) -> Result<(), StoreError> {
+        let id = id.as_bytes().as_slice();
+        self.db
+            .execute("DELETE FROM items WHERE vault_id = ?1", [id])?;
+        self.db
+            .execute("DELETE FROM tombstones WHERE vault_id = ?1", [id])?;
+        let changed = self.db.execute("DELETE FROM vaults WHERE id = ?1", [id])?;
+        found(changed)
     }
 
     // ---- items -------------------------------------------------------------
@@ -570,6 +600,55 @@ impl Store {
         Ok(())
     }
 
+    /// Vaults deleted here that the server still has.
+    pub fn vault_tombstones(&self) -> Result<Vec<VaultTombstone>, StoreError> {
+        let mut statement = self
+            .db
+            .prepare("SELECT vault_id, server_revision FROM vault_tombstones ORDER BY vault_id")?;
+        let rows = statement.query_map([], |row| {
+            Ok(VaultTombstone {
+                vault_id: read_id(row, 0)?,
+                server_revision: row.get(1)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn vault_tombstone(&self, vault: Uuid) -> Result<Option<VaultTombstone>, StoreError> {
+        Ok(self
+            .db
+            .query_row(
+                "SELECT vault_id, server_revision FROM vault_tombstones WHERE vault_id = ?1",
+                [vault.as_bytes().as_slice()],
+                |row| {
+                    Ok(VaultTombstone {
+                        vault_id: read_id(row, 0)?,
+                        server_revision: row.get(1)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    pub fn put_vault_tombstone(&self, tombstone: &VaultTombstone) -> Result<(), StoreError> {
+        self.db.execute(
+            "INSERT OR REPLACE INTO vault_tombstones (vault_id, server_revision) VALUES (?1, ?2)",
+            params![
+                tombstone.vault_id.as_bytes().as_slice(),
+                tombstone.server_revision
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_vault_tombstone(&self, vault: Uuid) -> Result<(), StoreError> {
+        self.db.execute(
+            "DELETE FROM vault_tombstones WHERE vault_id = ?1",
+            [vault.as_bytes().as_slice()],
+        )?;
+        Ok(())
+    }
+
     /// How far this computer has read the server's changes. 0 at first.
     pub fn cursor(&self) -> Result<i64, StoreError> {
         Ok(self
@@ -604,7 +683,8 @@ impl Store {
         Ok(self.db.query_row(
             "SELECT EXISTS (SELECT 1 FROM vaults WHERE dirty = 1)
                  OR EXISTS (SELECT 1 FROM items WHERE dirty = 1)
-                 OR EXISTS (SELECT 1 FROM tombstones)",
+                 OR EXISTS (SELECT 1 FROM tombstones)
+                 OR EXISTS (SELECT 1 FROM vault_tombstones)",
             [],
             |row| row.get(0),
         )?)

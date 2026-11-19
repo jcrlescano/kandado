@@ -102,6 +102,9 @@ pub fn explain(error: &AppError) -> SharedString {
         AppError::Vault(VaultError::NotInTrash) => {
             "Move the item to the trash before deleting it forever.".into()
         }
+        AppError::Vault(VaultError::LastVault) => {
+            "This is your only vault. Create another before deleting it.".into()
+        }
         AppError::Clipboard(_) => "Kandado could not use the clipboard. Try again.".into(),
         AppError::Vault(_) | AppError::Store(_) | AppError::Secrets(_) | AppError::Settings(_) => {
             "Kandado could not read or write its data on this computer.".into()
