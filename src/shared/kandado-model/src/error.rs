@@ -14,6 +14,8 @@ pub enum Error {
     NotShareable,
     #[error("the link is incomplete or its key is wrong")]
     LinkKey,
+    #[error("passkey: {0}")]
+    WebAuthn(&'static str),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

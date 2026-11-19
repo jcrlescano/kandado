@@ -23,6 +23,8 @@ export interface Summary {
   websites: { url: string; match_mode: "domain" | "host" | "never" }[];
   favourite: boolean;
   has_totp: boolean;
+  /** For a passkey: its site and credential id (not secret). */
+  passkey?: { rp_id: string; credential_id: string };
   trashed: boolean;
   updated_at: number;
 }
@@ -281,6 +283,55 @@ export class Keyring implements Keys {
     await this.store.atomically(async (tx) => {
       await tx.putItem(row);
     });
+  }
+
+  /**
+   * Makes a passkey in the core (E-25), stores it as a new item and queues it
+   * for the next sync. Returns the registration for the page, as JSON. The
+   * private key never leaves the core.
+   */
+  async createPasskey(
+    vaultId: string,
+    itemId: string,
+    requestJson: string,
+    nowSeconds: number,
+    versionId: string,
+  ): Promise<string> {
+    const sealed = this.session.createPasskey(vaultId, itemId, requestJson, true);
+    const row: ItemRow = {
+      id: itemId,
+      vault_id: vaultId,
+      key_wrapped: new Uint8Array(sealed.key_wrapped),
+      content_enc: new Uint8Array(sealed.content_enc),
+      digest: await digestOf(sealed.content_enc),
+      version_id: versionId,
+      created_at: nowSeconds,
+      updated_at: nowSeconds,
+      trashed_at: null,
+      revision: 0,
+      dirty: true,
+      base: null,
+    };
+    const response = sealed.response_json;
+    sealed.free();
+    await this.store.atomically(async (tx) => {
+      await tx.putItem(row);
+    });
+    return response;
+  }
+
+  /** Signs in with a stored passkey (E-26). Returns the assertion for the page, as JSON. */
+  async assertPasskey(itemId: string, requestJson: string): Promise<string> {
+    const row = await this.store.read((tx) => tx.item(itemId));
+    if (!row || row.trashed_at !== null) throw new Error("no such passkey");
+    return this.session.assertPasskey(
+      row.vault_id,
+      row.id,
+      row.key_wrapped,
+      row.content_enc,
+      requestJson,
+      true,
+    );
   }
 
   /** Saves an edit (for example a new password). The server keeps the replaced version. */

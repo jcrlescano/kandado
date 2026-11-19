@@ -840,3 +840,85 @@ fn with_view<V: 'static, R>(
     draw(cx, window);
     result
 }
+
+#[gpui_kit::test]
+fn a_passkey_is_shown_and_cannot_be_edited(cx: &mut TestAppContext) {
+    use kandado_model::webauthn::{self, CreateRequest};
+    for window_size in SIZES {
+        let vault = unlocked("passkey");
+        let app = &vault.services.app;
+        // A passkey as the extension makes one.
+        let (passkey, registration) = webauthn::register(
+            &CreateRequest {
+                origin: "https://accounts.google.com".into(),
+                rp_id: Some("google.com".into()),
+                rp_name: "Google".into(),
+                user_id: "dXNlci0x".into(),
+                user_name: EMAIL.into(),
+                user_display_name: "Juan".into(),
+                challenge: "AAECAwQFBgcICQoLDA0ODw".into(),
+                algorithms: vec![-7],
+            },
+            true,
+        )
+        .unwrap();
+        let personal = app.vaults().unwrap()[0].id;
+        let id = app
+            .create_item(
+                personal,
+                &ItemContent::new("Google", ItemData::Passkey(passkey)),
+            )
+            .unwrap();
+        let detail = app.item_detail(id).unwrap();
+        assert_eq!(detail.passkey_site.as_deref(), Some("google.com"));
+        let values: Vec<_> = detail
+            .sections
+            .iter()
+            .flat_map(|section| &section.fields)
+            .map(|field| {
+                (
+                    field.label.as_str(),
+                    field.value.clone().unwrap_or_default(),
+                )
+            })
+            .collect();
+        assert_eq!(values[0], ("Username", EMAIL.to_owned()));
+        assert_eq!(values[1], ("Website", "google.com".to_owned()));
+        let key_id = &values[2];
+        assert_eq!(key_id.0, "Key ID");
+        assert_eq!(
+            key_id.1,
+            kandado_app::vault::key_id(&registration.credential_id)
+        );
+        assert_eq!(
+            key_id.1.chars().count(),
+            19,
+            "four groups of four, joined by three dots"
+        );
+        assert!(!app.can_share(id), "a passkey is never shared");
+
+        let (window, shell) = open_shell(cx, &vault, window_size);
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.select(id, window, cx)
+        });
+        cx.update(|cx| assert!(shell.read(cx).detail().is_some()));
+        // Ctrl E does nothing: a passkey has no form.
+        press(cx, window, "ctrl-e");
+        cx.update(|cx| {
+            let shell = shell.read(cx);
+            assert!(shell.form().is_none());
+            assert!(shell.detail().is_some());
+        });
+        // Moving it to the trash, then it shows the trash state.
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.trash(vec![id], window, cx)
+        });
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.go(Place::Trash, window, cx)
+        });
+        with(cx, window, &shell, |shell, window, cx| {
+            shell.select(id, window, cx)
+        });
+        cx.update(|cx| assert!(shell.read(cx).detail().is_some()));
+    }
+}

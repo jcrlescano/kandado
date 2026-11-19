@@ -28,6 +28,7 @@ import { type Core, loadCore } from "./core";
 import { type ConnectNative, DesktopLink } from "./desktop";
 import { type ItemContentJson, Keyring, WrongPassword } from "./keyring";
 import { suggestionsFor } from "./matcher";
+import { Passkeys } from "./passkeys";
 import { Prompts } from "./prompts";
 import type { Account, Store } from "./store";
 import { sync } from "./sync";
@@ -190,6 +191,33 @@ export class Worker {
         uuidv7(now),
       );
       void this.sync().catch(() => {});
+    },
+    now: () => this.platform.now(),
+  });
+
+  readonly passkeys = new Passkeys({
+    keyring: () => (this.keyring && !this.keyring.locked ? this.keyring : null),
+    signedIn: () => this.account !== undefined,
+    enabled: async () => (await this.settings()).passkeys,
+    excludedSites: async () => (await this.settings()).excludedSites,
+    create: async (keyring, vaultId, requestJson) => {
+      const now = this.platform.now();
+      const response = await keyring.createPasskey(
+        vaultId,
+        uuidv7(now),
+        requestJson,
+        Math.floor(now / 1000),
+        uuidv7(now),
+      );
+      void this.sync().catch(() => {});
+      return response;
+    },
+    assert: (keyring, itemId, requestJson) => keyring.assertPasskey(itemId, requestJson),
+    deliver: async (tabId, token, outcome) => {
+      await this.platform.sendToFrame(
+        { tabId, frameId: 0, url: "" },
+        { type: "kandado-passkey-outcome", token, outcome },
+      );
     },
     now: () => this.platform.now(),
   });
@@ -536,8 +564,21 @@ export class Worker {
         }
         return null as Out;
       }
+      case "passkey-start":
+        if (!frame) throw new WorkerError("not_allowed");
+        return (await this.passkeys.start(frame, request.call)) as Out;
+      case "passkey-abort":
+        if (!frame) throw new WorkerError("not_allowed");
+        await this.passkeys.abort(frame, String(request.token));
+        return null as Out;
+      case "passkey-view":
+        return (await this.passkeys.view(request.token)) as Out;
+      case "passkey-answer":
+        // The outcome goes to the top frame, which closes the prompt itself.
+        await this.passkeys.answer(request.token, request.answer);
+        return null as Out;
       case "prompt-size": {
-        const tabId = this.prompts.tabOf(request.token);
+        const tabId = this.prompts.tabOf(request.token) ?? this.passkeys.tabOf(request.token);
         if (tabId !== null) {
           await this.platform
             .sendToFrame(

@@ -141,6 +141,28 @@ for (const browser of browsers) {
     },
   });
 
+  // The WebAuthn shim: runs in the page's main world, so it gets no extension
+  // APIs and imports nothing.
+  await build({
+    root: extension,
+    configFile: false,
+    logLevel: "warn",
+    publicDir: false,
+    build: {
+      outDir,
+      emptyOutDir: false,
+      target: "es2022",
+      minify: !dev,
+      sourcemap: dev ? "inline" : false,
+      lib: {
+        entry: resolve(extension, "src/content/webauthn-main.ts"),
+        formats: ["iife"],
+        name: "kandadoWebAuthn",
+        fileName: () => "webauthn.js",
+      },
+    },
+  });
+
   writeFileSync(
     resolve(outDir, "manifest.json"),
     `${JSON.stringify(manifest(browser), null, 2)}\n`,

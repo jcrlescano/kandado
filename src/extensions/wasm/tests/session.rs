@@ -366,3 +366,99 @@ fn the_desktop_unlocks_a_paired_extension() {
         .is_err()
     );
 }
+
+const PASSKEY: Uuid = Uuid::from_u128(0x0505);
+
+/// What the worker sends for `navigator.credentials.create`.
+const CREATE: &str = r#"{"origin":"https://www.example.com","rp_id":"example.com",
+    "rp_name":"Example","user_id":"dXNlci0x","user_name":"juan@example.com",
+    "user_display_name":"Juan","challenge":"AAECAwQFBgcICQoLDA0ODw","algorithms":[-7]}"#;
+
+#[wasm_bindgen_test]
+fn a_passkey_is_made_and_signs_in_without_its_key_leaving_the_core() {
+    let world = world();
+    let session = unlocked(&world);
+    let (vault, item) = (VAULT.to_string(), PASSKEY.to_string());
+    let made = session
+        .create_passkey(&vault, &item, CREATE, true)
+        .unwrap_or_else(|_| panic!("create"));
+    let registration: serde_json::Value = serde_json::from_str(&made.response_json).unwrap();
+    let credential_id = registration["credential_id"].as_str().unwrap().to_owned();
+    assert!(!made.response_json.contains("private_key"));
+
+    // The desktop reads the same item: a passkey with its key.
+    let item_key = wrap::unwrap_key(
+        &world.vault_key,
+        &contexts::item_key(*VAULT.as_bytes(), *PASSKEY.as_bytes()),
+        &made.key_wrapped,
+    )
+    .unwrap();
+    let bytes = aead::decrypt(
+        &item_key,
+        &contexts::item_content(*PASSKEY.as_bytes()),
+        &made.content_enc,
+    )
+    .unwrap();
+    let ItemData::Passkey(stored) = ItemContent::decode(&bytes).unwrap().data else {
+        panic!("not a passkey");
+    };
+    assert_eq!(stored.rp_id, "example.com");
+    assert_eq!(stored.credential_id, credential_id);
+    assert!(!stored.private_key.is_empty());
+
+    // The summary names the site and the credential; the content hides the key.
+    let summary = session
+        .item_summary(&vault, &item, &made.key_wrapped, &made.content_enc)
+        .unwrap_or_else(|_| panic!("summary"));
+    assert!(summary.contains(r#""passkey":{"rp_id":"example.com""#));
+    assert!(summary.contains(&credential_id));
+    let content = session
+        .item_content(&vault, &item, &made.key_wrapped, &made.content_enc)
+        .unwrap_or_else(|_| panic!("content"));
+    assert!(content.contains(r#""private_key":"""#));
+    assert!(!content.contains(stored.private_key.expose()));
+    // And JavaScript cannot write a passkey back without its key.
+    assert!(
+        session
+            .seal_item_update(&vault, &item, &made.key_wrapped, &content)
+            .is_err()
+    );
+
+    let assertion = session
+        .assert_passkey(
+            &vault,
+            &item,
+            &made.key_wrapped,
+            &made.content_enc,
+            r#"{"origin":"https://example.com","challenge":"AAECAwQFBgcICQoLDA0ODw"}"#,
+            true,
+        )
+        .unwrap_or_else(|_| panic!("assert"));
+    assert!(assertion.contains(&credential_id));
+    assert!(assertion.contains(r#""user_handle":"dXNlci0x""#));
+    // Another site, or a login, cannot be signed in with.
+    assert!(
+        session
+            .assert_passkey(
+                &vault,
+                &item,
+                &made.key_wrapped,
+                &made.content_enc,
+                r#"{"origin":"https://example.org","challenge":"AAECAwQFBgcICQoLDA0ODw"}"#,
+                true,
+            )
+            .is_err()
+    );
+    assert!(
+        session
+            .assert_passkey(
+                &vault,
+                &ITEM.to_string(),
+                &world.key_wrapped,
+                &world.content_enc,
+                r#"{"origin":"https://example.com","challenge":"AAECAwQFBgcICQoLDA0ODw"}"#,
+                true,
+            )
+            .is_err()
+    );
+}

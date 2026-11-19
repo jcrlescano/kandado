@@ -306,6 +306,72 @@ document.addEventListener(
 
 void checkPrompt();
 
+// ---- passkeys (E-25, E-26) ---------------------------------------------------------
+//
+// The main-world shim (webauthn-main.ts) posts the page's navigator.credentials
+// calls here; this script asks the worker, shows the prompt when Kandado takes
+// part, and posts the outcome back. Top frame only, like the shim.
+
+const PASSKEY_CHANNEL = "kandado-webauthn";
+/** Requests waiting for an outcome: worker token to the shim's request id. */
+const passkeyCalls = new Map<string, string>();
+let passkeyPrompt: { token: string; frame: HTMLIFrameElement } | null = null;
+
+function toShim(id: string, outcome: unknown) {
+  window.postMessage({ source: PASSKEY_CHANNEL, dir: "outcome", id, outcome }, location.origin);
+}
+
+function closePasskeyPrompt(token?: string) {
+  if (!passkeyPrompt || (token && passkeyPrompt.token !== token)) return;
+  passkeyPrompt.frame.remove();
+  passkeyPrompt = null;
+}
+
+async function startPasskey(id: string, op: unknown, request: unknown) {
+  if (op !== "create" && op !== "get") return toShim(id, { kind: "native" });
+  const start = await send<{ native: true } | { native: false; token: string }>({
+    type: "passkey-start",
+    call: { op, request } as never,
+  });
+  if (!start || start.native) return toShim(id, { kind: "native" });
+  passkeyCalls.set(start.token, id);
+  closePasskeyPrompt();
+  attach();
+  const element = document.createElement("iframe");
+  element.className = "prompt";
+  element.src = `${chrome.runtime.getURL("src/content/prompts/index.html")}?token=${start.token}&kind=passkey`;
+  element.setAttribute("title", "Kandado");
+  shadow.append(element);
+  passkeyPrompt = { token: start.token, frame: element };
+}
+
+if (window === window.top) {
+  window.addEventListener("message", (event) => {
+    if (event.source !== window) return;
+    const data = event.data as {
+      source?: string;
+      dir?: string;
+      id?: unknown;
+      op?: unknown;
+      request?: unknown;
+    };
+    if (data?.source !== PASSKEY_CHANNEL || typeof data.id !== "string") return;
+    const id = data.id;
+    if (data.dir === "request") {
+      void startPasskey(id, data.op, data.request).catch(() => toShim(id, { kind: "native" }));
+    } else if (data.dir === "abort") {
+      for (const [token, callId] of passkeyCalls) {
+        if (callId !== id) continue;
+        passkeyCalls.delete(token);
+        closePasskeyPrompt(token);
+        void send({ type: "passkey-abort", token });
+      }
+    }
+  });
+  // The shim waits for this before it sends anything.
+  window.postMessage({ source: PASSKEY_CHANNEL, dir: "ready" }, location.origin);
+}
+
 /** The first form of a kind on this frame, for a fill started from the popup. */
 function firstForm(kind: DetectedForm["kind"]): DetectedForm | null {
   for (const input of Array.from(document.querySelectorAll("input"))) {
@@ -354,7 +420,17 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, respond) =
       break;
     case "kandado-prompt-size":
       if (prompt?.token === message.token) prompt.frame.style.height = `${message.height}px`;
+      if (passkeyPrompt?.token === message.token) {
+        passkeyPrompt.frame.style.height = `${message.height}px`;
+      }
       break;
+    case "kandado-passkey-outcome": {
+      closePasskeyPrompt(message.token);
+      const id = passkeyCalls.get(message.token);
+      passkeyCalls.delete(message.token);
+      if (id) toShim(id, message.outcome);
+      break;
+    }
     case "kandado-prompt-close":
       if (prompt?.token === message.token) closePrompt();
       break;

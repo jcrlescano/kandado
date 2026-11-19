@@ -633,6 +633,26 @@ html:has(.kx-prompt-page),
   gap: 10px;
 }
 
+/* ---- Passkey prompts (E-25, E-26), the same frame ---------------------------- */
+.kx-passkey-top {
+  align-items: center;
+}
+.kx-passkey-keys {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.kx-prompt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kx-ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- Full-page tabs: welcome (E-27) and settings (E-28 to E-31) -------------- */
 .kx-page,
 .kx-page #root {
