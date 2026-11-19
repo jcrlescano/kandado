@@ -92,7 +92,15 @@ fn main() {
         theme::apply(kind, None, cx);
         app::bind_keys(cx);
 
-        let bounds = Bounds::centered(None, size(px(1200.), px(740.)), cx);
+        // 1200 by 740, but never taller or wider than the screen minus the
+        // taskbar, so the bottom of every screen is in view from the start.
+        let (mut width, mut height) = (px(1200.), px(740.));
+        if let Some(display) = cx.primary_display() {
+            let visible = display.visible_bounds().size;
+            width = width.min(visible.width - px(32.));
+            height = height.min(visible.height - px(32.));
+        }
+        let bounds = Bounds::centered(None, size(width, height), cx);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             // The design's minimum window.

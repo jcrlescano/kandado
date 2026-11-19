@@ -167,6 +167,8 @@ for (const browser of browsers) {
     resolve(outDir, "manifest.json"),
     `${JSON.stringify(manifest(browser), null, 2)}\n`,
   );
+  // The toolbar and store icons (scripts/make-icons.mjs).
+  cpSync(resolve(extension, "icons"), resolve(outDir, "icons"), { recursive: true });
   // Kandado Hardware's two families, the same files as the desktop app (SIL OFL,
   // licences included).
   mkdirSync(resolve(outDir, "fonts"), { recursive: true });

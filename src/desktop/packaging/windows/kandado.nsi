@@ -52,6 +52,9 @@ VIAddVersionKey "LegalCopyright" "AGPL-3.0-or-later"
 Var Relaunch
 
 !define MUI_ABORTWARNING
+; makensis runs from this folder. Made by scripts/make-icons.mjs.
+!define MUI_ICON "..\..\resources\app-icon\kandado.ico"
+!define MUI_UNICON "..\..\resources\app-icon\kandado.ico"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\kandado.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Open Kandado"
 !insertmacro MUI_PAGE_WELCOME
