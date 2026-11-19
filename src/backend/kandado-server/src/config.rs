@@ -1,7 +1,7 @@
 //! Configuration, read once at startup from environment variables.
 //! For local development they come from a `.env` file (see `.env.example`).
 
-use std::{fmt, net::SocketAddr};
+use std::{fmt, net::SocketAddr, path::PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -35,6 +35,9 @@ pub struct Config {
     /// Turns on the development sign-in route that stands in for Google.
     /// `KANDADO_DEV_AUTH=1`. Only has an effect in debug builds.
     pub dev_auth: bool,
+    /// The built secure link viewer (`scripts/build-viewer.mjs`).
+    /// `KANDADO_VIEWER_DIR`, default `src/backend/viewer/dist`; empty turns it off.
+    pub viewer_dir: Option<PathBuf>,
 }
 
 #[derive(Clone)]
@@ -63,6 +66,7 @@ impl Config {
             google: None,
             extension_redirect_hosts: vec!["test.chromiumapp.org".to_owned()],
             dev_auth: true,
+            viewer_dir: None,
         }
     }
 
@@ -138,6 +142,12 @@ impl Config {
 
         let dev_auth = matches!(get("KANDADO_DEV_AUTH").as_deref(), Some("1" | "true"));
 
+        let viewer_dir = match get("KANDADO_VIEWER_DIR") {
+            Some(dir) if dir.is_empty() => None,
+            Some(dir) => Some(PathBuf::from(dir)),
+            None => Some(PathBuf::from("src/backend/viewer/dist")),
+        };
+
         Ok(Self {
             bind,
             database_url,
@@ -148,6 +158,7 @@ impl Config {
             google,
             extension_redirect_hosts,
             dev_auth,
+            viewer_dir,
         })
     }
 }

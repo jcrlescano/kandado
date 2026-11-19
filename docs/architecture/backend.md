@@ -1,6 +1,6 @@
 # Backend
 
-One Rust service, `kandado-server`, in front of PostgreSQL. It authenticates users, stores ciphertext, orders changes for sync, and runs the features that need a server: invitations, secure links, breach checks, devices.
+One Rust service, `kandado-server`, in front of PostgreSQL. It authenticates users, stores ciphertext, orders changes for sync, and runs the features that need a server: secure links, breach checks, devices.
 
 ## Stack
 
@@ -10,7 +10,7 @@ One Rust service, `kandado-server`, in front of PostgreSQL. It authenticates use
 | Database | PostgreSQL through sqlx (compile-time checked queries, `sqlx migrate`) |
 | Auth | `openidconnect` for Google; opaque rotating refresh tokens; short-lived signed access tokens |
 | Realtime | WebSocket at `/v1/events` (PostgreSQL `LISTEN/NOTIFY` fan-out) |
-| Email | SMTP through `lettre` (invitations, breach alerts, new-device notices) |
+| Email | SMTP through `lettre` (breach alerts, new-device notices) |
 | Jobs | In-process tokio tasks with advisory locks |
 | Config | Environment variables; `.env` for local development |
 | Observability | `tracing` with JSON logs, `/healthz`, `/readyz` |
@@ -28,13 +28,13 @@ src/backend/
 │     ├─ http/          # one module per API area below
 │     ├─ db/            # sqlx queries, one module per table group
 │     ├─ events.rs      # WebSocket hub
-│     ├─ jobs/          # trash purge, link expiry, invite expiry, breach scan
+│     ├─ jobs/          # trash purge, link expiry, breach scan
 │     └─ mail/          # templates and sender
 ├─ migrations/
 └─ docker-compose.yml
 ```
 
-One crate with modules. Split it only if a second binary appears (the alias mail service in phase 9 is the likely first).
+One crate with modules. Split it only if a second binary appears.
 
 ## API
 
@@ -47,15 +47,10 @@ All routes are under `/v1`, JSON, authenticated with a bearer access token unles
 | Devices | `GET /devices`, `DELETE /devices/{id}`, `POST /devices/revoke-others` | D-49 |
 | Sync | `GET /sync?cursor=`, `POST /sync` (batch of vault and item changes) | Every item screen, D-54 |
 | Item history | `GET /items/{id}/revisions`, `GET /items/{id}/revisions/{rev}` | D-16 |
-| Vault members | `GET /vaults/{id}/members`, `PATCH /vaults/{id}/members/{user}`, `DELETE /vaults/{id}/members/{user}` | D-28 |
-| Invitations | `POST /vaults/{id}/invites`, `GET /invites`, `POST /invites/{id}/accept`, `POST /invites/{id}/decline`, `POST /invites/{id}/resend`, `DELETE /invites/{id}` | D-29, D-30 |
-| Item shares | `POST /items/{id}/shares`, `GET /items/{id}/shares`, `DELETE /items/{id}/shares/{user}` | D-31 |
-| Public keys | `GET /users/lookup?email=` | D-29, D-31 |
-| Secure links | `POST /links`, `GET /links`, `DELETE /links/{id}`, `GET /public/links/{id}` (public), `GET /l/{id}` (public viewer page) | D-32, D-33 |
+| Secure links | `POST /links`, `GET /links`, `DELETE /links/{id}`, `POST /public/links/{id}/open` (public; counts one view), `GET /l/{id}` and `GET /l/assets/{name}` (public viewer page, outside `/v1`) | D-32, D-33 |
 | Monitor | `GET /monitor/breaches`, `POST /monitor/breaches/{id}/resolve`, `GET /monitor/pwned/{prefix}`, `GET /monitor/emails`, `POST /monitor/emails`, `PATCH /monitor/emails/{id}`, `GET /monitor/2fa-sites` | D-35 to D-40, E-15 |
-| Aliases | `GET/POST /aliases`, `PATCH/DELETE /aliases/{id}`, `GET/POST /mailboxes`, `POST /mailboxes/{id}/verify`, `GET /alias-domains` | D-08, D-21, D-46, E-08, E-12, E-19 |
 | Icons | `GET /icons/{domain}` (proxied and cached, so sites never see the user) | Item rows everywhere |
-| Events | `GET /events` (WebSocket) | Sync, D-30 |
+| Events | `GET /events` (WebSocket) | Sync |
 | Updates | Static `latest.json` / `beta.json` plus installer, served from object storage | D-54 |
 
 Trash, restore, move, favourite, create, edit and delete are all item state changes that travel through `/sync`. There are no separate endpoints for them.
@@ -63,7 +58,7 @@ Trash, restore, move, favourite, create, edit and delete are all item state chan
 ## Sync
 
 - Every vault and item row has a server-assigned, monotonically increasing `revision` (one global sequence).
-- `GET /sync?cursor=N` returns everything the user can see with `revision > N`, including tombstones and membership changes, and the next cursor.
+- `GET /sync?cursor=N` returns everything the user can see with `revision > N`, including tombstones, and the next cursor.
 - `POST /sync` sends a batch. Each change carries the `base_revision` it was made against. If the server row is newer, that change is rejected with the current row; the client merges and retries.
 - Conflict policy: the part changed on both sides goes to the later writer, parts changed on one side are kept, and the losing version is kept as a revision, so nothing is lost (visible in D-16). A deletion is a tombstone and beats edits. Details in [decisions.md](../implementation-plan/decisions.md) (P3-3).
 - After a successful write the server notifies other devices over `/events`, and they pull.
@@ -78,8 +73,7 @@ Tables, the revision sequence, authorisation in SQL, tombstones and migrations a
 | Job | Schedule | Does |
 | --- | --- | --- |
 | Trash purge | Hourly | Hard-deletes items trashed more than 30 days ago, writes tombstones |
-| Link expiry | Every 5 min | Deletes payloads of expired, exhausted or revoked links |
-| Invite expiry | Daily | Expires invites after 7 days |
+| Link expiry | Every 5 min | Drops the payloads of expired, used-up or revoked links; deletes links 30 days after they ended |
 | Session cleanup | Daily | Removes revoked devices and used handoff codes |
 | Breach scan | Daily | Checks monitored emails against the breach source, creates `user_breaches`, sends email |
 
@@ -89,7 +83,15 @@ Per-IP and per-user rate limits on auth, lookup and link routes; request body ca
 
 ## Local development
 
-`docker compose up` starts PostgreSQL. `cargo run -p kandado-server` applies migrations and serves on `127.0.0.1:8080`. A development-only sign-in route (`GET /v1/dev/sign-in`, compiled out of release builds and off unless `KANDADO_DEV_AUTH=1`) stands in for Google in integration tests. `KANDADO_TOKEN_SECRET` (32 or more characters) signs access tokens; `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` turn on the real Google flow. Tests need PostgreSQL 18 (`DATABASE_URL`).
+`docker compose up` starts PostgreSQL. `cargo run -p kandado-server` applies migrations and serves on `127.0.0.1:8080`. A development-only sign-in route (`GET /v1/dev/sign-in`, compiled out of release builds and off unless `KANDADO_DEV_AUTH=1`) stands in for Google in integration tests. `KANDADO_TOKEN_SECRET` (32 or more characters) signs access tokens; `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` turn on the real Google flow. Tests need PostgreSQL 18 (`DATABASE_URL`). The secure link viewer is built with `node scripts/build-viewer.mjs` into `src/backend/viewer/dist`, which the server reads at startup from `KANDADO_VIEWER_DIR` (that folder by default; empty turns it off). Without it the API runs and `/l/{id}` answers 503.
+
+### Secure links
+
+- The device chooses the link id (UUIDv7) and encrypts a snapshot of the item to it (`kandado_model::link`, `Purpose::SecureLink`). The key goes only into the URL fragment, which browsers never send; `CreateLink` has no field for it.
+- Expiry is one of 1 hour, 1 day, 7 days, 30 days; the view limit one of 1, 5, 10 or none. The payload is at most 32 KiB. An account may have 500 working links.
+- Opening is a `POST`, so a crawler or chat preview fetching `/l/{id}` uses no view. The viewer page also waits for "Show item" before opening. Every link that does not work any more answers 404, whatever the reason.
+- The payload is dropped the moment a link stops working: on its last view (in the same transaction), on revoke, by the expiry job, and when its item is deleted for good. Trashing an item does not stop its links; the item can come back.
+- The viewer page is served with `Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; …`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and `X-Frame-Options: DENY`. It removes the key from the address bar as soon as it has read it, and writes every value with `textContent`.
 
 ### Authentication details
 

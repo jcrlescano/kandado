@@ -3,8 +3,8 @@
 
 use gpui_kit::{
     AnyElement, App, ClickEvent, ElementId, FontWeight, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
+    ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window,
+    div, prelude::FluentBuilder as _, px,
 };
 
 use super::{
@@ -350,6 +350,7 @@ impl RenderOnce for NavItem {
 pub struct Table {
     headers: Vec<SharedString>,
     rows: Vec<Vec<AnyElement>>,
+    last_width: Pixels,
 }
 
 impl Table {
@@ -357,7 +358,15 @@ impl Table {
         Self {
             headers: headers.into_iter().map(Into::into).collect(),
             rows: Vec::new(),
+            last_width: px(56.),
         }
+    }
+
+    /// The width of the last column, which holds the row's action. 56 px by
+    /// default, for an icon key.
+    pub fn last_width(mut self, width: Pixels) -> Self {
+        self.last_width = width;
+        self
     }
 
     /// Adds a row. It must have one cell per header.
@@ -376,11 +385,12 @@ impl RenderOnce for Table {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let p = cx.palette();
         let last = self.headers.len().saturating_sub(1);
+        let last_width = self.last_width;
         let cell = move |index: usize| {
             div().min_w_0().px(px(tokens::SPACE_3)).map(|cell| {
                 if index == last {
                     // A fixed width, so the header lines up with rows that hold a button.
-                    cell.flex_none().w(px(56.))
+                    cell.flex_none().w(last_width)
                 } else {
                     cell.flex_1()
                 }

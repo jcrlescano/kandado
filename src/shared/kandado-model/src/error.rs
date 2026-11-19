@@ -10,6 +10,10 @@ pub enum Error {
     TotpSetup,
     #[error("the system random source failed")]
     Random,
+    #[error("this kind of item cannot be shared by link")]
+    NotShareable,
+    #[error("the link is incomplete or its key is wrong")]
+    LinkKey,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

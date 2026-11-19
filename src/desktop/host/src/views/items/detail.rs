@@ -49,6 +49,8 @@ pub enum DetailEvent {
     DeleteForever,
     /// D-12: turn a saved password into a login.
     SaveAsLogin,
+    /// D-32: make a secure link.
+    Share,
     /// The star changed; lists need a refresh.
     Changed,
     Toast(SharedString),
@@ -366,6 +368,13 @@ impl DetailView {
                     .checked(detail.favourite)
                     .on_click(cx.listener(|this, _, _, cx| this.toggle_favourite(cx))),
                 )
+                .when(self.services.app.can_share(self.id), |actions| {
+                    actions.child(
+                        Button::new("detail-share", "Share")
+                            .icon(IconName::Share)
+                            .on_click(cx.listener(|_, _, _, cx| cx.emit(DetailEvent::Share))),
+                    )
+                })
                 .child(
                     Button::new("detail-edit", "Edit")
                         .primary()

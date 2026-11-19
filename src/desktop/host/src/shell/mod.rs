@@ -43,6 +43,7 @@ use crate::{
             form::{FormEvent, FormStart, FormView},
             history::{HistoryEvent, HistoryView},
         },
+        sharing::{LinkDialog, LinkDialogEvent, LinksEvent, LinksPage},
         vaults::{VaultDialog, VaultDialogEvent},
     },
 };
@@ -63,6 +64,8 @@ pub enum Place {
     Trash,
     /// Monitor arrives in phase 7; the entry explains that.
     Monitor,
+    /// Tools › Secure links (D-33): one page in place of the list and detail.
+    Links,
 }
 
 /// What the detail pane shows.
@@ -91,11 +94,16 @@ pub(crate) enum Overlay {
     None,
     CreateMenu,
     Vault(Entity<VaultDialog>),
-    Move { ids: Vec<Uuid>, target: Uuid },
+    Move {
+        ids: Vec<Uuid>,
+        target: Uuid,
+    },
     DeleteForever(Vec<Uuid>),
     EmptyTrash,
     Discard(Pending),
     Shortcuts,
+    /// D-32 Create secure link.
+    Link(Entity<LinkDialog>),
 }
 
 /// A row of the list pane.
@@ -135,6 +143,8 @@ pub struct VaultShell {
     /// Items ticked for a bulk action (D-15), in the order they were ticked.
     pub(crate) checked: Vec<Uuid>,
     pub(crate) pane: Pane,
+    /// The secure links page, while Tools › Secure links is open.
+    pub(crate) links: Option<Entity<LinksPage>>,
     pub(crate) overlay: Overlay,
     pub(crate) search: Entity<InputState>,
     pub(crate) search_open: bool,
@@ -217,6 +227,7 @@ impl VaultShell {
             selected: None,
             checked: Vec::new(),
             pane: Pane::Empty,
+            links: None,
             overlay: Overlay::None,
             search,
             search_open: false,
@@ -309,7 +320,7 @@ impl VaultShell {
             self.place = Place::AllVaults;
         }
         let entries = match self.place {
-            Place::Monitor => Vec::new(),
+            Place::Monitor | Place::Links => Vec::new(),
             _ => app.entries(self.filter()),
         };
         let mut rows = Vec::with_capacity(entries.len() + 2);
@@ -362,6 +373,7 @@ impl VaultShell {
             Place::Vault(id) => self.vault_name(id).0,
             Place::Trash => "Trash".into(),
             Place::Monitor => "Monitor".into(),
+            Place::Links => "Secure links".into(),
         }
     }
 
@@ -459,6 +471,7 @@ impl VaultShell {
                 self.selected = None;
                 self.checked.clear();
                 self.pane = Pane::Empty;
+                self.links = (place == Place::Links).then(|| self.links_page(window, cx));
                 self.refresh(cx);
                 self.focus.focus(window, cx);
             }
@@ -494,6 +507,7 @@ impl VaultShell {
                 Place::AllVaults
             };
             self.kind = None;
+            self.links = None;
             self.refresh(cx);
         }
         let (vault_name, hue) = self.vault_name(entry.vault_id);
@@ -817,8 +831,9 @@ impl VaultShell {
         let Some(vault) = self.target_vault() else {
             return self.fail("Create a vault first.", cx);
         };
-        if matches!(self.place, Place::Trash | Place::Monitor) {
+        if matches!(self.place, Place::Trash | Place::Monitor | Place::Links) {
             self.place = Place::AllVaults;
+            self.links = None;
             self.refresh(cx);
         }
         self.show_form(
@@ -924,6 +939,7 @@ impl VaultShell {
             DetailEvent::Restore => self.restore(vec![id], cx),
             DetailEvent::DeleteForever => self.ask_delete_forever(vec![id], cx),
             DetailEvent::SaveAsLogin => self.save_as_login(id, window, cx),
+            DetailEvent::Share => self.open_link_dialog(id, window, cx),
             DetailEvent::Changed => self.refresh(cx),
             DetailEvent::Toast(message) => self.toast(message, cx),
             DetailEvent::Failed(message) => self.fail(message, cx),
@@ -986,6 +1002,58 @@ impl VaultShell {
         .detach();
         self.overlay = Overlay::Vault(dialog);
         cx.notify();
+    }
+
+    // ---- secure links (D-32, D-33) -----------------------------------------------
+
+    /// Share on an item: the create secure link dialog (D-32).
+    pub fn open_link_dialog(&mut self, item: Uuid, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.services.app.can_share(item) {
+            self.fail("This item can\u{2019}t be shared by link.", cx);
+            return;
+        }
+        let services = self.services.clone();
+        let dialog = cx.new(|cx| LinkDialog::new(services, item, window, cx));
+        cx.subscribe_in(
+            &dialog,
+            window,
+            |this, _, event: &LinkDialogEvent, window, cx| match event {
+                LinkDialogEvent::Closed => this.close_dialog(window, cx),
+                LinkDialogEvent::SeeAll => this.perform(Pending::Go(Place::Links), window, cx),
+                LinkDialogEvent::Toast(message) => this.toast(message.clone(), cx),
+            },
+        )
+        .detach();
+        self.overlay = Overlay::Link(dialog);
+        cx.notify();
+    }
+
+    fn links_page(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Entity<LinksPage> {
+        let services = self.services.clone();
+        let page = cx.new(|cx| LinksPage::new(services, cx));
+        cx.subscribe_in(
+            &page,
+            window,
+            |this, _, event: &LinksEvent, window, cx| match event {
+                LinksEvent::BackToVault => this.go(Place::AllVaults, window, cx),
+                LinksEvent::Toast(message) => this.toast(message.clone(), cx),
+            },
+        )
+        .detach();
+        page
+    }
+
+    /// The create secure link dialog, if it is open.
+    pub fn link_dialog(&self) -> Option<&Entity<LinkDialog>> {
+        match &self.overlay {
+            Overlay::Link(dialog) => Some(dialog),
+            _ => None,
+        }
+    }
+
+    /// The secure links page, if it is open.
+    pub fn links(&self) -> Option<&Entity<LinksPage>> {
+        self.links.as_ref()
     }
 
     // ---- search (D-14) ------------------------------------------------------------------
@@ -1280,7 +1348,9 @@ impl Render for VaultShell {
             // Before the inputs, which would otherwise take keys like Ctrl S.
             .capture_key_down(cx.listener(Self::on_key))
             .child(self.sidebar(rail, cx))
-            .child(self.list_pane(cx))
+            .when(self.links.is_none(), |shell| {
+                shell.child(self.list_pane(cx))
+            })
             .child(
                 panel(cx)
                     .flex()
@@ -1290,7 +1360,10 @@ impl Render for VaultShell {
                     .min_w_0()
                     .h_full()
                     .overflow_hidden()
-                    .child(pane)
+                    .map(|panel| match &self.links {
+                        Some(links) => panel.child(links.clone()),
+                        None => panel.child(pane),
+                    })
                     .when_some(self.toast_layer(cx), |pane, toast| pane.child(toast)),
             )
             .when_some(search, |shell, search| shell.child(search))

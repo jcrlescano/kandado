@@ -4,5 +4,6 @@
 pub mod devices;
 pub mod flows;
 pub mod keys;
+pub mod links;
 pub mod sync;
 pub mod users;

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Kandado secure link</title>
+<link rel="icon" href="/l/assets/logo-light.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/l/assets/tokens.css">
+<link rel="stylesheet" href="/l/assets/hardware.css">
+<link rel="stylesheet" href="/l/assets/viewer.css">
+<script type="module" src="/l/assets/viewer.js"></script>
+</head>
+<body class="hw">
+<header class="viewer-head">
+  <img class="viewer-logo viewer-logo--light" src="/l/assets/logo-light.svg" alt="" width="30" height="32">
+  <img class="viewer-logo viewer-logo--dark" src="/l/assets/logo-dark.svg" alt="" width="30" height="32">
+  <span class="hw-mono viewer-wordmark">KANDADO</span>
+</header>
+<main class="hw-panel viewer-card" aria-live="polite">
+  <section id="state-ready" hidden>
+    <h1 class="hw-h2">Someone shared an item with you</h1>
+    <p class="viewer-text">It is decrypted here, in this browser. Kandado can't read it.</p>
+    <p class="hw-hint viewer-hint">Showing it uses one of the link's views.</p>
+    <div class="viewer-actions"><button id="show" class="hw-key hw-key--go" type="button">Show item</button></div>
+  </section>
+  <section id="state-loading" hidden>
+    <div class="hw-lcd viewer-lcd"><span class="hw-lcd-label">Opening</span><span class="hw-lcd-digits">DECRYPTING…</span></div>
+  </section>
+  <section id="state-item" hidden>
+    <div class="hw-lcd viewer-lcd">
+      <span class="viewer-lcd-row"><span class="hw-led"></span><span id="item-kind" class="hw-lcd-label viewer-grow"></span><span id="item-left" class="hw-lcd-label"></span></span>
+      <span id="item-title" class="hw-lcd-digits viewer-title"></span>
+    </div>
+    <div id="item-fields" class="hw-well viewer-fields"></div>
+    <div id="item-notes-box" class="viewer-notes-box" hidden>
+      <span class="hw-label">Notes</span>
+      <div id="item-notes" class="hw-well viewer-notes"></div>
+    </div>
+    <p class="hw-hint viewer-hint">Copy what you need now. Closing or reloading this page may use up the link.</p>
+  </section>
+  <section id="state-gone" hidden>
+    <h1 class="hw-h2">This link doesn't work any more</h1>
+    <p class="viewer-text">It expired, was opened as many times as it allows, or was revoked. Ask the person who sent it for a new one.</p>
+  </section>
+  <section id="state-broken" hidden>
+    <h1 class="hw-h2">This link is incomplete</h1>
+    <p class="viewer-text">Part of it is missing or was changed. Ask the person who sent it to send it again, in full.</p>
+  </section>
+  <section id="state-failed" hidden>
+    <h1 class="hw-h2">Kandado couldn't be reached</h1>
+    <p class="viewer-text">Check your connection and try again. The link has not been used.</p>
+    <div class="viewer-actions"><button id="retry" class="hw-key" type="button">Try again</button></div>
+  </section>
+  <noscript><p class="viewer-text">This page needs JavaScript to decrypt the item in your browser.</p></noscript>
+</main>
+</body>
+</html>

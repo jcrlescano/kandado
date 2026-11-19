@@ -92,6 +92,8 @@ pub enum AppError {
     WrongState,
     #[error("this computer's secret store failed: {0}")]
     Secrets(String),
+    #[error(transparent)]
+    Model(#[from] kandado_model::Error),
 }
 
 /// Why unlocking did not happen.

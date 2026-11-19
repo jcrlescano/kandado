@@ -6,9 +6,13 @@ mod devices;
 #[cfg(test)]
 mod flow_tests;
 mod health;
+#[cfg(test)]
+mod link_tests;
+mod links;
 mod sync;
 #[cfg(test)]
 mod sync_tests;
+mod viewer;
 
 use std::sync::Arc;
 
@@ -42,6 +46,7 @@ pub struct AppState {
     pub signer: TokenSigner,
     pub google: Arc<GoogleProvider>,
     pub hub: crate::events::Hub,
+    pub viewer: viewer::Viewer,
 }
 
 impl AppState {
@@ -53,6 +58,7 @@ impl AppState {
                 &config.public_url,
             )),
             hub: crate::events::Hub::new(),
+            viewer: viewer::Viewer::load(config.viewer_dir.as_deref()),
             config: Arc::new(config),
             db,
         }
@@ -83,7 +89,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/items/{id}/revisions", get(sync::revisions))
         .route("/items/{id}/revisions/{version}", get(sync::revision))
-        .route("/events", get(crate::events::events));
+        .route("/events", get(crate::events::events))
+        .route("/links", post(links::create).get(links::list))
+        .route("/links/{id}", delete(links::revoke))
+        .route("/public/links/{id}/open", post(links::open));
     #[cfg(debug_assertions)]
     let v1 = v1.route("/dev/sign-in", get(auth::dev_sign_in));
 
@@ -91,6 +100,8 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(health::healthz))
         .route("/readyz", get(health::readyz))
         .nest("/v1", v1)
+        .route("/l/{id}", get(viewer::page))
+        .route("/l/assets/{name}", get(viewer::asset))
         .fallback(not_found)
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
         // Logs method, path, status and latency. Never headers or bodies.

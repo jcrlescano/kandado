@@ -6,6 +6,7 @@
 //! | --- | --- |
 //! | [`service`] | [`KandadoApp`]: every user action as a method |
 //! | [`vault`] | Vaults, items, search and history as view models; reveal and copy |
+//! | [`links`] | Secure links: one item shared through a link that expires |
 //! | [`clipboard`] | Copy with timed clear, kept out of clipboard history |
 //! | [`totp_import`] | Two-factor setup keys, pasted or from a QR code on screen |
 //! | [`auth`] | Loopback listener for the Google redirect |
@@ -22,6 +23,7 @@ pub mod auth;
 pub mod browser;
 pub mod clipboard;
 pub mod device_key;
+pub mod links;
 pub mod lock;
 pub mod platform;
 pub mod secrets;

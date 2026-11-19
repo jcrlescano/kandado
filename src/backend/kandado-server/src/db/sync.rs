@@ -410,6 +410,7 @@ async fn update_item(
             .bind(change.id)
             .execute(&mut *conn)
             .await?;
+        super::links::end_for_item(conn, change.id).await?;
         return Ok(());
     }
     // `trashed_on` is the server's clock: set when the item first arrives in
@@ -557,6 +558,7 @@ pub async fn purge_trash(db: &PgPool, older_than_days: i32) -> sqlx::Result<u64>
                 .bind(id)
                 .execute(&mut *tx)
                 .await?;
+            super::links::end_for_item(&mut tx, *id).await?;
         }
         if !ids.is_empty() {
             sqlx::query("SELECT pg_notify($1, $2)")

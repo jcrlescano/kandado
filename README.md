@@ -7,7 +7,7 @@ Kandado is a zero-knowledge password manager. Every client encrypts your data be
 ## How it works
 
 - **Identity is Google.** Signing in with Google proves who you are to the backend. It decrypts nothing.
-- **Encryption is your master password.** It never leaves the device. Argon2id turns it into a master key that unwraps a random user key, which in turn protects vault keys, item keys and item content (XChaCha20-Poly1305 throughout, HPKE for sharing).
+- **Encryption is your master password.** It never leaves the device. Argon2id turns it into a master key that unwraps a random user key, which in turn protects vault keys, item keys and item content (XChaCha20-Poly1305 throughout, HPKE to seal vault keys).
 - **A 12-word recovery phrase** can also unwrap the user key, so a forgotten master password is recoverable. Losing both means the data is gone, by design.
 
 Someone who takes over the Google account, or the entire database, gets only ciphertext. The full model is in [docs/architecture/security.md](docs/architecture/security.md).
@@ -16,11 +16,11 @@ Someone who takes over the Google account, or the entire database, gets only cip
 
 Planned across the phases:
 
-- Logins, cards, notes, identities, passwords, passkeys and email aliases
+- Logins, cards, notes, identities, passwords and passkeys
 - Multiple vaults, search, trash, item history
 - Multi-device sync with realtime updates and offline support
 - Browser extension for Chrome, Edge and Firefox with autofill, save and update, and optional unlock through the desktop app
-- Vault sharing, single-item sharing and secure links
+- Secure links: share one item with anyone through a link that expires
 - Monitor: breached, weak and reused passwords, missing 2FA, email monitoring
 - Import from other password managers, and export
 - Windows Hello unlock, auto-lock, tray, global shortcuts
