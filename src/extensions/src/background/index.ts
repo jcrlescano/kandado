@@ -7,7 +7,7 @@ import { Store } from "./store";
 import { type KeyValue, type Platform, Worker } from "./worker";
 
 /** The API address. Release builds use the production server; `KANDADO_SERVER_URL` overrides at build time. */
-const SERVER_URL: string = import.meta.env.VITE_KANDADO_SERVER_URL ?? "https://api.kandado.app";
+const SERVER_URL: string = import.meta.env.VITE_KANDADO_SERVER_URL ?? "https://kandado.duckdns.org";
 
 function area(storage: chrome.storage.StorageArea): KeyValue {
   return {

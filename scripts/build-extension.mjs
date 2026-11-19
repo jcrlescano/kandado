@@ -36,11 +36,11 @@ const { default: react } = await import(
   pathToFileURL(require.resolve("@vitejs/plugin-react")).href
 );
 
-// The API the extension talks to. The release address is a placeholder until A9 (P1-9).
+// The API the extension talks to: the server on the droplet (decision 16).
 const server =
   args.find((arg) => arg.startsWith("--server="))?.slice("--server=".length) ??
   process.env.KANDADO_SERVER_URL ??
-  (dev ? "http://127.0.0.1:8080" : "https://api.kandado.app");
+  (dev ? "http://127.0.0.1:8080" : "https://kandado.duckdns.org");
 const version = JSON.parse(readFileSync(resolve(extension, "package.json"), "utf8")).version;
 
 /** The font files the extension pages load (src/extensions/src/ui/fonts.css). */

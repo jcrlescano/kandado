@@ -70,7 +70,7 @@ pub struct Api {
 }
 
 impl Api {
-    /// `base` is the server's address, such as `https://api.kandado.app`.
+    /// `base` is the server's address, such as `https://kandado.duckdns.org`.
     /// `on_tokens` is called whenever the refresh token changes.
     pub fn new(
         base: &str,

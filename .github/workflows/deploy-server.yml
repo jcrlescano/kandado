@@ -1,0 +1,148 @@
+# Deploys kandado-server to the droplet (decision 16) after a change to main
+# passes every check. Also runs by hand (Actions › Deploy server › Run).
+#
+# Needs, in the repository's "production" environment (Settings › Environments):
+#   secrets  DEPLOY_HOST         the droplet's address
+#            DEPLOY_USER         the SSH user that owns /opt/kandado
+#            DEPLOY_SSH_KEY      that user's private key (a key made for this only)
+#            DEPLOY_KNOWN_HOSTS  the droplet's host key line(s), from `ssh-keyscan`
+#            GOOGLE_CLIENT_ID     Google sign-in (optional; both or neither), written
+#            GOOGLE_CLIENT_SECRET to /opt/kandado/config/google.env on each deploy
+#   vars     KANDADO_PUBLIC_URL  https://<name>.duckdns.org, for the check after deploy
+# See src/backend/deploy/DEPLOY.md.
+name: Deploy server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/backend/**"
+      - "src/shared/**"
+      - "src/extensions/wasm/**"
+      - "src/extensions/src/ui/vendor/**"
+      - "scripts/build-viewer.mjs"
+      - "scripts/build-wasm.mjs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/deploy-server.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer push waits rather than cancelling one halfway.
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+
+  build:
+    name: Build the server and the link viewer
+    needs: check
+    # The oldest supported runner, so the binary runs on any droplet with
+    # glibc 2.35 or newer (Ubuntu 22.04, Debian 12 and later).
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # rust-toolchain.toml pins the version, components and the wasm32 target.
+      - name: Install Rust
+        run: rustup toolchain install --no-self-update
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: deploy-server
+      - name: Build kandado-server
+        run: cargo build --release -p kandado-server --locked
+      - name: Build the secure link viewer
+        run: |
+          cargo install wasm-bindgen-cli --version 0.2.130 --locked
+          node scripts/build-viewer.mjs
+      - name: Package
+        run: |
+          mkdir -p release/viewer
+          cp target/release/kandado-server release/
+          cp -r src/backend/viewer/dist/. release/viewer/
+          tar -czf "kandado-server-${GITHUB_SHA}.tar.gz" -C release .
+          cp src/backend/deploy/kandado-deploy.sh .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kandado-server
+          path: |
+            kandado-server-${{ github.sha }}.tar.gz
+            kandado-deploy.sh
+          retention-days: 14
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to the droplet
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: ${{ vars.KANDADO_PUBLIC_URL }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: kandado-server
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # The droplet's host key is pinned: no trust on first use here.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+      - name: Upload and switch
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          ssh_opts=(-i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes)
+          ssh "${ssh_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" 'mkdir -p ~/kandado-upload'
+          scp "${ssh_opts[@]}" "kandado-server-${GITHUB_SHA}.tar.gz" kandado-deploy.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:kandado-upload/"
+          # The Google client goes over the SSH connection's standard input,
+          # never on a command line. Both unset: the droplet keeps what it has.
+          if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+            google=$(printf 'GOOGLE_CLIENT_ID=%s\nGOOGLE_CLIENT_SECRET=%s\n' "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET")
+          elif [ -n "$GOOGLE_CLIENT_ID$GOOGLE_CLIENT_SECRET" ]; then
+            echo "Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither."
+            exit 1
+          else
+            google=""
+          fi
+          printf '%s' "$google" | ssh "${ssh_opts[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash ~/kandado-upload/kandado-deploy.sh ~/kandado-upload/kandado-server-${GITHUB_SHA}.tar.gz ${GITHUB_SHA}"
+          unset google
+      - name: Check it answers from outside
+        env:
+          PUBLIC_URL: ${{ vars.KANDADO_PUBLIC_URL }}
+        run: |
+          [ -n "$PUBLIC_URL" ] || { echo "KANDADO_PUBLIC_URL is not set"; exit 1; }
+          for _ in $(seq 1 10); do
+            if curl -fsS --max-time 5 "$PUBLIC_URL/readyz"; then exit 0; fi
+            sleep 3
+          done
+          echo "the server did not answer at $PUBLIC_URL/readyz"
+          exit 1
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
