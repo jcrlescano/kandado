@@ -168,4 +168,30 @@ describe("sign-in", () => {
       signIn(api, "http://s", flow("https://abc.chromiumapp.org/?error=access_denied"), device),
     ).rejects.toBeInstanceOf(SignInError);
   });
+
+  it("tells a closed window from a page that could not load", async () => {
+    const api = new Api({
+      baseUrl: "http://server",
+      tokens: memoryTokens(),
+      fetch: async () => json({}),
+    });
+    const rejecting = (message: string) => ({
+      redirectUrl: "https://abc.chromiumapp.org/",
+      launch: async () => {
+        throw new Error(message);
+      },
+    });
+    const device = { name: "Edge", platform: "Chrome" };
+    for (const message of [
+      "The user did not approve access.",
+      "User cancelled or denied access.",
+    ]) {
+      await expect(signIn(api, "http://s", rejecting(message), device)).rejects.toMatchObject({
+        reason: "cancelled",
+      });
+    }
+    await expect(
+      signIn(api, "http://s", rejecting("Authorization page could not be loaded."), device),
+    ).rejects.toMatchObject({ reason: "failed" });
+  });
 });

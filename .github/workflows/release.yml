@@ -149,7 +149,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Set the version
         run: node scripts/set-version.mjs "$VERSION"
-      # Release builds: no development key, the real server address.
+      # Release builds: the release key (fixed ID, manifests/release.json), the real server address.
       - name: Build
         run: |
           cargo install wasm-bindgen-cli --version 0.2.130 --locked

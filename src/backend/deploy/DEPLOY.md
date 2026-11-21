@@ -120,6 +120,12 @@ input to `/opt/kandado/config/google.env` (mode 640, group `kandado`), never
 on a command line; the service reads that file after `kandado.env`. To change
 them, update the secrets and run the deploy again.
 
+The same file gets `KANDADO_EXTENSION_REDIRECT_HOSTS` on each deploy: the
+browser extensions' sign-in redirect hosts, worked out from
+`src/extensions/manifests/release.json` (`node scripts/extension-id.mjs --host`)
+and shipped in the release as `redirect-hosts`. Nothing to set by hand; the
+pipeline's list wins over the line in `kandado.env`.
+
 ## The pipeline's access
 
 Make a key for the pipeline only, on your own computer:

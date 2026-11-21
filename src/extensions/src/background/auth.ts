@@ -29,6 +29,12 @@ export async function challengeFor(verifier: string): Promise<string> {
   return toBase64Url(new Uint8Array(digest));
 }
 
+/** Chromium: "The user did not approve access." Firefox: "User cancelled or denied access." */
+function userClosed(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /did not approve|cancel/i.test(message);
+}
+
 function randomVerifier(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -51,8 +57,11 @@ export async function signIn(
   let result: string | undefined;
   try {
     result = await identity.launch(start.toString());
-  } catch {
-    throw new SignInError("cancelled");
+  } catch (error) {
+    // Closing the window is a cancel and stays quiet. Anything else, such as the
+    // server refusing the redirect ("Authorization page could not be loaded"),
+    // is a failure the person must see.
+    throw new SignInError(userClosed(error) ? "cancelled" : "failed");
   }
   if (!result) throw new SignInError("cancelled");
 

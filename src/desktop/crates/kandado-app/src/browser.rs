@@ -41,16 +41,18 @@ use crate::{AppError, KandadoApp};
 
 /// The development build of the extension (fixed by `manifests/dev.json`).
 pub const DEV_CHROMIUM_ID: &str = "knfanepenpkmplikmbdpmgnmpjfaljco";
+/// The release zips of the extension (fixed by `manifests/release.json`).
+pub const RELEASE_CHROMIUM_ID: &str = "klnafmilbalngnmchikojeckmjahjddb";
 /// The Firefox add-on ID, from the extension's Firefox manifest.
 pub const FIREFOX_ID: &str = "kandado@kandado.app";
 /// How long a pairing request waits for the person.
 pub const PAIRING_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// The extensions allowed to start the native host. Store IDs are added when
-/// the extension is first published (decision P5-7); debug builds also trust
-/// the development ID, and `KANDADO_EXTENSION_IDS` adds more (comma separated).
+/// The extensions allowed to start the native host: the release zips, and the
+/// store IDs once the extension is published (decision P5-7). Debug builds also
+/// trust the development ID, and `KANDADO_EXTENSION_IDS` adds more (comma separated).
 pub fn allowed_extensions() -> AllowedExtensions {
-    let mut chromium_ids: Vec<String> = Vec::new();
+    let mut chromium_ids: Vec<String> = vec![RELEASE_CHROMIUM_ID.to_owned()];
     if cfg!(debug_assertions) {
         chromium_ids.push(DEV_CHROMIUM_ID.to_owned());
     }
